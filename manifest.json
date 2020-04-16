@@ -1,11 +1,11 @@
 {
     "dir" : "ltr",
     "lang" : "en",
-    "name" : "Bing PWA",
-    "scope" : "",
+    "name" : "COVID19 PWA",
+    "scope" : "https://mustjab.github.io/",
     "display" : "standalone",
     "start_url" : ".",
-    "short_name" : "Bing PWA",
+    "short_name" : "COVID19 PWA",
     "theme_color" : "silver",
     "description" : "PWA testing site",
     "orientation" : "any",
@@ -13,78 +13,18 @@
     "icons" : [
         {
             "src": "icon.png",
-            "sizes": "44x44"
+            "sizes": "512x512"
         },
         {
-            "src": "icon.png",
-            "sizes": "48x48"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "1240x600"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "300x300"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "150x150"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "88x88"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "24x24"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "50x50"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "620x300"
-        },
-        {
-            "src": "icon.png",
+            "src": "icon-192.png",
             "sizes": "192x192"
         },
         {
-            "src": "icon.png",
+            "src": "icon-144.png",
             "sizes": "144x144"
         },
         {
-            "src": "icon.png",
+            "src": "icon-96.png",
             "sizes": "96x96"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "72x72"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "36x36"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "1024x1024"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "180x180"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "152x152"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "120x120"
-        },
-        {
-            "src": "icon.png",
-            "sizes": "76x76"
         }]
 }
