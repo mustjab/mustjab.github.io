@@ -1,44 +1,48 @@
-// This is the "Offline page" service worker
 const CACHE = "pwabuilder-page";
 
-// TODO: replace the following with the correct offline fallback page i.e.: const offlineFallbackPage = "offline.html";
+
 const offlineFallbackPage = "offline.html";
 
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
-
-self.addEventListener('install', async (event) => {
+self.addEventListener( "install", function( event ) {
+// console.log( "WORKER: install event in progress." );
+// immediately take over
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE)
-      .then((cache) => cache.add(offlineFallbackPage))
+    .then(function( cache ) {
+      return cache.add(offlineFallbackPage);
+    })
   );
 });
 
-if (workbox.navigationPreload.isSupported()) {
-  workbox.navigationPreload.enable();
-}
+self.addEventListener("fetch", function (event) {
+  if (event.request.method !== "GET") return;
 
-self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith((async () => {
-      try {
-        const preloadResp = await event.preloadResponse;
-
-        if (preloadResp) {
-          return preloadResp;
-        }
-
-        const networkResp = await fetch(event.request);
-        return networkResp;
-      } catch (error) {
-
-        const cache = await caches.open(CACHE);
-        const cachedResp = await cache.match(offlineFallbackPage);
-        return cachedResp;
+  event.respondWith(
+    fetch(event.request).catch(function (error) {
+      // The following validates that the request was for a navigation to a new document
+      if (
+        event.request.destination !== "document" ||
+        event.request.mode !== "navigate"
+      ) {
+        return;
       }
-    })());
-  }
+
+      console.error("[PWA Builder] Network request Failed. Serving offline page " + error);
+      return caches.open(CACHE).then(function (cache) {
+        return cache.match(offlineFallbackPage);
+      });
+    })
+  );
+});
+
+self.addEventListener("refreshOffline", function () {
+  const offlinePageRequest = new Request(offlineFallbackPage);
+
+  return fetch(offlineFallbackPage).then(function (response) {
+    return caches.open(CACHE).then(function (cache) {
+      console.log("[PWA Builder] Offline page updated from refreshOffline event: " + response.url);
+      return cache.put(offlinePageRequest, response);
+    });
+  });
 });
