@@ -6,10 +6,10 @@
     "display" : "standalone",
     "start_url" : ".",
     "short_name" : "COVID19 PWA",
-    "theme_color" : "silver",
+    "theme_color" : "black",
     "description" : "PWA testing site",
     "orientation" : "any",
-    "background_color" : "silver",
+    "background_color" : "black",
     "icons" : [
         {
             "src": "icon.png",
