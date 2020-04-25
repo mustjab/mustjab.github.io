@@ -3,13 +3,13 @@
     "lang" : "en",
     "name" : "COVID19 PWA",
     "scope" : "https://mustjab.github.io/",
-    "display" : "standalone",
+    "display" : "minimal-ui",
     "start_url" : ".",
     "short_name" : "COVID19 PWA",
-    "theme_color" : "black",
+    "theme_color" : "silver",
     "description" : "PWA testing site",
     "orientation" : "any",
-    "background_color" : "black",
+    "background_color" : "silver",
     "icons" : [
         {
             "src": "icon.png",
