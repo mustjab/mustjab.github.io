@@ -6,25 +6,29 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script type="text/javascript" src="matrixtext.js"></script>
     <style>
+        @font-face {
+            font-family: 'MatrixCode';
+            src: url("matrix code nfi.otf") format("opentype");
+        }
+
+        html,
         body {
-            font-family: sans-serif;
-            margin: 20px;
-            color: #333;
-            background-color: #fff;
+            background: #000;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            overflow-y: hidden;
         }
 
-        #mycanvas {
-            float: center;
-            width: 600px;
-            height: 600px;
-            margin: 0 20px 0 0;
-            background-image: url(rain.jpg);
-            border: 1px solid #000;
+        canvas {
+            font-family: 'MatrixCode';
         }
 
-        #mycanvas.active {
-            background-image: none;
+        p {
+            font-family: 'MatrixCode';
+            color: #fff;
         }
     </style>
     <script>
@@ -48,40 +52,10 @@
     </script>
 </head>
 
-<body bgcolor="silver">
-    <div align="center">
-        <h1>PWA test page</h1>
-        <canvas id="mycanvas" width="600px" height="600px"></canvas>
-    </div>
-    <script>
-        var canvas = document.getElementById("mycanvas");
-        if (canvas.getContext) {
-            // canvas supported  
-            canvas.className = "active";
-            // start animation  
-            var cxt = canvas.getContext("2d");
-            cxt.fillStyle = "rgba(255,255,255,0.5)";
-            setInterval(function () {
-                var x = Math.round(Math.random() * canvas.width),
-                    y = Math.round(Math.random() * canvas.height),
-                    e = 20 + Math.round(Math.random() * 30),
-                    s = 0;
-
-                (function () {
-                    s++;
-                    if (s <= e) {
-                        setTimeout(arguments.callee, s);
-                        var c = 255 - (e - s) * 3;
-                        cxt.strokeStyle = "rgb(" + c + "," + c + "," + c + ")";
-                        cxt.beginPath();
-                        cxt.arc(x, y, s, 0, Math.PI * 2, true);
-                        cxt.fill();
-                        cxt.stroke();
-                    }
-                })();
-            }, 100);
-        }
-    </script>
+<body onload="init();">
+    <canvas id="theMatrix" width="1280" height="800">
+        <p>Your browser doesn't support canvas...L0Z3R</p>
+    </canvas>
 </body>
 
 </html>
