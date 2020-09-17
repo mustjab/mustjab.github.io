@@ -10,6 +10,7 @@
     "description" : "PWA testing site",
     "orientation" : "any",
     "background_color" : "silver",
+    "additional_search_terms" : [ "mustjab", "matrix" ],
     "icons" : [
         {
             "src": "icon.png",
