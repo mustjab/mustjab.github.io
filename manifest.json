@@ -6,7 +6,7 @@
     "display" : "minimal-ui",
     "start_url" : ".",
     "short_name" : "Basic PWA",
-    "theme_color" : "silver",
+    "theme_color" : "black",
     "description" : "PWA testing site",
     "orientation" : "any",
     "background_color" : "silver",
