@@ -1,4 +1,8 @@
 [{
   "packageFamilyName": "mustjab.github.io-AC9BF8_8nnb8bxn3919g",
   "paths": [ "*" ]
- }]
+ },
+ {
+  "packageFamilyName": "Microsoft.SDKSamples.XamlWebView.CS_0vk6after2day",
+  "paths": [ "*" ]
+}]
