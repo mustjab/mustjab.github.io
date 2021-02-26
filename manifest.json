@@ -1,13 +1,13 @@
 {
     "dir" : "ltr",
     "lang" : "en",
-    "name" : "Basic PWA \ue8482",
+    "name" : "Basic PWA",
     "scope" : ".",
     "display" : "minimal-ui",
     "start_url" : ".",
-    "short_name" : "Basic PWA \ue2122",
+    "short_name" : "Basic PWA",
     "theme_color" : "black",
-    "description" : "PWA testing site \ue2122 &#xE2122;",
+    "description" : "PWA testing site",
     "orientation" : "any",
     "background_color" : "silver",
     "additional_search_terms" : [ "mustjab", "matrix" ],
@@ -27,5 +27,11 @@
         {
             "src": "icon-96.png",
             "sizes": "96x96"
-        }]
+        }],
+    "protocol_handlers": [
+        {
+            "protocol": "mailto",
+            "url": "https://mustjab.github.io/index.html?mailto=%s"
+        }
+    ]
 }

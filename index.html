@@ -53,9 +53,24 @@
 </head>
 
 <body onload="init();">
+    <p id="params"></p>
     <canvas id="theMatrix" width="1280" height="800">
         <p>Your browser doesn't support canvas.</p>
         <p>Source: https://github.com/syropian/HTML5-Matrix-Code-Rain</p>
     </canvas>
+    <script>
+        if (document.URL.indexOf("?") > 0) {
+            var pairs = document.URL.split('?')
+                .pop()
+                .split('&');
+
+            var params_str = "Params found on page: ";
+            for (var i = 0, p; i < pairs.length; i++) {
+                params_str += pairs[i] + "; ";
+            }
+            document.getElementById('params').innerText = params_str;
+        }
+    </script>
 </body>
+
 </html>
