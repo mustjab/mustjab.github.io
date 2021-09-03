@@ -4,6 +4,7 @@
     "name" : "Basic PWA",
     "scope" : ".",
     "display" : "minimal-ui",
+    "id" : "index.html",
     "start_url" : ".",
     "short_name" : "Basic PWA",
     "theme_color" : "black",
