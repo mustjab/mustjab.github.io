@@ -7,7 +7,7 @@
     "id" : "index.html",
     "start_url" : ".",
     "short_name" : "Basic PWA",
-    "theme_color" : "black",
+    "theme_color" : "green",
     "description" : "PWA testing site",
     "orientation" : "any",
     "background_color" : "silver",
