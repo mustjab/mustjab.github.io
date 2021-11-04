@@ -3,14 +3,14 @@
     "lang" : "en",
     "name" : "Matrix PWA",
     "scope" : ".",
-    "display" : "standalone",
+    "display" : "minimal-ui",
     "id" : "index.html",
     "start_url" : ".",
-    "short_name" : "Matrix PWA",
-    "theme_color" : "yellow",
+    "short_name" : "PWA Matrix",
+    "theme_color" : "black",
     "description" : "PWA testing site",
     "orientation" : "any",
-    "background_color" : "silver",
+    "background_color" : "black",
     "additional_search_terms" : [ "mustjab", "matrix" ],
     "icons" : [
         {
