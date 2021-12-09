@@ -12,7 +12,6 @@
     "orientation" : "any",
     "background_color" : "#FFFFFF",
     "additional_search_terms" : [ "mustjab", "matrix" ],
-    'manifest_id' : 'test.html',
     "icons" : [
         {
             "src": "icon.png",
