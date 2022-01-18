@@ -7,10 +7,10 @@
     "id" : "index.html",
     "start_url" : ".",
     "short_name" : "Matrix",
-    "theme_color" : "blue",
+    "theme_color" : "yellow",
     "description" : "PWA testing site",
     "orientation" : "any",
-    "background_color" : "#FFFFFF",
+    "background_color" : "yellow",
     "additional_search_terms" : [ "mustjab", "matrix" ],
     "icons" : [
         {
