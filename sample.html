@@ -1,10 +1,9 @@
 <html>
     <head>
         <title>Sample page</title>
-        <meta name="viewport" content="width=350, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <meta name="viewport" content="width=375, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <style>
-          img {
-            display: block;
+          table {
             margin-left: auto;
             margin-right: auto;
           }
@@ -23,9 +22,9 @@
           /* CSS for light mode */
           @media (prefers-color-scheme: light) {
               .container {
-                  background-color:lightgray;
+                  background-color: lightgray;
               }
-          }
+          } */
           .first {border-bottom:1px solid #EEE;}
           .second {border-top:1px solid #CCC;}
         </style>
@@ -34,17 +33,18 @@
   <table cellspacing="0" cellpadding="0">
     <tr>
       <td class="first">
-        <a class="weatherwidget-io" href="https://forecast7.com/en/40d71n74d01/new-york/" data-label_1="SEATTLE" data-label_2="WEATHER" data-theme="original" >SEATTLE WEATHER</a>
+        <img src="preview.png" alt="preview" style="width:100%;">
+        <!-- <a class="weatherwidget-io" href="https://forecast7.com/en/40d71n74d01/new-york/" data-label_1="SEATTLE" data-label_2="WEATHER" data-theme="original" >SEATTLE WEATHER</a>
         <script>
           !function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src='https://weatherwidget.io/js/widget.min.js';fjs.parentNode.insertBefore(js,fjs);}}(document,'script','weatherwidget-io-js');
-        </script>
+        </script> -->
       </td>
     </tr>
-    <tr>
+    <!-- <tr>
       <td class="second">
         <img src="preview.png" alt="preview" style="width:100%;">
       </td>
-    </tr>
+    </tr> -->
   </table>
 </body>
 </html>
