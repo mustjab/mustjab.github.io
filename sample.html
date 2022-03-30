@@ -3,19 +3,34 @@
         <title>Sample page</title>
         <meta name="viewport" content="width=350, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <style>
-          body {
-            background-color:azure;
-          }
           img {
             display: block;
             margin-left: auto;
             margin-right: auto;
           }
+          .container {
+                background-color: #336699;
+                color: #333333;
+          }
+          /* CSS for dark mode */
+          @media (prefers-color-scheme: dark) {
+              .container {
+                  background-color: #666666;
+                  color: white;
+              }
+          }
+
+          /* CSS for light mode */
+          @media (prefers-color-scheme: light) {
+              .container {
+                  background-color: white;
+              }
+          }
           .first {border-bottom:1px solid #EEE;}
           .second {border-top:1px solid #CCC;}
         </style>
     </head>
-<body>
+<body class="container">
   <table cellspacing="0" cellpadding="0">
     <tr>
       <td class="first">
