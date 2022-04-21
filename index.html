@@ -64,15 +64,19 @@
         <p>Source: https://github.com/syropian/HTML5-Matrix-Code-Rain</p>
     </canvas>
     <script>
+        // mailto://user@example.com?subject=Message Title&body=file:///C:/Users/TDPUser/Pictures/Camera Roll/2222.jpg
         if (document.URL.indexOf("?") > 0) {
-            var pairs = document.URL.split('?')
-                .pop()
-                .split('&');
+            const params = new URLSearchParams(document.URL.substring(document.URL.indexOf('?')));
+            var params_str = "Params found on page: SUBJECT = " + params.get('subject') + " BODY = " + params.get('body');
+            
+            // var pairs = document.URL.split('?')
+            //     .pop()
+            //     .split('&');
 
-            var params_str = "Params found on page: ";
-            for (var i = 0, p; i < pairs.length; i++) {
-                params_str += pairs[i] + "; ";
-            }
+            // var params_str = "Params found on page: ";
+            // for (var i = 0, p; i < pairs.length; i++) {
+            //     params_str += pairs[i] + "; ";
+            // }
             document.getElementById('params').innerText = params_str;
         }
     </script>
