@@ -5,7 +5,7 @@
     "scope" : ".",
     "display" : "minimal-ui",
     "id" : "index.html",
-    "start_url" : ".",
+    "start_url" : "/watch",
     "short_name" : "Matrix",
     "theme_color" : "yellow",
     "description" : "PWA testing site",
