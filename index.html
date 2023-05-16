@@ -50,20 +50,12 @@
             }
         }
 
-        let isTooSoon = true;
-        window.addEventListener("beforeinstallprompt", (e) => {
-        if (isTooSoon) {
-            e.preventDefault(); // Prevents prompt display
-            // Prompt later instead:
-            setTimeout(() => {
-            isTooSoon = false;
-            e.prompt(); // Throws if called more than once or default not prevented
-            }, 5000);
+        function InstallWebApp() {
+            window.addEventListener("beforeinstallprompt", (e) => {
+                e.preventDefault(); // Prevents prompt display
+                e.prompt(); // Throws if called more than once or default not prevented
+            });
         }
-
-        // The event was re-dispatched in response to our request
-        // …
-        });
     </script>
 </head>
 
@@ -73,6 +65,7 @@
         <a href="sample.html">Image test page</a>
         <a href="test.html">Test page</a>
         <a href="offline.html" target="_blank">Offline page</a>
+        <button onclick="InstallWebApp()">Install</button>
     </div>
     <canvas id="theMatrix" width="1280" height="800">
         <p>Your browser doesn't support canvas.</p>
