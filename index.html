@@ -49,13 +49,6 @@
                     });
             }
         }
-
-        function InstallWebApp() {
-            window.addEventListener("beforeinstallprompt", (e) => {
-                e.preventDefault(); // Prevents prompt display
-                e.prompt(); // Throws if called more than once or default not prevented
-            });
-        }
     </script>
 </head>
 
@@ -65,7 +58,7 @@
         <a href="sample.html">Image test page</a>
         <a href="test.html">Test page</a>
         <a href="offline.html" target="_blank">Offline page</a>
-        <button onclick="InstallWebApp()">Install</button>
+        <button id="install_button" onclick="InstallWebApp()">Install</button>
     </div>
     <canvas id="theMatrix" width="1280" height="800">
         <p>Your browser doesn't support canvas.</p>
@@ -78,7 +71,7 @@
             // var mailto_str = document.URL.substring(document.URL.indexOf(mailto)+mailto.length);
             // const params = new URLSearchParams(mailto_str);
             // var params_str = "Params found on page: EMAIL = " + params.get('email') + " SUBJECT = " + params.get('subject') + " BODY = " + params.get('body');
-            
+
             var pairs = document.URL.split('?')
                 .pop()
                 .split('&');
@@ -89,6 +82,33 @@
             }
             document.getElementById('params').innerText = params_str;
         }
+
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            // Stash the event so it can be triggered later.
+            deferredPrompt = e;
+            // Update UI notify the user they can add to home screen
+            btnAdd.style.display = 'block';
+        });
+
+        document.getElementById("install_button").addEventListener('click', (e) => {
+            // hide our user interface that shows our A2HS button
+            btnAdd.style.display = 'none';
+            // Show the prompt
+            deferredPrompt.prompt();
+            // Wait for the user to respond to the prompt
+            deferredPrompt.userChoice
+                .then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the A2HS prompt');
+                    } else {
+                        console.log('User dismissed the A2HS prompt');
+                    }
+                    deferredPrompt = null;
+                });
+        });
     </script>
 </body>
 
