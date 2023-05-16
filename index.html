@@ -50,12 +50,19 @@
             }
         }
 
+        let isTooSoon = true;
         window.addEventListener("beforeinstallprompt", (e) => {
-            // log the platforms provided as options in an install prompt
-            console.log(e.platforms); // e.g., ["web", "android", "windows"]
-            e.userChoice.then((choiceResult) => {
-                console.log(choiceResult.outcome); // either "accepted" or "dismissed"
-            }, handleError);
+        if (isTooSoon) {
+            e.preventDefault(); // Prevents prompt display
+            // Prompt later instead:
+            setTimeout(() => {
+            isTooSoon = false;
+            e.prompt(); // Throws if called more than once or default not prevented
+            }, 5000);
+        }
+
+        // The event was re-dispatched in response to our request
+        // …
         });
     </script>
 </head>
