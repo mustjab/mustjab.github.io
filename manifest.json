@@ -7,10 +7,10 @@
     "id" : "index.html",
     "start_url" : ".",
     "short_name" : "Matrix",
-    "theme_color" : "yellow",
+    "theme_color" : "blue",
     "description" : "PWA testing site",
     "orientation" : "any",
-    "background_color" : "yellow",
+    "background_color" : "blue",
     "additional_search_terms" : [ "mustjab", "matrix" ],
     "icons" : [
         {
@@ -31,8 +31,8 @@
         }],
     "protocol_handlers": [
         {
-            "protocol": "mailto",
-            "url": "https://mustjab.github.io/index.html?mailto=%s"
+            "protocol": "ms-copilot",
+            "url": "https://mustjab.github.io/index.html?copilot=%s"
         }
     ]
 }
