@@ -151,6 +151,7 @@
                   }
                   cps_element.innerText = current_cps;
                   tps_element.innerText = current_tps;
+                  console.log(`${session.tokensSoFar}/${session.maxTokens} (${session.tokensLeft} left)`);
               }
             }
             catch (e)
