@@ -95,7 +95,6 @@
             error("Cannot create session now - " + e);
         }
 
-        session = await window.ai.languageModel.create({temperature: 1.0, topK: 1});
         var update_element = null;
         var current_cps = 0;
         var initial_delay = null;
