@@ -87,7 +87,13 @@
         try
         {
             showBusy(true);
-            session = await window.ai.languageModel.create({temperature: 1.0, topK: 1});
+            session = await window.ai.languageModel.create({
+                temperature: 1.0,
+                topK: 1,
+                initialPrompts: [
+                    { role: "system", content: "Respond to every request in Shakespearian prose" }
+                ]
+            });
             showBusy(false);
         }
         catch (e)
