@@ -9,7 +9,11 @@
         <div class="container">
             <h1>Browser built in LLM</h1>
             <h2>Talk to the browser's prompt API, see what it knows.</h2>
-
+            <!-- Add an input box text prompt to allow setting of initial prompt  -->
+            <p id="prompt">
+                <label for="prompt">Initial Prompt:</label>
+                <input type="text" id="initialPrompt" name="prompt" value="Respond to every request in Shakespearian prose" style="width: 75%;">
+            </p>
             <p id="error">
             </p>
             <p id="okay">
@@ -87,13 +91,15 @@
         try
         {
             showBusy(true);
-            session = await window.ai.languageModel.create({
-                temperature: 1.0,
-                topK: 1,
-                initialPrompts: [
-                    { role: "system", content: "Respond to every request in Shakespearian prose" }
-                ]
-            });
+            var initialPrompt = document.getElementById("initialPrompt").value;
+            if (initialPrompt != "") {
+                session = await window.ai.languageModel.create({
+                    temperature: 1.0, topK: 1,
+                    initialPrompts: [ { role: "system", content: initialPrompt } ]
+                });
+            } else {
+                session = await window.ai.languageModel.create({temperature: 1.0, topK: 1});
+            }
             showBusy(false);
         }
         catch (e)
