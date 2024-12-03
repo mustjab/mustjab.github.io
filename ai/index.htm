@@ -91,15 +91,23 @@
         try
         {
             showBusy(true);
-            var initialPrompt = document.getElementById("initialPrompt").value;
-            if (initialPrompt != "") {
-                session = await window.ai.languageModel.create({
-                    temperature: 1.0, topK: 1,
-                    initialPrompts: [ { role: "system", content: initialPrompt } ]
+            var initialPrompt = document.getElementById("prompt").value;
+            const sessionConfig = {
+            temperature: 1.0,
+            topK: 1,
+            monitor(m) {
+                m.addEventListener("downloadprogress", e => {
+                console.log(`Downloaded ${e.loaded} of ${e.total} bytes.`);
+                if (e.loaded == e.total) {
+                    showBusy(false);
+                }
                 });
-            } else {
-                session = await window.ai.languageModel.create({temperature: 1.0, topK: 1});
             }
+            };
+            if (initialPrompt !== "") {
+            sessionConfig.initialPrompts = [{ role: "system", content: initialPrompt }];
+            }
+            session = await window.ai.languageModel.create(sessionConfig);
             showBusy(false);
         }
         catch (e)
