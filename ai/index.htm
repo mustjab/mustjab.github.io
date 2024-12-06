@@ -79,7 +79,7 @@
             let result = await window.ai.languageModel.capabilities();
             if (result.available == 'after-download')
             {
-                window.setTimeout(checkDownload, 100);
+                window.setTimeout(checkDownload, 1000);
             }
             if (result.available == 'readily')
             {
