@@ -151,7 +151,7 @@
             }
             try {
               for await (const chunk of stream) {
-                  update_element.innerText = chunk;
+                  update_element.innerText += chunk;
                   token_count++;
                   // Wait for prefill to complete before we estimate tokens per second.
                   if (token_count >= 2)
