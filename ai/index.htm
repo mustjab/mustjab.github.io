@@ -41,6 +41,7 @@
                 const sessionConfig = {
                 temperature: 1.0,
                 topK: 1,
+                maxTokens: 4096,
                 monitor(m) {
                     m.addEventListener("downloadprogress", e => {
                     // update the progress bar with latest download status
