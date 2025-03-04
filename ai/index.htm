@@ -27,6 +27,7 @@
             </div>
             <textarea id="input" name="input">Do you think it is a good idea to embed an on-device language model in a web browser ?</textarea>
             <button id="send"></button>
+            <button id="stop"></button>
         </div>
     </body>
     <script type="module" >
@@ -34,6 +35,16 @@
         var session = null;
         const kFeatureFlagError = "Prompt API is not available.";
         const kNoModelError = "Prompt API is available. Likley feature has crashed more than 5 times.";
+        let abortController;
+
+        function showButton(id, show) {
+            document.getElementById(id).style.display = show ? "block" : "none";
+        }
+
+        function showButtons(streaming) {
+            showButton("send", !streaming);
+            showButton("stop", streaming);
+        }
 
         async function createNewSession() {
             try{
@@ -138,19 +149,30 @@
         var latency_element = document.getElementById("latency");
         var token_count = 0;
         var current_tps = 0;
+        const sendButton = document.getElementById("send");
+        const stopButton = document.getElementById("stop");
         async function main(input)
         {
             update_element.scrollIntoView(false);
             let stream = null;
+            
             try
             {
-                stream = session.promptStreaming(input);
+                abortController = new AbortController();
+                stopButton.onclick = () => {
+                    abortController.abort();
+                    showButtons(false);
+                    console.log("Stream cancelled");
+                };
+                stream = session.promptStreaming(input, { signal: abortController.signal });
             }
             catch (e)
             {
                 error("Cannot create stream now - " + e);
             }
             try {
+              console.log("Starting stream");
+              showButtons(true);
               for await (const chunk of stream) {
                   update_element.innerText += chunk;
                   token_count++;
@@ -179,6 +201,8 @@
                   tps_element.innerText = current_tps;
                   console.log(`${session.tokensSoFar}/${session.maxTokens} (${session.tokensLeft} left)`);
               }
+              console.log("Stream ended");
+              showButtons(false);
             }
             catch (e)
             {
