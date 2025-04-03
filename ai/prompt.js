@@ -2,7 +2,7 @@ let success = true;
 var session = null;
 const kFeatureFlagError = 'Prompt API is not available.';
 const kNoModelError =
-  'Prompt API is available. Likely feature has crashed more than 5 times.';
+  'Prompt API is available but no model is available. Please check console logs for the model availability.';
 let languageModel = null;
 if (window.ai.languageModel) {
   languageModel = window.ai.languageModel;
@@ -56,14 +56,15 @@ async function checkDownload() {
   let result = await (languageModel.capabilities
     ? languageModel.capabilities()
     : languageModel.availability());
-  if (
+  if (result == 'unavailable' || result.available == 'no') {
+    error(kNoModelError);
+  } else if (
     result == 'downloadable' ||
     result == 'downloading' ||
     result.available == 'after-download'
   ) {
     window.setTimeout(checkDownload, 1000);
-  }
-  if (result == 'available' || result.available == 'readily') {
+  } else if (result == 'available' || result.available == 'readily') {
     window.location.reload();
   }
 }
@@ -83,7 +84,7 @@ try {
   let result = await (languageModel.capabilities
     ? languageModel.capabilities()
     : languageModel.availability());
-  if (result == 'no' || result.available == 'no') {
+  if (result == 'unavailable' || result.available == 'no') {
     error(kNoModelError);
   } else if (
     result == 'downloadable' ||
