@@ -1,0 +1,94 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>Home Page</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="https://mustjab.github.io/icon.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="app-title" content="PWA">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            text-align: center;
+            padding: 50px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+    <script src="https://mustjab.github.io/pwabuilder-sw.js"></script>
+    <script>
+        // This is the "Offline page" service worker
+        // Add this below content to your HTML page, or add the js file to your page at the very top to register service worker
+        // Check compatibility for the browser we're running this in
+        if ("serviceWorker" in navigator) {
+            if (navigator.serviceWorker.controller) {
+                console.log("[PWA Builder] active service worker found, no need to register");
+            } else {
+                // Register the service worker
+                navigator.serviceWorker
+                    .register("https://mustjab.github.io/pwabuilder-sw.js", {
+                        scope: "./"
+                    })
+                    .then(function (reg) {
+                        console.log("[PWA Builder] Service worker has been registered for scope: " + reg.scope);
+                    });
+            }
+        }
+
+        // Check if the browser supports PWA installation
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+        const statusText = document.getElementById('status');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = 'block';
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    statusText.textContent = 'PWA installed successfully!';
+                } else {
+                    statusText.textContent = 'PWA installation dismissed.';
+                }
+                deferredPrompt = null;
+            }
+        });
+    </script>
+</head>
+<body>
+  <div class="container">
+    <h1>Progressive Web App</h1>
+    <p>This is a simple PWA example.</p>
+    <button id="installBtn">Install PWA</button>
+    <p id="status"></p>
+  </div>
+</body>
+</html>

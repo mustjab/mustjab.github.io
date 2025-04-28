@@ -1,0 +1,33 @@
+{
+    "dir" : "ltr",
+    "lang" : "en",
+    "name" : "PWA",
+    "scope" : ".",
+    "display" : "minimal-ui",
+    "id" : "index.html",
+    "start_url" : ".",
+    "short_name" : "pwa",
+    "theme_color" : "azure",
+    "description" : "PWA testing site",
+    "orientation" : "any",
+    "background_color" : "azure",
+    "additional_search_terms" : [ "mustjab", "pwa" ],
+    "icons" : [
+        {
+            "src": "https://mustjab.github.io/icon.png",
+            "sizes": "512x512"
+        },
+        {
+            "src": "https://mustjab.github.io/icon-192.png",
+            "sizes": "192x192"
+        },
+        {
+            "src": "https://mustjab.github.io/icon-144.png",
+            "sizes": "144x144"
+        },
+        {
+            "src": "https://mustjab.github.io/icon-96.png",
+            "sizes": "96x96"
+        }
+    ]
+}
