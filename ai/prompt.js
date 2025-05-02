@@ -4,7 +4,7 @@ const kFeatureFlagError = 'Prompt API is not available.';
 const kNoModelError =
   'Prompt API is available but no model is available. Please check console logs for the model availability.';
 let languageModel = null;
-if (window.ai.languageModel) {
+if (window.ai && window.ai.languageModel) {
   languageModel = window.ai.languageModel;
 } else if (window.LanguageModel) {
   languageModel = window.LanguageModel;
@@ -57,14 +57,17 @@ async function checkDownload() {
     ? languageModel.capabilities()
     : languageModel.availability());
   if (result == 'unavailable' || result.available == 'no') {
+    console.log('Model is unavailable');
     error(kNoModelError);
   } else if (
     result == 'downloadable' ||
     result == 'downloading' ||
     result.available == 'after-download'
   ) {
+    console.log('Model is downloadable');
     window.setTimeout(checkDownload, 1000);
   } else if (result == 'available' || result.available == 'readily') {
+    console.log('Model is available');
     window.location.reload();
   }
 }
@@ -85,6 +88,7 @@ try {
     ? languageModel.capabilities()
     : languageModel.availability());
   if (result == 'unavailable' || result.available == 'no') {
+    console.log('Model is unavailable');
     error(kNoModelError);
   } else if (
     result == 'downloadable' ||
@@ -92,9 +96,11 @@ try {
     result.available == 'after-download'
   ) {
     // call the API to trigger download.
+    console.log('Model is downloadable');
     languageModel.create({ temperature: 1.0, topK: 1 });
     checkDownload();
   } else if (result != 'available' && result.available != 'readily') {
+    console.log('Model is not available - ' + result.available || result);
     error('Cannot create model now - ' + result.available || result);
   }
 } catch (e) {
