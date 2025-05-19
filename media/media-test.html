@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media API Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        h1 {
+            color: #0078d4;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .test-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .test-header h2 {
+            margin: 0;
+            color: #333;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .status-not-tested {
+            background-color: #e0e0e0;
+            color: #666;
+        }
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .controls {
+            margin-top: 15px;
+        }
+        button {
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #106ebe;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .media-display {
+            margin-top: 15px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        video, img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        #locationData {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .permission-note {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ffeeba;
+        }
+        #audioRecordingsList {
+            list-style: none;
+            padding: 0;
+        }
+        #audioRecordingsList li {
+            margin-bottom: 10px;
+        }
+        .log-container {
+            margin-top: 20px;
+            max-height: 150px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Media API Test Page</h1>
+
+    <div class="permission-note">
+        <strong>Note:</strong> You'll need to grant permissions when prompted to test each feature. Some features may not work if permissions are denied or if your browser doesn't support them.
+    </div>
+
+    <!-- Camera Test Section -->
+    <div class="test-container">
+        <div class="test-header">
+            <h2>Camera Test</h2>
+            <span id="cameraStatus" class="status status-not-tested">Not Tested</span>
+        </div>
+
+        <div class="controls">
+            <button id="startCameraBtn">Start Camera</button>
+            <button id="takePictureBtn" disabled>Take Picture</button>
+            <button id="switchCameraBtn">Switch Camera</button>
+            <button id="stopCameraBtn" disabled>Stop Camera</button>
+        </div>
+
+        <div class="media-display">
+            <video id="cameraPreview" autoplay playsinline muted style="display:none;"></video>
+            <canvas id="pictureCanvas" style="display:none;"></canvas>
+            <img id="capturedImage" style="display:none;" alt="Captured image will appear here">
+        </div>
+
+        <div id="cameraLog" class="log-container"></div>
+    </div>
+
+    <!-- Microphone Test Section -->
+    <div class="test-container">
+        <div class="test-header">
+            <h2>Microphone Test</h2>
+            <span id="micStatus" class="status status-not-tested">Not Tested</span>
+        </div>
+
+        <div class="controls">
+            <button id="startRecordingBtn">Start Recording</button>
+            <button id="stopRecordingBtn" disabled>Stop Recording</button>
+        </div>
+
+        <div class="media-display">
+            <div id="recordingVisualizer" style="width:100%; height:60px; background:#f0f0f0; position:relative; display:none;">
+                <canvas id="audioVisualizerCanvas" width="800" height="60"></canvas>
+            </div>
+            <p id="recordingStatus"></p>
+            <ul id="audioRecordingsList"></ul>
+        </div>
+
+        <div id="micLog" class="log-container"></div>
+    </div>
+
+    <!-- Geolocation Test Section -->
+    <div class="test-container">
+        <div class="test-header">
+            <h2>Geolocation Test</h2>
+            <span id="locationStatus" class="status status-not-tested">Not Tested</span>
+        </div>
+
+        <div class="controls">
+            <button id="getCurrentPositionBtn">Get Current Position</button>
+            <button id="startWatchPositionBtn">Start Watching Position</button>
+            <button id="stopWatchPositionBtn" disabled>Stop Watching Position</button>
+        </div>
+
+        <div class="media-display">
+            <pre id="locationData">Location data will appear here...</pre>
+        </div>
+
+        <div id="locationLog" class="log-container"></div>
+    </div>
+
+    <!-- Feature Support Check Section -->
+    <div class="test-container">
+        <div class="test-header">
+            <h2>Browser Feature Support</h2>
+        </div>
+        <div id="featureSupportList"></div>
+    </div>
+
+    <script>
+        // Utility function to log messages
+        function logMessage(container, message, isError = false) {
+            const logElement = document.getElementById(container);
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
+            if (isError) {
+                logEntry.style.color = '#dc3545';
+            }
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // Update status indicator
+        function updateStatus(elementId, status, message) {
+            const statusElement = document.getElementById(elementId);
+            statusElement.className = `status status-${status}`;
+            statusElement.textContent = message;
+        }
+
+        // Check browser feature support
+        document.addEventListener('DOMContentLoaded', () => {
+            const featureSupportList = document.getElementById('featureSupportList');
+            const features = [
+                { name: 'getUserMedia (Camera/Mic)', supported: 'mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices },
+                { name: 'Geolocation', supported: 'geolocation' in navigator },
+                { name: 'MediaRecorder', supported: 'MediaRecorder' in window },
+                { name: 'Canvas', supported: !!document.createElement('canvas').getContext },
+                { name: 'WebRTC', supported: 'RTCPeerConnection' in window }
+            ];
+
+            features.forEach(feature => {
+                const featureElement = document.createElement('div');
+                featureElement.innerHTML = `${feature.name}: <strong style="color:${feature.supported ? 'green' : 'red'}">${feature.supported ? 'Supported' : 'Not Supported'}</strong>`;
+                featureSupportList.appendChild(featureElement);
+            });
+            
+            // Check if we're on HTTPS (required for geolocation in modern browsers)
+            const isHttps = window.location.protocol === 'https:';
+            const protocolElement = document.createElement('div');
+            
+            if (!isHttps) {
+                protocolElement.innerHTML = `<strong style="color:red">⚠️ Not using HTTPS!</strong> Some features like geolocation may be blocked.`;
+                protocolElement.style.marginTop = '10px';
+                protocolElement.style.padding = '8px';
+                protocolElement.style.backgroundColor = '#fff3cd';
+                protocolElement.style.borderLeft = '4px solid #ffc107';
+                featureSupportList.appendChild(protocolElement);
+                
+                logMessage('locationLog', 'WARNING: Page not loaded via HTTPS. Geolocation may be blocked by modern browsers.', true);
+            } else {
+                protocolElement.innerHTML = `<strong style="color:green">✓ HTTPS connection</strong> - Secure context allows access to browser features.`;
+                featureSupportList.appendChild(protocolElement);
+            }
+        });
+
+        // Camera Functionality
+        let stream = null;
+        let facingMode = 'user'; // Default to front camera
+        const cameraPreview = document.getElementById('cameraPreview');
+        const pictureCanvas = document.getElementById('pictureCanvas');
+        const capturedImage = document.getElementById('capturedImage');
+        
+        document.getElementById('startCameraBtn').addEventListener('click', async () => {
+            try {
+                // Stop any existing stream
+                if (stream) {
+                    stopCamera();
+                }
+                
+                // Start camera with current facing mode
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: facingMode }
+                });
+                
+                cameraPreview.srcObject = stream;
+                cameraPreview.style.display = 'block';
+                
+                document.getElementById('takePictureBtn').disabled = false;
+                document.getElementById('stopCameraBtn').disabled = false;
+                
+                updateStatus('cameraStatus', 'success', 'Camera Active');
+                logMessage('cameraLog', `Camera started with ${facingMode === 'user' ? 'front' : 'rear'} camera`);
+            } catch (error) {
+                updateStatus('cameraStatus', 'error', 'Camera Error');
+                logMessage('cameraLog', `Error accessing camera: ${error.message}`, true);
+            }
+        });
+
+        document.getElementById('takePictureBtn').addEventListener('click', () => {
+            if (!stream) return;
+            
+            // Set canvas dimensions to match video
+            pictureCanvas.width = cameraPreview.videoWidth;
+            pictureCanvas.height = cameraPreview.videoHeight;
+            
+            // Draw current video frame on canvas
+            const context = pictureCanvas.getContext('2d');
+            context.drawImage(cameraPreview, 0, 0, pictureCanvas.width, pictureCanvas.height);
+            
+            // Convert canvas to image
+            capturedImage.src = pictureCanvas.toDataURL('image/png');
+            capturedImage.style.display = 'block';
+            
+            logMessage('cameraLog', 'Picture captured');
+        });
+
+        document.getElementById('switchCameraBtn').addEventListener('click', async () => {
+            // Toggle facing mode
+            facingMode = facingMode === 'user' ? 'environment' : 'user';
+            
+            if (stream) {
+                stopCamera();
+                
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: facingMode }
+                    });
+                    
+                    cameraPreview.srcObject = stream;
+                    
+                    logMessage('cameraLog', `Switched to ${facingMode === 'user' ? 'front' : 'rear'} camera`);
+                } catch (error) {
+                    updateStatus('cameraStatus', 'error', 'Camera Switch Error');
+                    logMessage('cameraLog', `Error switching camera: ${error.message}`, true);
+                }
+            } else {
+                logMessage('cameraLog', `Camera facing mode set to ${facingMode === 'user' ? 'front' : 'rear'}. Start camera to apply.`);
+            }
+        });
+
+        document.getElementById('stopCameraBtn').addEventListener('click', () => {
+            stopCamera();
+        });
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                cameraPreview.srcObject = null;
+                cameraPreview.style.display = 'none';
+                
+                document.getElementById('takePictureBtn').disabled = true;
+                document.getElementById('stopCameraBtn').disabled = true;
+                
+                updateStatus('cameraStatus', 'not-tested', 'Camera Stopped');
+                logMessage('cameraLog', 'Camera stopped');
+            }
+        }
+
+        // Microphone Functionality
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioContext;
+        let analyser;
+        let micStream;
+        let animationFrame;
+        let recordingStartTime;
+        
+        document.getElementById('startRecordingBtn').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micStream = stream;
+                
+                // Setup audio visualization
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                analyser.fftSize = 256;
+                
+                // Setup media recorder
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    
+                    const recordingDuration = (new Date() - recordingStartTime) / 1000;
+                    
+                    const recordingItem = document.createElement('li');
+                    const audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.src = audioUrl;
+                    
+                    const durationText = document.createElement('span');
+                    durationText.textContent = ` (${recordingDuration.toFixed(1)}s)`;
+                    
+                    recordingItem.appendChild(audio);
+                    recordingItem.appendChild(durationText);
+                    document.getElementById('audioRecordingsList').appendChild(recordingItem);
+                    
+                    // Cleanup
+                    stopAudioVisualization();
+                    document.getElementById('recordingStatus').textContent = '';
+                    document.getElementById('recordingVisualizer').style.display = 'none';
+                    
+                    logMessage('micLog', `Recording stopped after ${recordingDuration.toFixed(1)} seconds`);
+                    updateStatus('micStatus', 'success', 'Recording Complete');
+                };
+                
+                // Start recording
+                mediaRecorder.start();
+                recordingStartTime = new Date();
+                
+                // Start visualization
+                document.getElementById('recordingVisualizer').style.display = 'block';
+                startAudioVisualization();
+                
+                // Update UI
+                document.getElementById('startRecordingBtn').disabled = true;
+                document.getElementById('stopRecordingBtn').disabled = false;
+                document.getElementById('recordingStatus').textContent = 'Recording...';
+                
+                updateStatus('micStatus', 'success', 'Recording');
+                logMessage('micLog', 'Microphone recording started');
+            } catch (error) {
+                updateStatus('micStatus', 'error', 'Microphone Error');
+                logMessage('micLog', `Error accessing microphone: ${error.message}`, true);
+            }
+        });
+
+        document.getElementById('stopRecordingBtn').addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                
+                if (micStream) {
+                    micStream.getTracks().forEach(track => track.stop());
+                }
+                
+                document.getElementById('startRecordingBtn').disabled = false;
+                document.getElementById('stopRecordingBtn').disabled = true;
+            }
+        });
+
+        function startAudioVisualization() {
+            const canvas = document.getElementById('audioVisualizerCanvas');
+            const canvasCtx = canvas.getContext('2d');
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            function draw() {
+                animationFrame = requestAnimationFrame(draw);
+                
+                analyser.getByteFrequencyData(dataArray);
+                
+                canvasCtx.fillStyle = 'rgb(240, 240, 240)';
+                canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                const barWidth = (canvas.width / bufferLength) * 2.5;
+                let barHeight;
+                let x = 0;
+                
+                for (let i = 0; i < bufferLength; i++) {
+                    barHeight = dataArray[i] / 2;
+                    
+                    canvasCtx.fillStyle = `rgb(0, 120, 212)`;
+                    canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                    
+                    x += barWidth + 1;
+                }
+            }
+            
+            draw();
+        }
+
+        function stopAudioVisualization() {
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+            }
+        }
+
+        // Geolocation Functionality
+        let watchId = null;
+          document.getElementById('getCurrentPositionBtn').addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                updateStatus('locationStatus', 'error', 'Not Supported');
+                logMessage('locationLog', 'Geolocation is not supported by your browser', true);
+                return;
+            }
+            
+            updateStatus('locationStatus', 'not-tested', 'Requesting...');
+            logMessage('locationLog', 'Requesting current position...');
+            
+            // First try with high accuracy (may fail more often but gives better results when it works)
+            logMessage('locationLog', 'Attempting with high accuracy...');
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    displayPosition(position);
+                    updateStatus('locationStatus', 'success', 'Position Retrieved (High Accuracy)');
+                    logMessage('locationLog', 'Position successfully retrieved with high accuracy');
+                },
+                error => {
+                    // If high accuracy fails, try again with lower accuracy
+                    logMessage('locationLog', 'High accuracy failed, trying with lower accuracy settings...');
+                    navigator.geolocation.getCurrentPosition(
+                        position => {
+                            displayPosition(position);
+                            updateStatus('locationStatus', 'success', 'Position Retrieved (Low Accuracy)');
+                            logMessage('locationLog', 'Position successfully retrieved with lower accuracy');
+                        },
+                        finalError => {
+                            handleLocationError(finalError);
+                        },
+                        {
+                            enableHighAccuracy: false,  // Use network-based location
+                            timeout: 30000,            // Longer timeout 
+                            maximumAge: 60000         // Accept cached positions up to 1 minute old
+                        }
+                    );
+                },
+                {
+                    enableHighAccuracy: true,  // Try GPS first
+                    timeout: 15000,           // Increased timeout
+                    maximumAge: 0             // Don't use cached position
+                }
+            );
+        });        document.getElementById('startWatchPositionBtn').addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                updateStatus('locationStatus', 'error', 'Not Supported');
+                logMessage('locationLog', 'Geolocation is not supported by your browser', true);
+                return;
+            }
+            
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+            
+            updateStatus('locationStatus', 'not-tested', 'Watching...');
+            logMessage('locationLog', 'Starting position watch...');
+            
+            // Try with more balanced settings for continuous watching
+            watchId = navigator.geolocation.watchPosition(
+                position => {
+                    displayPosition(position);
+                    updateStatus('locationStatus', 'success', 'Watching Position');
+                    // Log accuracy information to help debug
+                    logMessage('locationLog', `Position update received (accuracy: ${position.coords.accuracy} meters)`);
+                },
+                error => {
+                    handleLocationError(error);
+                    
+                    // If watching fails, try once with lower accuracy
+                    if (watchId !== null) {
+                        navigator.geolocation.clearWatch(watchId);
+                        watchId = null;
+                        
+                        logMessage('locationLog', 'Retrying with lower accuracy...');
+                        watchId = navigator.geolocation.watchPosition(
+                            position => {
+                                displayPosition(position);
+                                updateStatus('locationStatus', 'success', 'Watching Position (Low Accuracy)');
+                            },
+                            finalError => {
+                                handleLocationError(finalError);
+                                // Reset UI if we still can't get location
+                                document.getElementById('startWatchPositionBtn').disabled = false;
+                                document.getElementById('stopWatchPositionBtn').disabled = true;
+                            },
+                            {
+                                enableHighAccuracy: false,
+                                timeout: 30000,
+                                maximumAge: 60000
+                            }
+                        );
+                    }
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 5000 // Allow slightly older positions to improve responsiveness
+                }
+            );
+            
+            document.getElementById('startWatchPositionBtn').disabled = true;
+            document.getElementById('stopWatchPositionBtn').disabled = false;
+        });
+
+        document.getElementById('stopWatchPositionBtn').addEventListener('click', () => {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                
+                document.getElementById('startWatchPositionBtn').disabled = false;
+                document.getElementById('stopWatchPositionBtn').disabled = true;
+                
+                updateStatus('locationStatus', 'not-tested', 'Watch Stopped');
+                logMessage('locationLog', 'Position watch stopped');
+            }
+        });
+
+        function displayPosition(position) {
+            const locationData = document.getElementById('locationData');
+            const coords = position.coords;
+            
+            // Format timestamp
+            const timestamp = new Date(position.timestamp).toLocaleString();
+            
+            // Create formatted output
+            const output = {
+                timestamp: timestamp,
+                coordinates: {
+                    latitude: coords.latitude,
+                    longitude: coords.longitude
+                },
+                accuracy: {
+                    horizontal: `${coords.accuracy} meters`
+                },
+                altitude: coords.altitude !== null ? `${coords.altitude} meters` : 'Not available',
+                altitudeAccuracy: coords.altitudeAccuracy !== null ? `${coords.altitudeAccuracy} meters` : 'Not available',
+                heading: coords.heading !== null ? `${coords.heading}°` : 'Not available',
+                speed: coords.speed !== null ? `${coords.speed} m/s` : 'Not available'
+            };
+            
+            locationData.textContent = JSON.stringify(output, null, 2);
+        }        function handleLocationError(error) {
+            updateStatus('locationStatus', 'error', 'Error');
+            
+            let errorMessage;
+            let troubleshooting = '';
+            
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = 'User denied the request for geolocation.';
+                    troubleshooting = 'Please check your browser/device settings to ensure location access is enabled.';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = 'Location information is unavailable.';
+                    troubleshooting = 'This may occur if: \n' +
+                                     '1. You\'re using a device without GPS hardware\n' +
+                                     '2. You\'re behind a VPN or proxy\n' +
+                                     '3. You\'re in an area with poor GPS/network coverage\n' +
+                                     '4. The browser cannot access location providers\n' + 
+                                     '5. You\'re accessing via non-HTTPS connection';
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = 'The request to get user location timed out.';
+                    troubleshooting = 'Please check your internet connection or try again in an area with better coverage.';
+                    break;
+                case error.UNKNOWN_ERROR:
+                default:
+                    errorMessage = 'An unknown error occurred.';
+                    troubleshooting = 'Try refreshing the page or using a different browser.';
+                    break;
+            }
+            
+            document.getElementById('locationData').textContent = `Error: ${errorMessage}\n\nTroubleshooting tips:\n${troubleshooting}`;
+            logMessage('locationLog', `${errorMessage} (Error code: ${error.code})`, true);
+            
+            // Log additional technical details if available
+            if (error.message) {
+                logMessage('locationLog', `Error details: ${error.message}`, true);
+            }
+        }
+    </script>
+</body>
+</html>
