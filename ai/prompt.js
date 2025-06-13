@@ -24,11 +24,13 @@ async function createNewSession() {
       maxTokens: 4096,
       monitor(m) {
         m.addEventListener('downloadprogress', (e) => {
-          // update the progress bar with latest download status
-          document.getElementById('modelDownloadProgress').value =
-            (e.loaded / e.total) * 100;
+          // Show bytes instead of percent
+          const progressBar = document.getElementById('modelDownloadProgress');
+          progressBar.value = e.loaded;
+          progressBar.max = e.total;
+          progressBar.innerText = `${e.loaded} / ${e.total} bytes`;
           if (e.loaded == e.total) {
-            document.getElementById('modelDownloadProgress').value = 100;
+            progressBar.value = e.total;
             console.log('Download complete');
           }
         });
@@ -100,16 +102,38 @@ async function ensureModelReady() {
       topK: 1,
       monitor(m) {
         m.addEventListener('downloadprogress', (e) => {
-          document.getElementById('modelDownloadProgress').value =
-            (e.loaded / e.total) * 100;
+          // Show bytes instead of percent
+          const progressBar = document.getElementById('modelDownloadProgress');
+          progressBar.value = e.loaded;
+          progressBar.max = e.total;
+          progressBar.innerText = `${e.loaded} / ${e.total} bytes`;
           if (e.loaded == e.total) {
-            document.getElementById('modelDownloadProgress').value = 100;
+            progressBar.value = e.total;
             console.log('Download complete');
           }
         });
       },
     });
     modelDownloadInProgress = true;
+    // Fallback polling if monitor does not fire
+    function pollProgress() {
+      languageModel.capabilities ? languageModel.capabilities() : languageModel.availability()
+        .then((status) => {
+          const progressBar = document.getElementById('modelDownloadProgress');
+          if (status.progress !== undefined && status.total !== undefined) {
+            progressBar.value = status.progress;
+            progressBar.max = status.total;
+            progressBar.innerText = `${status.progress} / ${status.total} bytes`;
+          }
+          if ((status == 'available' || status.available == 'readily') || progressBar.value == progressBar.max) {
+            // Download complete
+            return;
+          } else {
+            setTimeout(pollProgress, 1000);
+          }
+        });
+    }
+    setTimeout(pollProgress, 1000);
     checkDownload();
     return false;
   }
