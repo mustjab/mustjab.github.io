@@ -88,38 +88,37 @@ async function ensureModelReady() {
   if (result == 'unavailable' || result.available == 'no') {
     error(kNoModelError);
     return false;
-  } else if (
+  }
+  // If model is not available, always call create with monitor to attach progress handler
+  if (
     result == 'downloadable' ||
     result == 'downloading' ||
     result.available == 'after-download'
   ) {
-    if (!modelDownloadInProgress) {
-      // Always attach monitor to update progress bar
-      languageModel.create({
-        temperature: 1.0,
-        topK: 1,
-        monitor(m) {
-          m.addEventListener('downloadprogress', (e) => {
-            document.getElementById('modelDownloadProgress').value =
-              (e.loaded / e.total) * 100;
-            if (e.loaded == e.total) {
-              document.getElementById('modelDownloadProgress').value = 100;
-              console.log('Download complete');
-            }
-          });
-        },
-      });
-      modelDownloadInProgress = true;
-    }
+    languageModel.create({
+      temperature: 1.0,
+      topK: 1,
+      monitor(m) {
+        m.addEventListener('downloadprogress', (e) => {
+          document.getElementById('modelDownloadProgress').value =
+            (e.loaded / e.total) * 100;
+          if (e.loaded == e.total) {
+            document.getElementById('modelDownloadProgress').value = 100;
+            console.log('Download complete');
+          }
+        });
+      },
+    });
+    modelDownloadInProgress = true;
     checkDownload();
     return false;
-  } else if (result == 'available' || result.available == 'readily') {
+  }
+  if (result == 'available' || result.available == 'readily') {
     await createNewSession();
     return true;
-  } else {
-    error('Cannot create model now - ' + (result.available || result));
-    return false;
   }
+  error('Cannot create model now - ' + (result.available || result));
+  return false;
 }
 
 document
