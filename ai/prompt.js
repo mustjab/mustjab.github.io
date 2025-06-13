@@ -57,12 +57,12 @@ function showSuccess(message) {
 }
 
 function updateMetrics(cps, tps, latency = null) {
-  document.getElementById('cpsMetric').textContent = cps;
-  document.getElementById('tpsMetric').textContent = tps;
+  document.getElementById('cps').textContent = cps;
+  document.getElementById('tps').textContent = tps;
   
   // Only update latency if provided and not already set
   if (latency !== null && !modelLoadLatencySet) {
-    document.getElementById('latencyMetric').textContent = latency;
+    document.getElementById('latency').textContent = latency;
     modelLoadLatencySet = true;
   }
 }
