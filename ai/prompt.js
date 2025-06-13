@@ -12,6 +12,9 @@ if (window.ai && window.ai.languageModel) {
   error('Prompt API is not available.');
 }
 
+let modelReady = false;
+let modelDownloadInProgress = false;
+
 async function createNewSession() {
   try {
     var initialPrompt = document.getElementById('initialPrompt').value;
@@ -38,6 +41,7 @@ async function createNewSession() {
     }
     session = await languageModel.create(sessionConfig);
     document.getElementById('modelDownloadProgress').value = 100;
+    modelReady = true;
   } catch (e) {
     error('Cannot create session now - ' + e);
   }
@@ -64,11 +68,44 @@ async function checkDownload() {
     result == 'downloading' ||
     result.available == 'after-download'
   ) {
-    console.log('Model is downloadable');
+    console.log('Model is downloading...');
+    modelDownloadInProgress = true;
     window.setTimeout(checkDownload, 1000);
   } else if (result == 'available' || result.available == 'readily') {
     console.log('Model is available');
-    window.location.reload();
+    modelReady = true;
+    modelDownloadInProgress = false;
+    await createNewSession();
+  }
+}
+
+// Only trigger model download/session creation in response to user action
+async function ensureModelReady() {
+  if (modelReady) return true;
+  let result = await (languageModel.capabilities
+    ? languageModel.capabilities()
+    : languageModel.availability());
+  if (result == 'unavailable' || result.available == 'no') {
+    error(kNoModelError);
+    return false;
+  } else if (
+    result == 'downloadable' ||
+    result == 'downloading' ||
+    result.available == 'after-download'
+  ) {
+    if (!modelDownloadInProgress) {
+      // Only trigger download in response to user action
+      languageModel.create({ temperature: 1.0, topK: 1 });
+      modelDownloadInProgress = true;
+    }
+    checkDownload();
+    return false;
+  } else if (result == 'available' || result.available == 'readily') {
+    await createNewSession();
+    return true;
+  } else {
+    error('Cannot create model now - ' + (result.available || result));
+    return false;
   }
 }
 
@@ -76,40 +113,16 @@ document
   .getElementById('initialPrompt')
   .addEventListener('change', async function () {
     try {
-      session.destroy();
-      await createNewSession();
+      if (session) session.destroy();
+      let ready = await ensureModelReady();
+      if (ready) {
+        await createNewSession();
+      }
     } catch (e) {
       error('Cannot create session now - ' + e);
     }
   });
 
-try {
-  let result = await (languageModel.capabilities
-    ? languageModel.capabilities()
-    : languageModel.availability());
-  if (result == 'unavailable' || result.available == 'no') {
-    console.log('Model is unavailable');
-    error(kNoModelError);
-  } else if (
-    result == 'downloadable' ||
-    result == 'downloading' ||
-    result.available == 'after-download'
-  ) {
-    // call the API to trigger download.
-    console.log('Model is downloadable');
-    languageModel.create({ temperature: 1.0, topK: 1 });
-    checkDownload();
-  } else if (result != 'available' && result.available != 'readily') {
-    console.log('Model is not available - ' + result.available || result);
-    error('Cannot create model now - ' + result.available || result);
-  }
-} catch (e) {
-  if (e.name === 'TypeError') {
-    error(kFeatureFlagError);
-  }
-}
-
-await createNewSession();
 var update_element = null;
 var current_cps = 0;
 var initial_delay = null;
@@ -166,6 +179,8 @@ async function main(input) {
 }
 
 async function onSend() {
+  let ready = await ensureModelReady();
+  if (!ready) return; // Wait for model to be ready
   const inputText = document.getElementById('input').value;
   const prompt = inputText;
   let input = document.createElement('p');
