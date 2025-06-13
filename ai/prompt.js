@@ -42,7 +42,7 @@ function updateStatus(status, message, type = 'info') {
 
 function showError(message) {
   updateStatus('error', 'Error occurred', 'error');
-  
+
   // Update the status badge tooltip with error details
   const statusBadge = document.getElementById('statusBadge');
   statusBadge.title = `Error: ${message}`;
@@ -50,7 +50,7 @@ function showError(message) {
 
 function showSuccess(message) {
   updateStatus('ready', message, 'success');
-  
+
   // Update the status badge tooltip
   const statusBadge = document.getElementById('statusBadge');
   statusBadge.title = `Status: ${message}`;
@@ -59,7 +59,7 @@ function showSuccess(message) {
 function updateMetrics(cps, tps, latency = null) {
   document.getElementById('cps').textContent = cps;
   document.getElementById('tps').textContent = tps;
-  
+
   // Only update latency if provided and not already set
   if (latency !== null && !modelLoadLatencySet) {
     document.getElementById('latency').textContent = latency;
@@ -171,7 +171,7 @@ async function createSession() {
     if (!modelLoadStartTime) {
       modelLoadStartTime = performance.now();
     }
-    
+
     var initialPrompt = document.getElementById('initialPrompt').value;
 
     // Check status before creating session
@@ -181,9 +181,9 @@ async function createSession() {
     const sliderValues = getSliderValues();
 
     // Only include monitor if download might be needed
-    const needsDownload = preStatus == 'downloadable' || 
-                         preStatus == 'downloading' || 
-                         (preStatus.available && preStatus.available == 'after-download');
+    const needsDownload = preStatus == 'downloadable' ||
+      preStatus == 'downloading' ||
+      (preStatus.available && preStatus.available == 'after-download');
 
     const sessionConfig = {
       temperature: sliderValues.temperature,
@@ -193,9 +193,9 @@ async function createSession() {
 
     // Only add monitor if download is actually needed
     if (needsDownload) {
-      sessionConfig.monitor = function(m) {
+      sessionConfig.monitor = function (m) {
         // Don't show progress immediately - wait for download events
-        
+
         // Set up progress event handlers
         let progressReceived = false;
         let progressShown = false;
@@ -228,13 +228,13 @@ async function createSession() {
                 updateProgress(100, `Download complete: ${totalMB} MB`);
                 modelReady = true;
                 modelDownloadInProgress = false;
-                
+
                 // Set the model loading latency when download completes
                 if (modelLoadStartTime && !modelLoadLatencySet) {
                   const loadLatency = Math.round(performance.now() - modelLoadStartTime);
                   updateMetrics(0, 0, loadLatency);
                 }
-                
+
                 showSuccess('AI model is ready! You can start chatting.');
                 showProgress(false);
               }
@@ -273,13 +273,13 @@ async function createSession() {
               updateProgress(100, `Download complete`);
               modelReady = true;
               modelDownloadInProgress = false;
-              
+
               // Set the model loading latency when download completes
               if (modelLoadStartTime && !modelLoadLatencySet) {
                 const loadLatency = Math.round(performance.now() - modelLoadStartTime);
                 updateMetrics(0, 0, loadLatency);
               }
-              
+
               showSuccess('AI model is ready! You can start chatting.');
               showProgress(false);
             }
@@ -292,24 +292,24 @@ async function createSession() {
               // Check actual status before assuming download is complete
               let status = await (languageModel.capabilities
                 ? languageModel.capabilities()
-                : languageModel.availability());              if (status === 'available' || status.available === 'readily') {
-                // Model is actually ready
-                updateProgress(100, 'Download completed (no progress events received)');
-                modelReady = true;
-                modelDownloadInProgress = false;
-                
-                // Set the model loading latency
-                if (modelLoadStartTime && !modelLoadLatencySet) {
-                  const loadLatency = Math.round(performance.now() - modelLoadStartTime);
-                  updateMetrics(0, 0, loadLatency);
+                : languageModel.availability()); if (status === 'available' || status.available === 'readily') {
+                  // Model is actually ready
+                  updateProgress(100, 'Download completed (no progress events received)');
+                  modelReady = true;
+                  modelDownloadInProgress = false;
+
+                  // Set the model loading latency
+                  if (modelLoadStartTime && !modelLoadLatencySet) {
+                    const loadLatency = Math.round(performance.now() - modelLoadStartTime);
+                    updateMetrics(0, 0, loadLatency);
+                  }
+
+                  showSuccess('AI model is ready! You can start chatting.');
+                  showProgress(false);
+                } else if (status === 'downloading' || status.available === 'after-download') {
+                  // Still downloading, show estimated progress
+                  updateProgress(50, 'Downloading... (detailed progress not available)');
                 }
-                
-                showSuccess('AI model is ready! You can start chatting.');
-                showProgress(false);
-              } else if (status === 'downloading' || status.available === 'after-download') {
-                // Still downloading, show estimated progress
-                updateProgress(50, 'Downloading... (detailed progress not available)');
-              }
             } catch (e) {
               // Show indeterminate progress since we can't determine status
               updateProgress(25, 'Download in progress...');
@@ -347,13 +347,13 @@ async function createSession() {
               updateProgress(100, `Download complete (${elapsedSeconds}s total)`);
               modelReady = true;
               modelDownloadInProgress = false;
-              
+
               // Set the model loading latency
               if (modelLoadStartTime && !modelLoadLatencySet) {
                 const loadLatency = Math.round(performance.now() - modelLoadStartTime);
                 updateMetrics(0, 0, loadLatency);
               }
-              
+
               showSuccess('AI model is ready! You can start chatting.');
               showProgress(false);
               return; // Stop polling
@@ -378,20 +378,20 @@ async function createSession() {
       sessionConfig.initialPrompts = [
         { role: 'system', content: initialPrompt },
       ];
-    }    session = await languageModel.create(sessionConfig);
+    } session = await languageModel.create(sessionConfig);
 
     // Check status after creating session
     let postStatus = await (languageModel.capabilities
       ? languageModel.capabilities()
-      : languageModel.availability());    document.getElementById('modelDownloadProgress').value = 100;
+      : languageModel.availability()); document.getElementById('modelDownloadProgress').value = 100;
     modelReady = true;
-    
+
     // Set the model loading latency (only once)
     if (modelLoadStartTime && !modelLoadLatencySet) {
       const loadLatency = Math.round(performance.now() - modelLoadStartTime);
       updateMetrics(0, 0, loadLatency);
     }
-    
+
     // Stop monitoring since model is now ready
     stopModelStateMonitoring();
     updateStatus('ready', 'Model Ready', 'success');
@@ -421,9 +421,9 @@ async function checkModelAvailability() {
     let result = await (languageModel.capabilities
       ? languageModel.capabilities()
       : languageModel.availability());
-    
+
     console.log('Initial model availability check:', result);
-    
+
     if (result == 'unavailable' || result.available == 'no') {
       showError(kNoModelError);
     } else if (
@@ -442,7 +442,7 @@ async function checkModelAvailability() {
         updateStatus('downloading', 'Downloading...', 'info');
         monitorOngoingDownload();
       }
-      
+
       // Start monitoring for state changes
       startModelStateMonitoring();
     } else if (result == 'available' || result.available == 'readily') {
@@ -521,15 +521,15 @@ async function startModelStateMonitoring() {
   }
 
   console.log('Starting model state monitoring...');
-  
+
   stateMonitorInterval = setInterval(async () => {
     try {
       const result = await (languageModel.capabilities
         ? languageModel.capabilities()
         : languageModel.availability());
-      
+
       console.log('Model state check:', result);
-      
+
       // Check if model became available
       if (!modelReady && (result == 'available' || result.available == 'readily')) {
         console.log('Model became available! Updating UI...');
@@ -537,7 +537,7 @@ async function startModelStateMonitoring() {
         showSuccess('AI model is ready! You can start chatting.');
         updateStatus('ready', 'Model Ready', 'success');
         showProgress(false); // Hide any progress bars
-        
+
         // Stop monitoring since model is ready
         stopModelStateMonitoring();
       }
@@ -545,8 +545,8 @@ async function startModelStateMonitoring() {
       else if (result == 'downloading') {
         console.log('Model is downloading...');
         updateStatus('downloading', 'Downloading...', 'info');
-        if (!document.getElementById('progressContainer').style.display || 
-            document.getElementById('progressContainer').style.display === 'none') {
+        if (!document.getElementById('progressContainer').style.display ||
+          document.getElementById('progressContainer').style.display === 'none') {
           showProgress(true);
           monitorOngoingDownload();
         }
@@ -557,7 +557,7 @@ async function startModelStateMonitoring() {
         updateStatus('download-needed', 'Ready to download', 'info');
         showSuccess('Model needs to be downloaded. Will require user activation.');
       }
-      
+
     } catch (e) {
       console.error('Error monitoring model state:', e);
       // Don't stop monitoring on error, just log it
@@ -587,10 +587,10 @@ async function onPrompt() {
       : languageModel.availability());
 
     // Only show progress if model actually needs to be downloaded
-    const needsDownload = preStatus == 'downloadable' || 
-                         preStatus == 'downloading' || 
-                         (preStatus.available && preStatus.available == 'after-download');
-                         
+    const needsDownload = preStatus == 'downloadable' ||
+      preStatus == 'downloading' ||
+      (preStatus.available && preStatus.available == 'after-download');
+
     // Create session (this will trigger download if needed and show progress automatically)
     await createSession();
 
@@ -607,7 +607,7 @@ async function onSend() {
     if (!session || !modelReady) {
       await onPrompt();
     }
-    
+
     // Now proceed with sending the message
     const input = textElement.value.trim();
     if (!input) return;
@@ -626,7 +626,7 @@ async function onSend() {
     const aiResponseContent = addMessage('...', false);    // Initialize metrics tracking
     const start = performance.now();
     let fullResponse = '';
-    let chunkCount = 0;    try {
+    let chunkCount = 0; try {
       // Start the stream - this is where the model actually begins processing
       console.log('Starting stream with session:', !!session, 'input length:', input.length);
       const stream = session.promptStreaming(input);
@@ -637,7 +637,7 @@ async function onSend() {
         if (!currentStream) break;
 
         fullResponse += chunk;
-        chunkCount++;        if (chunkCount === 1) {
+        chunkCount++; if (chunkCount === 1) {
           // First chunk - no need to calculate latency here anymore
           // Latency is now set once when model loads
         }
@@ -659,7 +659,8 @@ async function onSend() {
       currentStream = null;
       document.getElementById('stop').style.display = 'none';
       document.getElementById('send').style.display = 'block';
-    }  } catch (e) {
+    }
+  } catch (e) {
     console.error('Send error details:', {
       error: e,
       message: e.message,
@@ -688,7 +689,8 @@ function onStop() {
 
       // Hide stop button and show send button
       document.getElementById('stop').style.display = 'none';
-      document.getElementById('send').style.display = 'block';    } catch (e) {
+      document.getElementById('send').style.display = 'block';
+    } catch (e) {
       console.error('Error stopping stream:', {
         error: e,
         message: e.message,
@@ -703,16 +705,16 @@ window.addEventListener('load', async () => {  // Set up UI components
   setupConfigToggle();
   setupTextareaAutoResize();
   setupSliders();
-  
+
   // Set initial textarea height based on device
   const textarea = document.getElementById('input');
   const isMobile = window.innerWidth <= 768;
   const minHeight = isMobile ? 48 : 44;
   textarea.style.height = minHeight + 'px';
-  
+
   // Start tracking model load time from page load
   modelLoadStartTime = performance.now();
-  
+
   // Check if the Prompt API is available
   if (!('LanguageModel' in window)) {
     showError('Enable Microsoft Edge AI features in edge://flags to use this demo.');

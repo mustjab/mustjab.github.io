@@ -41,20 +41,23 @@ body {
   overflow-x: hidden;
   /* Better mobile viewport handling */
   height: 100vh;
-  height: 100dvh; /* Use dynamic viewport height when supported */
+  height: 100dvh;
+  /* Use dynamic viewport height when supported */
 }
 
 /* App Container */
 .app-container {
   min-height: 100vh;
-  min-height: 100dvh; /* Use dynamic viewport height when supported */
+  min-height: 100dvh;
+  /* Use dynamic viewport height when supported */
   display: flex;
   flex-direction: column;
   /* Ensure proper stacking on mobile */
   width: 100%;
   max-width: 100vw;
   height: 100vh;
-  height: 100dvh; /* Use dynamic viewport height when supported */
+  height: 100dvh;
+  /* Use dynamic viewport height when supported */
 }
 
 /* Header Styles */
@@ -229,25 +232,25 @@ body {
 
 /* Compact Slider Styles */
 .slider-group-compact {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 0;
 }
 
 .slider-item-compact {
-    margin-bottom: 0;
-    padding: 0.25rem 0.5rem;
-    background: #d1d5db;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    transition: all 0.2s ease;
+  margin-bottom: 0;
+  padding: 0.25rem 0.5rem;
+  background: #d1d5db;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
 }
 
 .slider-item-compact:hover {
-    background: #c7d2fe;
-    border-color: var(--primary-color);
-    box-shadow: var(--shadow-sm);
+  background: #c7d2fe;
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
 }
 
 .slider-item-compact label {
@@ -474,7 +477,8 @@ body {
 }
 
 .alert-content {
-  flex: 1;  font-size: 0.875rem;
+  flex: 1;
+  font-size: 0.875rem;
 }
 
 /* Progress Container */
@@ -527,7 +531,8 @@ body {
   min-height: 500px;
   /* Ensure container can shrink on mobile */
   flex: 1;
-  max-height: calc(100vh - 200px); /* Leave space for header and input */
+  max-height: calc(100vh - 200px);
+  /* Leave space for header and input */
 }
 
 .chat-messages {
@@ -628,7 +633,8 @@ body {
 .input-wrapper {
   display: flex;
   gap: 0.75rem;
-  align-items: flex-end; /* Back to flex-end for button alignment */
+  align-items: flex-end;
+  /* Back to flex-end for button alignment */
 }
 
 .input-wrapper textarea {
@@ -644,9 +650,12 @@ body {
   resize: none;
   transition: border-color 0.2s, box-shadow 0.2s;
   background: var(--background);
-  box-sizing: border-box; /* Ensure proper box model */
-  vertical-align: top; /* Prevent baseline alignment issues */
-  overflow-y: auto; /* Ensure scrolling works properly */
+  box-sizing: border-box;
+  /* Ensure proper box model */
+  vertical-align: top;
+  /* Prevent baseline alignment issues */
+  overflow-y: auto;
+  /* Ensure scrolling works properly */
 }
 
 .input-wrapper textarea:focus {
@@ -705,14 +714,14 @@ body {
 
 /* Slider Styles */
 .slider-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0;
 }
 
 .slider-item {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 
 .slider-item:last-child {
@@ -800,7 +809,9 @@ body {
 }
 
 /* Touch-friendly improvements */
-button, textarea, .toggle-btn {
+button,
+textarea,
+.toggle-btn {
   /* Ensure minimum touch target size */
   min-height: 44px;
   touch-action: manipulation;
@@ -829,13 +840,14 @@ textarea {
 
 /* Improve focus states for touch devices */
 @media (hover: none) and (pointer: coarse) {
+
   button:hover,
   .toggle-btn:hover,
   .status-badge:hover {
     transform: none;
     box-shadow: var(--shadow-sm);
   }
-  
+
   button:active,
   .toggle-btn:active {
     transform: scale(0.98);
@@ -844,151 +856,173 @@ textarea {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+
   /* Header adjustments for mobile */
   .app-header {
     padding: 0.75rem 0;
   }
-  
+
   .header-content {
     padding: 0 1rem;
     flex-direction: column;
     gap: 0.75rem;
     align-items: stretch;
   }
-  
+
   .app-icon {
     width: 50px;
     height: 50px;
     font-size: 1.5rem;
     align-self: center;
   }
-  
+
   .header-text {
     text-align: center;
   }
-  
+
   .header-text h1 {
     font-size: 1.25rem;
   }
-  
+
   .header-text p {
     font-size: 0.8rem;
   }
-  
+
   /* Header metrics - stack vertically on very small screens */
   .header-metrics {
     justify-content: center;
     gap: 0.5rem;
     flex-wrap: wrap;
   }
-  
+
   .metric-item {
     min-width: auto;
   }
-  
+
   .metric-value {
     font-size: 0.875rem;
   }
-  
+
   .metric-label {
     font-size: 0.7rem;
   }
-  
+
   /* Status badge */
   .status-badge {
     align-self: center;
     padding: 0.25rem 0.5rem;
     font-size: 0.7rem;
   }
-    /* Main content adjustments */
+
+  /* Main content adjustments */
   .main-content {
     padding: 0.75rem;
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 0; /* Allow shrinking */
+    min-height: 0;
+    /* Allow shrinking */
   }
-  
+
   /* Config panel mobile improvements */
   .config-panel {
     margin-bottom: 1rem;
   }
-  
+
   .config-content {
     padding: 0.75rem;
   }
-  
+
   .input-group textarea {
-    font-size: 16px; /* Prevents zoom on iOS */
+    font-size: 16px;
+    /* Prevents zoom on iOS */
   }
-    /* Slider adjustments */
+
+  /* Slider adjustments */
   .slider-group-compact {
     grid-template-columns: 1fr;
     gap: 0.75rem;
   }
-  
+
   .slider-item-compact {
     padding: 0.5rem 0.75rem;
   }
-  
+
   .slider-item-compact label {
     font-size: 0.8rem;
   }
-    /* Chat container mobile optimization */
+
+  /* Chat container mobile optimization */
   .chat-container {
-    min-height: 300px; /* Use min-height instead of fixed height */
-    max-height: calc(100vh - 300px); /* Adjust for mobile header/config/input */
+    min-height: 300px;
+    /* Use min-height instead of fixed height */
+    max-height: calc(100vh - 300px);
+    /* Adjust for mobile header/config/input */
     margin-bottom: 0.75rem;
   }
-  
+
   .chat-messages {
     padding: 0.75rem;
   }
-  
+
   .message {
     max-width: 85%;
     margin-bottom: 0.75rem;
   }
-  
+
   .message-content {
     padding: 0.75rem 1rem;
     font-size: 0.9rem;
     line-height: 1.5;
   }
-  
+
   .message-avatar {
     width: 32px;
     height: 32px;
     font-size: 0.875rem;
   }
-    /* Input area mobile optimization */
+
+  /* Input area mobile optimization */
   .input-container {
     padding: 0.75rem;
   }
+
   .input-wrapper {
     gap: 0.5rem;
-    align-items: flex-end; /* Keep buttons aligned to bottom */
+    align-items: flex-end;
+    /* Keep buttons aligned to bottom */
   }
-    .input-area {
-    min-height: 44px; /* Touch target size */
-    font-size: 16px; /* Prevents zoom on iOS */
+
+  .input-area {
+    min-height: 44px;
+    /* Touch target size */
+    font-size: 16px;
+    /* Prevents zoom on iOS */
     padding: 0.75rem;
   }
-    /* Mobile textarea specific fixes */
+
+  /* Mobile textarea specific fixes */
   .input-wrapper textarea {
-    min-height: 50px !important; /* Ensure enough space for text */
-    height: 50px !important; /* Fixed initial height */
-    font-size: 16px !important; /* Prevent zoom on iOS */
-    padding: 12px 16px !important; /* More generous padding */
-    line-height: 1.3 !important; /* Tighter line spacing */
+    min-height: 50px !important;
+    /* Ensure enough space for text */
+    height: 50px !important;
+    /* Fixed initial height */
+    font-size: 16px !important;
+    /* Prevent zoom on iOS */
+    padding: 12px 16px !important;
+    /* More generous padding */
+    line-height: 1.3 !important;
+    /* Tighter line spacing */
     border-radius: 8px !important;
     box-sizing: border-box !important;
     vertical-align: top !important;
     /* Ensure text is not cut off */
-    max-height: 100px !important; /* Allow expansion */
-    overflow-y: auto !important; /* Enable scrolling when needed */
+    max-height: 100px !important;
+    /* Allow expansion */
+    overflow-y: auto !important;
+    /* Enable scrolling when needed */
   }
-  
+
   /* Chat input container mobile fixes */
   .chat-input-container {
     padding: 0.75rem;
@@ -998,31 +1032,32 @@ textarea {
     border-top: 1px solid var(--border);
     z-index: 10;
   }
-  
-  .send-button, .stop-button {
+
+  .send-button,
+  .stop-button {
     width: 44px;
     height: 44px;
     min-width: 44px;
     padding: 0;
   }
-  
+
   /* Alert messages mobile */
   .alert {
     margin: 0.75rem;
     padding: 0.75rem;
     font-size: 0.875rem;
   }
-  
+
   /* Progress container mobile */
   .progress-container {
     margin: 0.75rem;
     padding: 0.75rem;
   }
-  
+
   .progress-header h4 {
     font-size: 0.9rem;
   }
-  
+
   .progress-percentage {
     font-size: 0.8rem;
   }
@@ -1033,44 +1068,47 @@ textarea {
   .header-content {
     padding: 0 0.75rem;
   }
-  
+
   .header-metrics {
     gap: 0.25rem;
   }
-  
+
   .metric-item {
     padding: 0.25rem 0.5rem;
   }
-  
+
   .metric-value {
     font-size: 0.8rem;
   }
-  
+
   .metric-label {
     font-size: 0.65rem;
   }
-  
+
   .main-content {
     padding: 0.5rem;
   }
-    .chat-container {
-    min-height: 250px; /* Use min-height instead of fixed height */
-    max-height: calc(100vh - 280px); /* Tighter constraints for very small screens */
+
+  .chat-container {
+    min-height: 250px;
+    /* Use min-height instead of fixed height */
+    max-height: calc(100vh - 280px);
+    /* Tighter constraints for very small screens */
   }
-  
+
   .message {
     max-width: 90%;
   }
-  
+
   .message-content {
     padding: 0.5rem 0.75rem;
     font-size: 0.85rem;
   }
-  
+
   .config-content {
     padding: 0.5rem;
   }
-  
+
   .slider-group-compact {
     gap: 0.5rem;
   }
@@ -1082,11 +1120,11 @@ textarea {
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
   }
-  
+
   .slider-item-compact {
     padding: 0.25rem 0.5rem;
   }
-  
+
   .slider-item-compact label {
     font-size: 0.8rem;
   }
