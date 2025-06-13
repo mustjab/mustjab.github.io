@@ -94,8 +94,21 @@ async function ensureModelReady() {
     result.available == 'after-download'
   ) {
     if (!modelDownloadInProgress) {
-      // Only trigger download in response to user action
-      languageModel.create({ temperature: 1.0, topK: 1 });
+      // Always attach monitor to update progress bar
+      languageModel.create({
+        temperature: 1.0,
+        topK: 1,
+        monitor(m) {
+          m.addEventListener('downloadprogress', (e) => {
+            document.getElementById('modelDownloadProgress').value =
+              (e.loaded / e.total) * 100;
+            if (e.loaded == e.total) {
+              document.getElementById('modelDownloadProgress').value = 100;
+              console.log('Download complete');
+            }
+          });
+        },
+      });
       modelDownloadInProgress = true;
     }
     checkDownload();
