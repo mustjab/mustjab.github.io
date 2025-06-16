@@ -200,11 +200,10 @@ async function createSession() {
     };    // Only add monitor if download is actually needed
     if (needsDownload) {
       sessionConfig.monitor = function (m) {
-        console.log('Monitor function called, setting up progress handlers');
-
-        // Set up progress event handlers
+        console.log('Monitor function called, setting up progress handlers');        // Set up progress event handlers
         let progressShown = false;
-        let progressReceived = false;        // Set the ondownloadprogress handler
+        let progressReceived = false;
+        let validApiDataReceived = false;        // Set the ondownloadprogress handler
         m.ondownloadprogress = function (e) {
           console.log('Download progress event received:', e);
           progressReceived = true;
@@ -222,10 +221,19 @@ async function createSession() {
 
             // Use actual API data for progress display
             const loadedMB = (loaded / 1024 / 1024).toFixed(1);
-            console.log(`Progress: ${loadedMB} MB loaded, total: ${total}, lengthComputable: ${e.lengthComputable}`);
+            console.log(`Progress: ${loadedMB} MB loaded, total: ${total}, lengthComputable: ${e.lengthComputable}`);            // Validate API data - AI models are typically 1GB+ so reject unrealistic values
+            const isValidApiData = total > 100 * 1024 * 1024; // At least 100MB seems reasonable
 
-            if (total > 0 && e.lengthComputable) {
-              // We have accurate total size from the API
+            if (!isValidApiData && total > 0) {
+              console.log(`⚠️ API progress data appears invalid for AI model: total=${total} bytes (${(total / 1024 / 1024).toFixed(2)} MB). Expected >100MB. Using fallback estimation.`);
+            }
+
+            if (total > 0 && e.lengthComputable && isValidApiData) {
+              if (!validApiDataReceived) {
+                console.log('✅ Valid API progress data received, switching from estimation to real data');
+                validApiDataReceived = true;
+              }
+
               const totalMB = (total / 1024 / 1024).toFixed(1);
               const percentage = (loaded / total) * 100;
               updateProgress(percentage, `Downloaded ${loadedMB} MB / ${totalMB} MB`);
@@ -246,11 +254,11 @@ async function createSession() {
                 showProgress(false);
               }
             } else {
-              // Total unknown - show just bytes downloaded without percentage
-              updateProgress(0, `Downloaded ${loadedMB} MB (size unknown)`);
+              // API data is invalid/unrealistic - ignore it and let fallback estimation handle progress
+              console.log(`Ignoring invalid API progress data: total=${total} bytes, loaded=${loaded} bytes`);
             }
           }
-        };        // Show immediate progress and start fallback estimation
+        };// Show immediate progress and start fallback estimation
         if (!progressShown) {
           showProgress(true);
           updateStatus('downloading', 'Downloading...', 'info');
@@ -258,12 +266,10 @@ async function createSession() {
         }
         // Start immediate progress display and fallback estimation
         let downloadStartTime = Date.now();
-        updateProgress(0, 'Starting download...');
-
-        const startFallbackEstimation = () => {
+        updateProgress(0, 'Starting download...'); const startFallbackEstimation = () => {
           let estimationStartTime = Date.now();
           const updateEstimatedProgress = () => {
-            if (!modelReady && !progressReceived) {
+            if (!modelReady && !validApiDataReceived) {
               const elapsedSeconds = Math.floor((Date.now() - estimationStartTime) / 1000);
               const estimatedSpeedMBps = 2; // Conservative estimate: 2 MB/s
               const estimatedMBDownloaded = elapsedSeconds * estimatedSpeedMBps;
@@ -272,20 +278,20 @@ async function createSession() {
 
               updateProgress(estimatedProgress, `Downloaded ~${estimatedMBDownloaded.toFixed(1)} MB / ~${modelSizeMB} MB (estimated)`);
 
-              // Continue updating every 2 seconds
+              // Continue updating every 2 seconds  
               setTimeout(updateEstimatedProgress, 2000);
             }
           };
           updateEstimatedProgress();
         };
 
-        // Start estimation quickly to provide immediate user feedback
+        // Start fallback estimation immediately since API often provides invalid data
         setTimeout(() => {
-          if (!progressReceived) {
-            console.log('No progress events received from API, starting fallback estimation');
+          if (!validApiDataReceived) {
+            console.log('No valid progress data from API, starting fallback estimation');
             startFallbackEstimation();
           }
-        }, 200); // Start estimation very quickly for immediate feedback
+        }, 500); // Brief delay to check for valid API data first
       };
     }
 
@@ -310,9 +316,7 @@ async function createSession() {
       if (modelLoadStartTime && !modelLoadLatencySet) {
         const loadLatency = Math.round(performance.now() - modelLoadStartTime);
         updateMetrics(0, 0, loadLatency);
-      }
-
-      updateStatus('ready', 'Model Ready', 'success');
+      } updateStatus('ready', 'Model Ready', 'success');
       showSuccess('AI model is ready! You can start chatting.');
       showProgress(false);
     }
