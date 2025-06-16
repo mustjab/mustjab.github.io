@@ -72,6 +72,11 @@ function showProgress(show = true) {
   progressContainer.style.display = show ? 'block' : 'none';
 }
 
+function showDownloadPrompt(show = true) {
+  const downloadPrompt = document.getElementById('downloadPrompt');
+  downloadPrompt.style.display = show ? 'block' : 'none';
+}
+
 function updateProgress(percentage, message = '', speed = '') {
   const progressBar = document.getElementById('modelDownloadProgress');
   const progressPercentage = document.getElementById('progressPercentage');
@@ -79,7 +84,8 @@ function updateProgress(percentage, message = '', speed = '') {
   const downloadSpeed = document.getElementById('downloadSpeed');
 
   progressBar.value = percentage;
-  progressPercentage.textContent = `${Math.round(percentage)}%`;
+  // Hide percentage display - we only want to show bytes downloaded/total bytes
+  progressPercentage.style.display = 'none';
 
   if (message) downloadBytes.textContent = message;
   if (speed) downloadSpeed.textContent = speed;
@@ -177,7 +183,9 @@ async function createSession() {
     // Check status before creating session
     let preStatus = await (languageModel.capabilities
       ? languageModel.capabilities()
-      : languageModel.availability());    // Get current slider values
+      : languageModel.availability());
+
+    // Get current slider values
     const sliderValues = getSliderValues();
 
     // Only include monitor if download might be needed
@@ -189,42 +197,41 @@ async function createSession() {
       temperature: sliderValues.temperature,
       topK: sliderValues.topK,
       maxTokens: 4096
-    };
-
-    // Only add monitor if download is actually needed
+    };    // Only add monitor if download is actually needed
     if (needsDownload) {
       sessionConfig.monitor = function (m) {
-        // Don't show progress immediately - wait for download events
+        console.log('Monitor function called, setting up progress handlers');
 
         // Set up progress event handlers
-        let progressReceived = false;
         let progressShown = false;
-
-        // Set the ondownloadprogress handler
+        let progressReceived = false;        // Set the ondownloadprogress handler
         m.ondownloadprogress = function (e) {
+          console.log('Download progress event received:', e);
+          progressReceived = true;
+
           if (!progressShown) {
             // Only show progress when we actually start downloading
             showProgress(true);
             updateStatus('downloading', 'Downloading...', 'info');
             progressShown = true;
           }
-          progressReceived = true;
 
-          if (e) {
-            const loaded = e.loaded || 0;
-            const total = e.total || 100;// Check if this is abstract progress (total=1) vs actual bytes
-            if (total === 1) {
-              // Abstract progress
-              const percentage = (loaded * 100);
-              updateProgress(percentage, `Downloading AI model... ${Math.round(percentage)}%`);
-            } else {
-              // Actual byte progress
-              const percentage = (loaded / total) * 100;
-              const loadedMB = (loaded / 1024 / 1024).toFixed(1);
+          if (e && e.loaded !== undefined) {
+            const loaded = e.loaded;
+            const total = e.total || 0;
+
+            // Use actual API data for progress display
+            const loadedMB = (loaded / 1024 / 1024).toFixed(1);
+            console.log(`Progress: ${loadedMB} MB loaded, total: ${total}, lengthComputable: ${e.lengthComputable}`);
+
+            if (total > 0 && e.lengthComputable) {
+              // We have accurate total size from the API
               const totalMB = (total / 1024 / 1024).toFixed(1);
+              const percentage = (loaded / total) * 100;
+              updateProgress(percentage, `Downloaded ${loadedMB} MB / ${totalMB} MB`);
 
-              updateProgress(percentage, `Downloaded ${loadedMB} MB / ${totalMB} MB`);              // Only mark complete if we have substantial byte progress
-              if (loaded >= total && total > 1000) {
+              // Mark complete when API indicates completion
+              if (loaded >= total) {
                 updateProgress(100, `Download complete: ${totalMB} MB`);
                 modelReady = true;
                 modelDownloadInProgress = false;
@@ -238,139 +245,47 @@ async function createSession() {
                 showSuccess('AI model is ready! You can start chatting.');
                 showProgress(false);
               }
-            }
-          }
-        };        // Keep the addEventListener as backup
-        m.addEventListener('downloadprogress', (e) => {
-          if (!progressShown) {
-            // Only show progress when we actually start downloading
-            showProgress(true);
-            updateStatus('downloading', 'Downloading...', 'info');
-            progressShown = true;
-          }
-          progressReceived = true;
-
-          const loaded = e.loaded || 0;
-          const total = e.total || 100;
-
-          // Check if this is abstract progress (total=1) vs actual bytes
-          if (total === 1) {
-            // Abstract progress
-            const percentage = (loaded * 100);
-            updateProgress(percentage, `Downloading AI model... ${Math.round(percentage)}%`);
-          } else {
-            // Actual byte progress
-            if (e.lengthComputable !== undefined && !e.lengthComputable) {
-              updateProgress(50, `Downloading... (size unknown)`);
             } else {
-              const percentage = (loaded / total) * 100;
-              const loadedMB = (loaded / 1024 / 1024).toFixed(1);
-              const totalMB = (total / 1024 / 1024).toFixed(1);
-
-              updateProgress(percentage, `Downloaded ${loadedMB} MB / ${totalMB} MB`);
-            }            // Only mark complete if we have substantial byte progress
-            if (loaded >= total && total > 1000) {
-              updateProgress(100, `Download complete`);
-              modelReady = true;
-              modelDownloadInProgress = false;
-
-              // Set the model loading latency when download completes
-              if (modelLoadStartTime && !modelLoadLatencySet) {
-                const loadLatency = Math.round(performance.now() - modelLoadStartTime);
-                updateMetrics(0, 0, loadLatency);
-              }
-
-              showSuccess('AI model is ready! You can start chatting.');
-              showProgress(false);
+              // Total unknown - show just bytes downloaded without percentage
+              updateProgress(0, `Downloaded ${loadedMB} MB (size unknown)`);
             }
           }
-        });
-        // Set up timeout to check if progress events are received
-        setTimeout(async () => {
-          if (!progressReceived) {
-            try {
-              // Check actual status before assuming download is complete
-              let status = await (languageModel.capabilities
-                ? languageModel.capabilities()
-                : languageModel.availability()); if (status === 'available' || status.available === 'readily') {
-                  // Model is actually ready
-                  updateProgress(100, 'Download completed (no progress events received)');
-                  modelReady = true;
-                  modelDownloadInProgress = false;
-
-                  // Set the model loading latency
-                  if (modelLoadStartTime && !modelLoadLatencySet) {
-                    const loadLatency = Math.round(performance.now() - modelLoadStartTime);
-                    updateMetrics(0, 0, loadLatency);
-                  }
-
-                  showSuccess('AI model is ready! You can start chatting.');
-                  showProgress(false);
-                } else if (status === 'downloading' || status.available === 'after-download') {
-                  // Still downloading, show estimated progress
-                  updateProgress(50, 'Downloading... (detailed progress not available)');
-                }
-            } catch (e) {
-              // Show indeterminate progress since we can't determine status
-              updateProgress(25, 'Download in progress...');
-            }
-          }
-        }, 3000);
-        // Enhanced polling with time-based feedback
+        };        // Show immediate progress and start fallback estimation
+        if (!progressShown) {
+          showProgress(true);
+          updateStatus('downloading', 'Downloading...', 'info');
+          progressShown = true;
+        }
+        // Start immediate progress display and fallback estimation
         let downloadStartTime = Date.now();
-        const pollLanguageModelForProgress = async () => {
-          try {
-            const status = await (languageModel.capabilities
-              ? languageModel.capabilities()
-              : languageModel.availability());
+        updateProgress(0, 'Starting download...');
 
-            const elapsedSeconds = Math.floor((Date.now() - downloadStartTime) / 1000);
+        const startFallbackEstimation = () => {
+          let estimationStartTime = Date.now();
+          const updateEstimatedProgress = () => {
+            if (!modelReady && !progressReceived) {
+              const elapsedSeconds = Math.floor((Date.now() - estimationStartTime) / 1000);
+              const estimatedSpeedMBps = 2; // Conservative estimate: 2 MB/s
+              const estimatedMBDownloaded = elapsedSeconds * estimatedSpeedMBps;
+              const modelSizeMB = 3000; // Approximate model size
+              const estimatedProgress = Math.min((estimatedMBDownloaded / modelSizeMB) * 100, 95);
 
-            // Update the progress message with elapsed time and estimated progress
-            if (status === 'downloading' || status.available === 'after-download') {
-              // Estimate progress based on time
-              const modelSizeGB = 3;
-              const modelSizeMB = modelSizeGB * 1024;
+              updateProgress(estimatedProgress, `Downloaded ~${estimatedMBDownloaded.toFixed(1)} MB / ~${modelSizeMB} MB (estimated)`);
 
-              // Conservative estimate: assume 3 MB/s average speed
-              const estimatedSpeedMBps = 3;
-              const estimatedTotalSeconds = modelSizeMB / estimatedSpeedMBps;
-
-              // Calculate estimated progress percentage
-              const estimatedProgress = Math.min((elapsedSeconds / estimatedTotalSeconds) * 100, 95);
-              const estimatedMBDownloaded = Math.min(elapsedSeconds * estimatedSpeedMBps, modelSizeMB);
-
-              // Update progress with estimated progress
-              updateProgress(estimatedProgress, `Downloading... ~${Math.round(estimatedMBDownloaded)}MB / ${modelSizeMB}MB (~${Math.round(estimatedProgress)}%) - ${elapsedSeconds}s elapsed`);
-            }            // Check if download is complete
-            if (status === 'available' || status.available === 'readily') {
-              updateProgress(100, `Download complete (${elapsedSeconds}s total)`);
-              modelReady = true;
-              modelDownloadInProgress = false;
-
-              // Set the model loading latency
-              if (modelLoadStartTime && !modelLoadLatencySet) {
-                const loadLatency = Math.round(performance.now() - modelLoadStartTime);
-                updateMetrics(0, 0, loadLatency);
-              }
-
-              showSuccess('AI model is ready! You can start chatting.');
-              showProgress(false);
-              return; // Stop polling
+              // Continue updating every 2 seconds
+              setTimeout(updateEstimatedProgress, 2000);
             }
+          };
+          updateEstimatedProgress();
+        };
 
-            // Continue polling if still downloading
-            if (!modelReady && (status === 'downloading' || status.available === 'after-download')) {
-              setTimeout(pollLanguageModelForProgress, 2000); // Poll every 2 seconds
-            }
-          } catch (e) {
-            // Continue polling even on error, in case it's temporary
-            if (!modelReady) {
-              setTimeout(pollLanguageModelForProgress, 3000);
-            }
+        // Start estimation quickly to provide immediate user feedback
+        setTimeout(() => {
+          if (!progressReceived) {
+            console.log('No progress events received from API, starting fallback estimation');
+            startFallbackEstimation();
           }
-        };        // Start polling language model status
-        setTimeout(pollLanguageModelForProgress, 500);
+        }, 200); // Start estimation very quickly for immediate feedback
       };
     }
 
@@ -378,25 +293,30 @@ async function createSession() {
       sessionConfig.initialPrompts = [
         { role: 'system', content: initialPrompt },
       ];
-    } session = await languageModel.create(sessionConfig);
+    }
+
+    session = await languageModel.create(sessionConfig);
 
     // Check status after creating session
     let postStatus = await (languageModel.capabilities
       ? languageModel.capabilities()
-      : languageModel.availability()); document.getElementById('modelDownloadProgress').value = 100;
-    modelReady = true;
+      : languageModel.availability());
 
-    // Set the model loading latency (only once)
-    if (modelLoadStartTime && !modelLoadLatencySet) {
-      const loadLatency = Math.round(performance.now() - modelLoadStartTime);
-      updateMetrics(0, 0, loadLatency);
+    if (postStatus === 'available' || postStatus.available === 'readily') {
+      // Model is ready
+      modelReady = true;
+
+      // Set the model loading latency (only once)
+      if (modelLoadStartTime && !modelLoadLatencySet) {
+        const loadLatency = Math.round(performance.now() - modelLoadStartTime);
+        updateMetrics(0, 0, loadLatency);
+      }
+
+      updateStatus('ready', 'Model Ready', 'success');
+      showSuccess('AI model is ready! You can start chatting.');
+      showProgress(false);
     }
 
-    // Stop monitoring since model is now ready
-    stopModelStateMonitoring();
-    updateStatus('ready', 'Model Ready', 'success');
-    showSuccess('AI model is ready! You can start chatting.');
-    showProgress(false);
   } catch (e) {
     // Re-throw with more context if this is a user activation error
     if (e.message && (e.message.includes('user activation') || e.message.includes('user gesture'))) {
@@ -431,16 +351,20 @@ async function checkModelAvailability() {
       result == 'downloading' ||
       result.available == 'after-download'
     ) {
-      // Update UI to indicate download will be needed
-      updateStatus('download-needed', 'Ready to download', 'info');
-      showSuccess('Model needs to be downloaded. Will require user activation.');
-
       if (result == 'downloading') {
         // Download already in progress from another session
         // Show progress bar immediately
+        console.log('Model is already downloading - showing progress immediately');
+        showDownloadPrompt(false);
         showProgress(true);
         updateStatus('downloading', 'Downloading...', 'info');
+        updateProgress(0, 'Download in progress...');
         monitorOngoingDownload();
+      } else {
+        // Model needs to be downloaded - show download prompt
+        showDownloadPrompt(true);
+        updateStatus('download-needed', 'Download required', 'info');
+        console.log('Model needs download - showing download prompt');
       }
 
       // Start monitoring for state changes
@@ -458,57 +382,9 @@ async function checkModelAvailability() {
 
 // Monitor download progress when download was started by another page/session
 async function monitorOngoingDownload() {
-  // Show initial state
-  showProgress(true);
+  // Just show initial downloading state - let the session monitor handle actual progress
   updateProgress(0, 'Download in progress...');
-
-  // Set up polling as a fallback if no progress events come through
-  setTimeout(() => {
-    if (!modelReady) {
-      startPolling();
-    }
-  }, 5000); // Give the monitor 5 seconds to work before falling back to polling
-
-  function startPolling() {
-    let pollCount = 0;
-
-    const checkProgress = async () => {
-      try {
-        let status = await (languageModel.capabilities
-          ? languageModel.capabilities()
-          : languageModel.availability());
-        pollCount++;
-
-        // For downloads in progress, show estimated progress
-        if (status == 'downloading' || status.available == 'after-download') {
-          // Show estimated progress based on time
-          const elapsedSeconds = pollCount * 2; // 2 seconds per poll
-          const modelSizeGB = 3;
-          const modelSizeMB = modelSizeGB * 1024;
-          const estimatedSpeedMBps = 3;
-          const estimatedProgress = Math.min((elapsedSeconds * estimatedSpeedMBps / modelSizeMB) * 100, 95);
-
-          updateProgress(estimatedProgress, `Downloading... ~${Math.round(estimatedProgress)}% (${elapsedSeconds}s elapsed)`);
-
-          // Continue polling
-          setTimeout(checkProgress, 2000); // Poll every 2 seconds
-        } else if (status == 'available' || status.available == 'readily') {
-          updateProgress(100, 'Download complete');
-          modelReady = true;
-          modelDownloadInProgress = false;
-          showSuccess('AI model is ready! You can start chatting.');
-          showProgress(false);
-        } else {
-          updateProgress(50, `Download status: ${status}`);
-          setTimeout(checkProgress, 2000);
-        }
-      } catch (e) {
-        downloadProgressLabel.innerText = ` Download error: ${e.message}`;
-      }
-    };
-
-    checkProgress();
-  }
+  console.log('Monitoring ongoing download - delegating to session monitor for progress tracking');
 }
 
 // Continuously monitor model state changes
@@ -528,34 +404,49 @@ async function startModelStateMonitoring() {
         ? languageModel.capabilities()
         : languageModel.availability());
 
-      console.log('Model state check:', result);
-
-      // Check if model became available
+      console.log('Model state check:', result);      // Check if model became available
       if (!modelReady && (result == 'available' || result.available == 'readily')) {
         console.log('Model became available! Updating UI...');
         modelReady = true;
         showSuccess('AI model is ready! You can start chatting.');
         updateStatus('ready', 'Model Ready', 'success');
         showProgress(false); // Hide any progress bars
+        showDownloadPrompt(false); // Hide download prompt
+
+        // Clear download start time since download is complete
+        localStorage.removeItem('modelDownloadStartTime');
 
         // Stop monitoring since model is ready
         stopModelStateMonitoring();
-      }
-      // Check if model started downloading
+      }// Check if model started downloading
       else if (result == 'downloading') {
         console.log('Model is downloading...');
         updateStatus('downloading', 'Downloading...', 'info');
-        if (!document.getElementById('progressContainer').style.display ||
-          document.getElementById('progressContainer').style.display === 'none') {
+
+        // Store download start time if not already stored
+        if (!localStorage.getItem('modelDownloadStartTime')) {
+          localStorage.setItem('modelDownloadStartTime', Date.now().toString());
+          console.log('Stored download start time for ongoing download tracking');
+        }
+
+        // Hide download prompt and show progress
+        showDownloadPrompt(false);
+
+        // Always show progress when downloading state is detected
+        const progressContainer = document.getElementById('progressContainer');
+        if (progressContainer.style.display === 'none' || !progressContainer.style.display) {
+          console.log('Showing progress container for downloading state');
           showProgress(true);
+          updateProgress(0, 'Download in progress...');
           monitorOngoingDownload();
         }
       }
       // Check if model needs download
       else if (result == 'downloadable' || result.available == 'after-download') {
         console.log('Model needs download...');
-        updateStatus('download-needed', 'Ready to download', 'info');
-        showSuccess('Model needs to be downloaded. Will require user activation.');
+        updateStatus('download-needed', 'Download required', 'info');
+        showDownloadPrompt(true);
+        showProgress(false);
       }
 
     } catch (e) {
@@ -731,11 +622,25 @@ window.addEventListener('load', async () => {  // Set up UI components
     if (modelReady) {
       console.log('Model is ready!');
       showSuccess('AI model is ready! You can start chatting.');
-    }
-
-    // Set up event listeners for buttons
+    }    // Set up event listeners for buttons
     document.getElementById('send').addEventListener('click', onSend);
-    document.getElementById('stop').addEventListener('click', onStop);
+    document.getElementById('stop').addEventListener('click', onStop); document.getElementById('downloadBtn').addEventListener('click', async () => {
+      console.log('Download button clicked - attempting to start download');
+      try {
+        // Show immediate feedback
+        showDownloadPrompt(false);
+        showProgress(true);
+        updateProgress(0, 'Preparing download...');
+        updateStatus('downloading', 'Starting download...', 'info');
+
+        await onPrompt(); // This will trigger the download with user activation
+      } catch (e) {
+        console.error('Error starting download:', e);
+        showError('Failed to start download: ' + e.message);
+        showDownloadPrompt(true); // Show prompt again on error
+        showProgress(false); // Hide progress on error
+      }
+    });
 
     // Add Enter key support for input textarea
     document.getElementById('input').addEventListener('keydown', (e) => {

@@ -484,10 +484,10 @@ body {
 /* Progress Container */
 .progress-container {
   background: var(--background);
-  border-radius: var(--radius);
   border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 1.5rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   box-shadow: var(--shadow-sm);
 }
 
@@ -1130,8 +1130,83 @@ textarea {
   }
 }
 
-/* Responsive layout */
+/* Download Prompt */
+.download-prompt {
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow-md);
+  color: white;
+}
 
+.download-prompt-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.download-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.download-text {
+  flex: 1;
+}
+
+.download-text h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.download-text p {
+  margin: 0;
+  font-size: 0.875rem;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+.download-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  color: white;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.download-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.download-btn:active {
+  transform: translateY(0);
+}
+
+/* Mobile responsive download prompt */
+@media (max-width: 768px) {
+  .download-prompt-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+
+  .download-btn {
+    align-self: stretch;
+    justify-content: center;
+  }
+}
 
 /* Legacy compatibility for existing JavaScript */
 .imessage {
