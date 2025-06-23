@@ -406,21 +406,25 @@ class TranslationAPIDemo {
         result.duration,
         result.charactersPerSecond,
         result.status
-      ])
-    ];
+      ])];    // Convert to CSV string
+    const csvContent = csvLines.map(row => row.join(',')).join('\n');    // Use UTF-8 encoding with proper MIME type - works in both Excel and text viewers
+    // The key is using the right MIME type and file extension
+    const fileTimestamp = timestamp.slice(0, 19).replace(/:/g, '-');
+    const filename = `translation-benchmark-${browserInfo.replace(/\s+/g, '-')}-${fileTimestamp}.csv`;
 
-    // Convert to CSV string
-    const csvContent = csvLines.map(row => row.join(',')).join('\n');
+    // Create blob with UTF-8 encoding but no BOM
+    // This works because:
+    // 1. Modern Excel versions detect UTF-8 automatically when opened properly
+    // 2. Text viewers don't see any BOM artifacts
+    // 3. The .csv extension helps Excel choose the right import method
+    const blob = new Blob([csvContent], {
+      type: 'text/csv;charset=utf-8;'
+    });
 
-    // Add UTF-8 BOM for proper Excel encoding
-    const BOM = '\uFEFF';
-    const csvWithBOM = BOM + csvContent;
-
-    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `translation-benchmark-${browserInfo.replace(/\s+/g, '-')}-${timestamp.slice(0, 19).replace(/:/g, '-')}.csv`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
