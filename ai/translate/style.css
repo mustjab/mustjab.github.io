@@ -518,6 +518,128 @@ footer a {
   text-decoration: underline;
 }
 
+/* Searchable Select Styles */
+.searchable-select-container {
+  position: relative;
+}
+
+.searchable-select-input {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #e1e5e9;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: white;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+  font-family: inherit;
+}
+
+.searchable-select-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  cursor: text;
+}
+
+.searchable-select-input.has-value {
+  color: #333;
+  font-weight: 500;
+}
+
+.searchable-select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 2px solid #667eea;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.searchable-select-option {
+  padding: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.searchable-select-option:hover {
+  background-color: #f8f9fa;
+}
+
+.searchable-select-option.highlighted {
+  background-color: #667eea;
+  color: white;
+}
+
+.searchable-select-option.selected {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  font-weight: 600;
+}
+
+.searchable-select-option:last-child {
+  border-bottom: none;
+}
+
+.searchable-select-option .language-code {
+  color: #666;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.searchable-select-option.highlighted .language-code {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.searchable-select-no-results {
+  padding: 12px;
+  color: #666;
+  font-style: italic;
+  text-align: center;
+}
+
+/* Dropdown scroll styling */
+.searchable-select-dropdown::-webkit-scrollbar {
+  width: 8px;
+}
+
+.searchable-select-dropdown::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.searchable-select-dropdown::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.searchable-select-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Language category headers in dropdown */
+.searchable-select-category {
+  padding: 8px 12px;
+  background-color: #f8f9fa;
+  font-weight: 600;
+  font-size: 12px;
+  color: #667eea;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e9ecef;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .container {
@@ -630,4 +752,20 @@ footer a {
 
 .mt-3 {
   margin-top: 30px;
+}
+
+/* Language swap button */
+.swap-button {
+  margin-top: 25px;
+  height: 40px;
+  width: 50px;
+  font-size: 16px;
+  font-weight: bold;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
 }

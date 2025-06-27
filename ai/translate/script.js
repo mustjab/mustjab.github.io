@@ -26,9 +26,35 @@ class TranslationAPIDemo {
 
     this.init();
   } async init() {
+    this.setupLanguageSelectors();
     this.setupEventListeners();
     this.calculateBenchmarkStats();
     await this.checkAPIAvailability();
+  }
+
+  setupLanguageSelectors() {
+    // Create language list from LANGUAGE_NAMES
+    const languages = Object.entries(LANGUAGE_NAMES).map(([code, name]) => ({
+      code,
+      name
+    })).sort((a, b) => a.name.localeCompare(b.name));
+
+    // Initialize searchable language selectors
+    this.sourceLanguageSelect = new SearchableLanguageSelect(
+      'sourceLanguageSearch',
+      'sourceLanguageDropdown',
+      'sourceLanguage',
+      languages,
+      'en'
+    );
+
+    this.targetLanguageSelect = new SearchableLanguageSelect(
+      'targetLanguageSearch',
+      'targetLanguageDropdown',
+      'targetLanguage',
+      languages,
+      'zh-CN'
+    );
   } setupEventListeners() {
     // Translator Initialization
     document.getElementById('initializeTranslator').addEventListener('click', () => this.initializeTranslator());
@@ -473,41 +499,602 @@ class TranslationAPIDemo {
   }
 }
 
-// Language mappings for display
+// Searchable Language Select Component
+class SearchableLanguageSelect {
+  constructor(inputId, dropdownId, hiddenInputId, languages, defaultValue = '') {
+    this.input = document.getElementById(inputId);
+    this.dropdown = document.getElementById(dropdownId);
+    this.hiddenInput = document.getElementById(hiddenInputId);
+    this.languages = languages;
+    this.filteredLanguages = [...languages];
+    this.selectedIndex = -1;
+    this.isOpen = false;
+
+    this.init();
+    if (defaultValue) {
+      this.setValue(defaultValue);
+    }
+  }
+
+  init() {
+    // Event listeners
+    this.input.addEventListener('input', (e) => this.handleInput(e));
+    this.input.addEventListener('focus', (e) => this.handleFocus(e));
+    this.input.addEventListener('blur', (e) => this.handleBlur(e));
+    this.input.addEventListener('keydown', (e) => this.handleKeydown(e));
+
+    // Click outside to close
+    document.addEventListener('click', (e) => {
+      if (!this.input.contains(e.target) && !this.dropdown.contains(e.target)) {
+        this.close();
+      }
+    });
+
+    this.renderOptions();
+  }
+
+  handleInput(e) {
+    const query = e.target.value.toLowerCase();
+    this.filteredLanguages = this.languages.filter(lang =>
+      lang.name.toLowerCase().includes(query) ||
+      lang.code.toLowerCase().includes(query)
+    );
+    this.selectedIndex = -1;
+    this.renderOptions();
+    this.open();
+  }
+
+  handleFocus(e) {
+    this.open();
+    e.target.select();
+  }
+
+  handleBlur(e) {
+    // Delay to allow for option clicks
+    setTimeout(() => {
+      if (!this.dropdown.matches(':hover')) {
+        this.close();
+      }
+    }, 150);
+  }
+
+  handleKeydown(e) {
+    if (!this.isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        e.preventDefault();
+        this.open();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        this.selectedIndex = Math.min(this.selectedIndex + 1, this.filteredLanguages.length - 1);
+        this.updateHighlight();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        this.selectedIndex = Math.max(this.selectedIndex - 1, -1);
+        this.updateHighlight();
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (this.selectedIndex >= 0) {
+          this.selectLanguage(this.filteredLanguages[this.selectedIndex]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        this.close();
+        break;
+    }
+  }
+
+  open() {
+    this.isOpen = true;
+    this.dropdown.style.display = 'block';
+    this.renderOptions();
+  }
+
+  close() {
+    this.isOpen = false;
+    this.dropdown.style.display = 'none';
+    this.selectedIndex = -1;
+  }
+
+  renderOptions() {
+    const fragment = document.createDocumentFragment();
+
+    if (this.filteredLanguages.length === 0) {
+      const noResults = document.createElement('div');
+      noResults.className = 'searchable-select-no-results';
+      noResults.textContent = 'No languages found';
+      fragment.appendChild(noResults);
+    } else {
+      // Group languages by category for better UX
+      const categories = this.groupLanguagesByCategory(this.filteredLanguages);
+
+      Object.entries(categories).forEach(([category, langs]) => {
+        if (langs.length === 0) return;
+
+        // Add category header if we have multiple categories
+        if (Object.keys(categories).length > 1) {
+          const categoryHeader = document.createElement('div');
+          categoryHeader.className = 'searchable-select-category';
+          categoryHeader.textContent = category;
+          fragment.appendChild(categoryHeader);
+        }
+
+        langs.forEach((language, index) => {
+          const option = document.createElement('div');
+          option.className = 'searchable-select-option';
+          // Store the filtered index as a data attribute
+          option.setAttribute('data-filtered-index', this.filteredLanguages.indexOf(language).toString());
+          option.innerHTML = `
+            ${language.name}
+            <span class="language-code">${language.code}</span>
+          `;
+
+          option.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // Prevent blur
+            this.selectLanguage(language);
+          });
+
+          option.addEventListener('mouseenter', () => {
+            this.selectedIndex = this.filteredLanguages.indexOf(language);
+            this.updateHighlight();
+          });
+
+          fragment.appendChild(option);
+        });
+      });
+    }
+
+    this.dropdown.innerHTML = '';
+    this.dropdown.appendChild(fragment);
+    this.updateHighlight();
+  }
+
+  groupLanguagesByCategory(languages) {
+    const categories = {
+      'Popular': [],
+      'African': [],
+      'Asian': [],
+      'European': [],
+      'Middle Eastern': [],
+      'South Asian': [],
+      'Southeast Asian': [],
+      'Other': []
+    };
+
+    const popularCodes = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'zh-CN', 'ja', 'ko', 'ar', 'hi'];
+    const africanCodes = ['af', 'am', 'ha', 'ig', 'lg', 'ln', 'mg', 'nso', 'ny', 'rw', 'sn', 'so', 'st', 'sw', 'ti', 'tn', 'xh', 'yo', 'zu'];
+    const asianCodes = ['zh-CN', 'zh-TW', 'ja', 'ko', 'mn'];
+    const europeanCodes = ['es', 'fr', 'it', 'pt', 'de', 'ru', 'uk', 'pl', 'cs', 'sk', 'hr', 'sr', 'bs', 'sl', 'bg', 'mk', 'el', 'tr', 'nl', 'da', 'sv', 'no', 'fi', 'et', 'lv', 'lt', 'hu', 'ro', 'mt', 'is', 'ga', 'cy', 'eu', 'ca', 'gl', 'sq', 'hy', 'ka', 'be', 'lb'];
+    const middleEasternCodes = ['ar', 'fa', 'he', 'ur', 'ps', 'ku', 'ckb', 'ug', 'sd'];
+    const southAsianCodes = ['hi', 'bn', 'ta', 'te', 'kn', 'ml', 'mr', 'gu', 'pa', 'or', 'as', 'ne', 'si', 'dv', 'sa', 'bho', 'mai', 'gom', 'mni-Mtei', 'doi', 'lus'];
+    const southeastAsianCodes = ['vi', 'th', 'km', 'lo', 'my', 'id', 'ms', 'tl', 'jv', 'su', 'ceb'];
+
+    languages.forEach(lang => {
+      if (popularCodes.includes(lang.code)) {
+        categories['Popular'].push(lang);
+      } else if (africanCodes.includes(lang.code)) {
+        categories['African'].push(lang);
+      } else if (asianCodes.includes(lang.code)) {
+        categories['Asian'].push(lang);
+      } else if (europeanCodes.includes(lang.code)) {
+        categories['European'].push(lang);
+      } else if (middleEasternCodes.includes(lang.code)) {
+        categories['Middle Eastern'].push(lang);
+      } else if (southAsianCodes.includes(lang.code)) {
+        categories['South Asian'].push(lang);
+      } else if (southeastAsianCodes.includes(lang.code)) {
+        categories['Southeast Asian'].push(lang);
+      } else {
+        categories['Other'].push(lang);
+      }
+    });
+
+    // Remove empty categories
+    Object.keys(categories).forEach(key => {
+      if (categories[key].length === 0) {
+        delete categories[key];
+      }
+    });
+
+    return categories;
+  }
+
+  updateHighlight() {
+    const options = this.dropdown.querySelectorAll('.searchable-select-option');
+    options.forEach((option) => {
+      const optionIndex = parseInt(option.getAttribute('data-filtered-index'), 10);
+      option.classList.toggle('highlighted', optionIndex === this.selectedIndex);
+    });
+
+    // Scroll highlighted option into view
+    if (this.selectedIndex >= 0) {
+      const highlightedOption = this.dropdown.querySelector(`.searchable-select-option[data-filtered-index="${this.selectedIndex}"]`);
+      if (highlightedOption) {
+        highlightedOption.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }
+
+  selectLanguage(language) {
+    this.setValue(language.code);
+    this.close();
+
+    // Trigger change event
+    const event = new Event('change', { bubbles: true });
+    this.hiddenInput.dispatchEvent(event);
+  }
+
+  setValue(code) {
+    const language = this.languages.find(lang => lang.code === code);
+    if (language) {
+      this.input.value = language.name;
+      this.input.classList.add('has-value');
+      this.hiddenInput.value = code;
+    }
+  }
+
+  getValue() {
+    return this.hiddenInput.value;
+  }
+}
+
+// Language mappings for display - based on Chrome Translation API
+// Using correct Chrome API language codes from https://translate.googleapis.com/translate_a/l
 const LANGUAGE_NAMES = {
+  // Core languages
   'en': 'English',
-  'zh': 'Chinese (Simplified)',
-  'zh-Hant': 'Chinese (Traditional)',
+  'zh-CN': 'Chinese (Simplified)',
+  'zh-TW': 'Chinese (Traditional)',
   'ja': 'Japanese',
-  'pt': 'Portuguese',
-  'ru': 'Russian',
+  'ko': 'Korean',
+  'yue': 'Cantonese (Traditional)', // Note: May not be in Chrome API
+
+  // European languages
   'es': 'Spanish',
+  'fr': 'French',
+  'it': 'Italian',
+  'pt': 'Portuguese (Brazil)',
+  'de': 'German',
+  'ru': 'Russian',
+  'uk': 'Ukrainian',
+  'pl': 'Polish',
+  'cs': 'Czech',
+  'sk': 'Slovak',
+  'hr': 'Croatian',
+  'sr': 'Serbian',
+  'bs': 'Bosnian',
+  'sl': 'Slovenian',
+  'bg': 'Bulgarian',
+  'mk': 'Macedonian',
+  'el': 'Greek',
   'tr': 'Turkish',
+  'nl': 'Dutch',
+  'da': 'Danish',
+  'sv': 'Swedish',
+  'no': 'Norwegian',
+  'fi': 'Finnish',
+  'et': 'Estonian',
+  'lv': 'Latvian',
+  'lt': 'Lithuanian',
+  'hu': 'Hungarian',
+  'ro': 'Romanian',
+  'mt': 'Maltese',
+  'is': 'Icelandic',
+  'lb': 'Luxembourgish',
+  'ga': 'Irish',
+  'cy': 'Welsh',
+  'eu': 'Basque',
+  'ca': 'Catalan',
+  'gl': 'Galician',
+  'sq': 'Albanian',
+  'hy': 'Armenian',
+  'ka': 'Georgian',
+  'be': 'Belarusian',
+  'kk': 'Kazakh',
+  'ky': 'Kyrgyz',
+  'tg': 'Tajik',
+  'tt': 'Tatar',
+  'uz': 'Uzbek',
+  'tk': 'Turkmen',
+  'az': 'Azerbaijani',
+  'mn': 'Mongolian',
+
+  // Middle Eastern & Central Asian languages
+  'ar': 'Arabic',
+  'fa': 'Persian',
+  'he': 'Hebrew',
+  'ur': 'Urdu',
+  'ps': 'Pashto',
+  'ku': 'Kurdish (Kurmanji)',
+  'ckb': 'Kurdish (Sorani)',
+  'ug': 'Uyghur',
+  'sd': 'Sindhi',
+
+  // South Asian languages
   'hi': 'Hindi',
-  'vi': 'Vietnamese',
   'bn': 'Bengali',
-  'kn': 'Kannada',
   'ta': 'Tamil',
   'te': 'Telugu',
-  'mr': 'Marathi'
+  'kn': 'Kannada',
+  'ml': 'Malayalam',
+  'mr': 'Marathi',
+  'gu': 'Gujarati',
+  'pa': 'Punjabi (Gurmukhi)',
+  'or': 'Odia (Oriya)',
+  'as': 'Assamese',
+  'ne': 'Nepali',
+  'si': 'Sinhala',
+  'dv': 'Dhivehi',
+  'sa': 'Sanskrit',
+  'bho': 'Bhojpuri',
+  'mai': 'Maithili',
+  'gom': 'Konkani',
+  'mni-Mtei': 'Meiteilon (Manipuri)',
+  'doi': 'Dogri',
+  'lus': 'Mizo',
+
+  // Southeast Asian languages
+  'vi': 'Vietnamese',
+  'th': 'Thai',
+  'km': 'Khmer',
+  'lo': 'Lao',
+  'my': 'Myanmar (Burmese)',
+  'id': 'Indonesian',
+  'ms': 'Malay',
+  'tl': 'Filipino',
+  'jv': 'Javanese',
+  'su': 'Sundanese',
+  'ceb': 'Cebuano',
+
+  // African languages
+  'sw': 'Swahili',
+  'yo': 'Yoruba',
+  'zu': 'Zulu',
+  'xh': 'Xhosa',
+  'af': 'Afrikaans',
+  'st': 'Sesotho',
+  'nso': 'Sepedi',
+  'tn': 'Setswana',
+  'sn': 'Shona',
+  'rw': 'Kinyarwanda',
+  'lg': 'Luganda',
+  'ha': 'Hausa',
+  'ig': 'Igbo',
+  'am': 'Amharic',
+  'ti': 'Tigrinya',
+  'so': 'Somali',
+  'mg': 'Malagasy',
+  'ny': 'Chichewa',
+  'ln': 'Lingala',
+
+  // Other languages
+  'la': 'Latin',
+  'eo': 'Esperanto',
+  'mi': 'Maori',
+  'haw': 'Hawaiian',
+  'sm': 'Samoan',
+  'ht': 'Haitian Creole',
+  'hmn': 'Hmong',
+  'yi': 'Yiddish',
+  'co': 'Corsican',
+  'fy': 'Frisian',
+  'gd': 'Scots Gaelic',
+  'gn': 'Guarani',
+  'ay': 'Aymara',
+  'qu': 'Quechua',
+  'bm': 'Bambara',
+  'ee': 'Ewe',
+  'kri': 'Krio',
+  'ilo': 'Ilocano',
+  'ak': 'Twi',
+  'ts': 'Tsonga',
+  'om': 'Oromo'
 };
 
-// Supported bidirectional language pairs
+// Supported language pairs based on Chrome Translation API
+// These pairs are commonly supported - Chrome API supports most language pairs
 const SUPPORTED_PAIRS = [
-  ['en', 'zh'],     // English-Chinese (Simplified)
-  ['en', 'zh-Hant'], // English-Chinese (Traditional)
-  ['en', 'ja'],     // English-Japanese
-  ['en', 'pt'],     // English-Portuguese
-  ['en', 'ru'],     // English-Russian
-  ['en', 'es'],     // English-Spanish
-  ['en', 'tr'],     // English-Turkish
-  ['en', 'hi'],     // English-Hindi
-  ['en', 'vi'],     // English-Vietnamese
-  ['en', 'bn'],     // English-Bengali
-  ['en', 'kn'],     // English-Kannada
-  ['en', 'ta'],     // English-Tamil
-  ['en', 'te'],     // English-Telugu
-  ['en', 'mr']      // English-Marathi
+  // Major languages
+  ['en', 'zh-CN'],    // Chinese (Simplified)
+  ['en', 'zh-TW'],    // Chinese (Traditional) 
+  ['en', 'ja'],       // Japanese
+  ['en', 'ko'],       // Korean
+  ['en', 'es'],       // Spanish
+  ['en', 'fr'],       // French
+  ['en', 'de'],       // German
+  ['en', 'it'],       // Italian
+  ['en', 'pt'],       // Portuguese
+  ['en', 'ru'],       // Russian
+  ['en', 'ar'],       // Arabic
+  ['en', 'hi'],       // Hindi
+
+  // European languages
+  ['en', 'nl'],       // Dutch
+  ['en', 'sv'],       // Swedish
+  ['en', 'da'],       // Danish
+  ['en', 'no'],       // Norwegian
+  ['en', 'fi'],       // Finnish
+  ['en', 'pl'],       // Polish
+  ['en', 'cs'],       // Czech
+  ['en', 'sk'],       // Slovak
+  ['en', 'hu'],       // Hungarian
+  ['en', 'ro'],       // Romanian
+  ['en', 'bg'],       // Bulgarian
+  ['en', 'hr'],       // Croatian
+  ['en', 'sr'],       // Serbian
+  ['en', 'sl'],       // Slovenian
+  ['en', 'et'],       // Estonian
+  ['en', 'lv'],       // Latvian
+  ['en', 'lt'],       // Lithuanian
+  ['en', 'el'],       // Greek
+  ['en', 'tr'],       // Turkish
+  ['en', 'is'],     // Icelandic
+  ['en', 'fo'],     // Faroese
+  ['en', 'lb'],     // Luxembourgish
+  ['en', 'af'],     // Afrikaans
+
+  // Slavic languages  
+  ['en', 'ru'],     // Russian
+  ['en', 'uk'],     // Ukrainian
+  ['en', 'pl'],     // Polish
+  ['en', 'cs'],     // Czech
+  ['en', 'sk'],     // Slovak
+  ['en', 'hr'],     // Croatian
+  ['en', 'sr-latn'], // Serbian (Latin)
+  ['en', 'sr-cyrl'], // Serbian (Cyrillic)
+  ['en', 'bs'],     // Bosnian
+  ['en', 'sl'],     // Slovenian
+  ['en', 'bg'],     // Bulgarian
+  ['en', 'mk'],     // Macedonian
+  ['en', 'be'],     // Belarusian
+  ['en', 'dsb'],    // Lower Sorbian
+  ['en', 'hsb'],    // Upper Sorbian
+
+  // Turkic languages
+  ['en', 'tr'],     // Turkish
+  ['en', 'az'],     // Azerbaijani
+  ['en', 'kk'],     // Kazakh
+  ['en', 'ky'],     // Kyrgyz
+  ['en', 'tg'],     // Tajik
+  ['en', 'tt'],     // Tatar
+  ['en', 'uz'],     // Uzbek (Latin)
+  ['en', 'tk'],     // Turkmen
+  ['en', 'ug'],     // Uyghur
+
+  // Middle Eastern languages
+  ['en', 'ar'],     // Arabic
+  ['en', 'fa'],     // Persian
+  ['en', 'he'],     // Hebrew
+  ['en', 'ur'],     // Urdu
+  ['en', 'ps'],     // Pashto
+  ['en', 'prs'],    // Dari
+  ['en', 'ku'],     // Kurdish (Central)
+  ['en', 'kmr'],    // Kurdish (Northern)
+  ['en', 'sd'],     // Sindhi
+  ['en', 'ks'],     // Kashmiri
+
+  // South Asian languages
+  ['en', 'hi'],     // Hindi
+  ['en', 'bn'],     // Bengali
+  ['en', 'ta'],     // Tamil
+  ['en', 'te'],     // Telugu
+  ['en', 'kn'],     // Kannada
+  ['en', 'ml'],     // Malayalam
+  ['en', 'mr'],     // Marathi
+  ['en', 'gu'],     // Gujarati
+  ['en', 'pa'],     // Punjabi
+  ['en', 'or'],     // Odia
+  ['en', 'as'],     // Assamese
+  ['en', 'ne'],     // Nepali
+  ['en', 'si'],     // Sinhala
+  ['en', 'dv'],     // Divehi
+  ['en', 'sa'],     // Sanskrit
+  ['en', 'bho'],    // Bhojpuri
+  ['en', 'mai'],    // Maithili
+  ['en', 'mag'],    // Magahi
+  ['en', 'awa'],    // Awadhi
+  ['en', 'hne'],    // Chhattisgarhi
+  ['en', 'gom'],    // Konkani
+  ['en', 'mni'],    // Manipuri
+  ['en', 'sat'],    // Santali
+  ['en', 'brx'],    // Bodo
+  ['en', 'doi'],    // Dogri
+  ['en', 'kha'],    // Khasi
+  ['en', 'lus'],    // Mizo
+
+  // Southeast Asian languages
+  ['en', 'vi'],     // Vietnamese
+  ['en', 'th'],     // Thai
+  ['en', 'km'],     // Khmer
+  ['en', 'lo'],     // Lao
+  ['en', 'my'],     // Myanmar (Burmese)
+  ['en', 'id'],     // Indonesian
+  ['en', 'ms'],     // Malay
+  ['en', 'tl'],     // Filipino
+  ['en', 'jv'],     // Javanese
+  ['en', 'su'],     // Sundanese
+  ['en', 'ceb'],    // Cebuano
+
+  // African languages
+  ['en', 'sw'],     // Swahili
+  ['en', 'yo'],     // Yoruba
+  ['en', 'zu'],     // Zulu
+  ['en', 'xh'],     // Xhosa
+  ['en', 'st'],     // Sesotho
+  ['en', 'nso'],    // Sesotho sa Leboa
+  ['en', 'tn'],     // Setswana
+  ['en', 'sn'],     // Shona
+  ['en', 'rw'],     // Kinyarwanda
+  ['en', 'rn'],     // Rundi
+  ['en', 'lg'],     // Ganda
+  ['en', 'luo'],    // Dholuo
+  ['en', 'ha'],     // Hausa
+  ['en', 'ig'],     // Igbo
+  ['en', 'am'],     // Amharic
+  ['en', 'ti'],     // Tigrinya
+  ['en', 'so'],     // Somali
+  ['en', 'mg'],     // Malagasy
+  ['en', 'ny'],     // Nyanja
+  ['en', 'ln'],     // Lingala
+
+  // Celtic languages
+  ['en', 'ga'],     // Irish
+  ['en', 'cy'],     // Welsh
+
+  // Other European languages
+  ['en', 'el'],     // Greek
+  ['en', 'eu'],     // Basque
+  ['en', 'mt'],     // Maltese
+  ['en', 'fi'],     // Finnish
+  ['en', 'et'],     // Estonian
+  ['en', 'lv'],     // Latvian  
+  ['en', 'lt'],     // Lithuanian
+  ['en', 'hu'],     // Hungarian
+  ['en', 'hy'],     // Armenian
+  ['en', 'ka'],     // Georgian
+
+  // Caucasian languages
+  ['en', 'ce'],     // Chechen
+  ['en', 'cv'],     // Chuvash
+  ['en', 'ba'],     // Bashkir
+
+  // Mongolian
+  ['en', 'mn-cyrl'], // Mongolian (Cyrillic)
+  ['en', 'mn-mong'], // Mongolian (Traditional)
+
+  // Pacific languages
+  ['en', 'mi'],     // Māori
+  ['en', 'haw'],    // Hawaiian
+  ['en', 'sm'],     // Samoan
+  ['en', 'to'],     // Tongan
+  ['en', 'fj'],     // Fijian
+  ['en', 'ty'],     // Tahitian
+  ['en', 'tet'],    // Tetum
+
+  // American languages
+  ['en', 'ht'],     // Haitian Creole
+  ['en', 'mww'],    // Hmong Daw
+  ['en', 'otq'],    // Querétaro Otomi
+  ['en', 'yua'],    // Yucatec Maya
+
+  // Arctic languages
+  ['en', 'iu'],     // Inuktitut
+  ['en', 'iu-latn'], // Inuktitut (Latin)
+  ['en', 'ikt'],    // Inuinnaqtun
+
+  // Constructed languages
+  ['en', 'tlh-latn'], // Klingon (Latin)
+
+  // Tibetan languages
+  ['en', 'bo'],     // Tibetan
+  ['en', 'dz']      // Dzongkha
 ];
 
 // Check if a language pair is supported (bidirectional)

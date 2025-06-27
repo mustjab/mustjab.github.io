@@ -13,54 +13,39 @@
   <div class="container">
     <header>
       <h1>Edge Translation API Demo</h1>
+      <p class="subtitle">Testing Microsoft Edge's built-in multilingual translation models</p>
       <div class="api-status" id="apiStatus">
         <span class="status-indicator" id="statusIndicator"></span>
         <span id="statusText">Checking API availability...</span>
       </div>
     </header>
-    <main> <!-- Translator Initialization Section -->
+
+    <main>
+      <!-- Translator Initialization Section -->
       <section class="card">
         <h2>Translator Initialization</h2>
         <div class="form-row">
           <div class="form-group">
             <label for="sourceLanguage">Source Language:</label>
-            <select id="sourceLanguage">
-              <option value="en">English</option>
-              <option value="zh">Chinese (Simplified)</option>
-              <option value="zh-Hant">Chinese (Traditional)</option>
-              <option value="ja">Japanese</option>
-              <option value="pt">Portuguese</option>
-              <option value="ru">Russian</option>
-              <option value="es">Spanish</option>
-              <option value="tr">Turkish</option>
-              <option value="hi">Hindi</option>
-              <option value="vi">Vietnamese</option>
-              <option value="bn">Bengali</option>
-              <option value="kn">Kannada</option>
-              <option value="ta">Tamil</option>
-              <option value="te">Telugu</option>
-              <option value="mr">Marathi</option>
-            </select>
+            <div class="searchable-select-container">
+              <input type="text" id="sourceLanguageSearch" class="searchable-select-input"
+                placeholder="Type to search languages..." autocomplete="off">
+              <div class="searchable-select-dropdown" id="sourceLanguageDropdown" style="display: none;">
+                <!-- Languages will be populated by JavaScript -->
+              </div>
+              <input type="hidden" id="sourceLanguage" value="en">
+            </div>
           </div>
           <div class="form-group">
             <label for="targetLanguage">Target Language:</label>
-            <select id="targetLanguage">
-              <option value="zh">Chinese (Simplified)</option>
-              <option value="zh-Hant">Chinese (Traditional)</option>
-              <option value="ja">Japanese</option>
-              <option value="pt">Portuguese</option>
-              <option value="ru">Russian</option>
-              <option value="es">Spanish</option>
-              <option value="tr">Turkish</option>
-              <option value="hi">Hindi</option>
-              <option value="vi">Vietnamese</option>
-              <option value="bn">Bengali</option>
-              <option value="kn">Kannada</option>
-              <option value="ta">Tamil</option>
-              <option value="te">Telugu</option>
-              <option value="mr">Marathi</option>
-              <option value="en">English</option>
-            </select>
+            <div class="searchable-select-container">
+              <input type="text" id="targetLanguageSearch" class="searchable-select-input"
+                placeholder="Type to search languages..." autocomplete="off">
+              <div class="searchable-select-dropdown" id="targetLanguageDropdown" style="display: none;">
+                <!-- Languages will be populated by JavaScript -->
+              </div>
+              <input type="hidden" id="targetLanguage" value="zh-CN">
+            </div>
           </div>
         </div>
         <button id="initializeTranslator" class="btn btn-primary" disabled>Initialize Translator</button>
@@ -107,9 +92,9 @@
       <section class="card">
         <h2>Batch Translation Benchmark</h2>
         <div class="info-banner">
-          <h3>📊 Standardized Benchmark Tests</h3>
+          <h3>📊 Standardized Multilingual Benchmark Tests</h3>
           <p>This benchmark uses a fixed set of 15 standardized texts to ensure consistent and comparable results across
-            different browsers and sessions.</p>
+            different multilingual models, language pairs, browsers and sessions.</p>
         </div>
         <div class="benchmark-info">
           <div class="benchmark-stats">
@@ -127,7 +112,7 @@
             </div>
           </div>
         </div>
-        <button id="runBatchTest" class="btn btn-primary" disabled>Run Standardized Benchmark</button>
+        <button id="runBatchTest" class="btn btn-primary" disabled>Run Multilingual Benchmark (15 texts)</button>
         <div class="batch-results">
           <div class="stats-grid">
             <div class="stat-item">
