@@ -1,13 +1,13 @@
-# Edge Translation API Demo
+# Chrome Translation API Demo
 
-A compact, professional demo page for testing Chrome's built-in Translation API in Microsoft Edge. This demo focuses on standardized translation benchmarking with a clean, concise UI, modeled after Jose Lea's benchmark page structure.
+A professional demo page for testing Chrome's built-in on-device Translation API. This demo focuses on standardized translation benchmarking with a clean, concise UI and supports only the official languages available in Chrome's Translation API.
 
 ## Features
 
 ### 🏷️ Standards Compliance
-- **BCP 47 Language Tags**: All language selection and API calls use standardized [BCP 47 language tags](https://developer.mozilla.org/en-US/docs/Glossary/BCP_47_language_tag) for maximum compatibility
-- **Web API Integration**: Fully compatible with Chrome's built-in Translation API and other web translation services
-- **Language Code Examples**: `en` (English), `zh-CN` (Chinese Simplified), `zh-TW` (Chinese Traditional), `he` (Hebrew), `jv` (Javanese)
+- **BCP 47 Language Tags**: All language selection and API calls use standardized [BCP 47 language tags](https://www.rfc-editor.org/info/bcp47) as required by Chrome's Translation API
+- **Official Chrome API**: Uses only Chrome's built-in Translation API as documented at [developer.chrome.com/docs/ai/translator-api](https://developer.chrome.com/docs/ai/translator-api)
+- **Language Code Examples**: `en` (English), `zh-CN` (Chinese Simplified), `zh-TW` (Chinese Traditional), `he` (Hebrew), `hi` (Hindi)
 
 ### 🔍 API Availability Check
 - Detects if Translation API is available
@@ -15,13 +15,14 @@ A compact, professional demo page for testing Chrome's built-in Translation API 
 - Shows API status with visual indicators
 
 ### 🌐 Smart Language Selection
-- **Searchable Language Dropdowns**: Type to quickly find any of 100+ supported languages
-- **Categorized Results**: Languages grouped by regions (Popular, African, Asian, European, etc.)
+- **Searchable Language Dropdowns**: Type to quickly find any of 40+ officially supported languages
+- **Categorized Results**: Languages grouped by regions (Popular, European, Asian, South Asian)
 - **Keyboard Navigation**: Use arrow keys and Enter to navigate options
-- **Language Code Display**: Shows both language names and ISO codes
+- **Language Code Display**: Shows both language names and BCP 47 codes
 
 ### 🚀 Translator Initialization
 - Initialize translator for specific language pairs
+- **Official Support Detection**: Only shows language pairs officially supported by Chrome's on-device Translation API
 - Monitor download progress for language models
 - Real-time feedback on initialization status
 
@@ -38,81 +39,51 @@ A compact, professional demo page for testing Chrome's built-in Translation API 
 
 ## Supported Languages
 
-The demo now supports **100+ languages** using Chrome's built-in Translation API. All language pairs work **bidirectionally** with most languages supporting translation to and from English, with many supporting direct language-to-language translation.
+The demo supports **43 languages** officially supported by Chrome's on-device Translation API, as documented in the [Chrome Developer documentation](https://developer.chrome.com/docs/ai/translator-api). This ensures compatibility and reliability.
 
-### Language Categories
+### Supported Language Categories
 
-#### � **African Languages (21)**
-- Afrikaans, Amharic, Hausa, Igbo, Ganda, Lingala, Dholuo, Malagasy, Sesotho sa Leboa, Nyanja, Rundi, Kinyarwanda, Shona, Somali, Sesotho, Swahili, Tigrinya, Setswana, Xhosa, Yoruba, Zulu
+#### 🌟 **Major Languages (Most Popular)**
+- English, Spanish, French, German, Italian, Portuguese, Russian, Chinese (Simplified/Traditional), Japanese, Korean, Arabic, Hindi
 
-#### � **Asian Languages (8)**
-- Chinese (Simplified), Chinese (Traditional), Japanese, Korean, Chinese (Literary), Cantonese (Traditional), Mongolian (Cyrillic), Mongolian (Traditional)
+#### 🇪🇺 **European Languages**
+- Bulgarian, Catalan, Croatian, Czech, Danish, Dutch, Estonian, Finnish, German, Greek, Hungarian, Italian, Latvian, Lithuanian, Norwegian, Polish, Romanian, Slovak, Slovenian, Swedish, Turkish, Ukrainian
 
-#### 🌏 **Southeast Asian Languages (11)**
-- Vietnamese, Thai, Khmer, Lao, Myanmar (Burmese), Indonesian, Malay, Filipino, Javanese, Sundanese, Cebuano
+#### 🌏 **Asian Languages**
+- Chinese (Simplified), Chinese (Traditional), Japanese, Korean, Thai, Vietnamese, Indonesian
 
-#### 🕌 **South Asian Languages (25)**
-- Hindi, Bengali, Tamil, Telugu, Kannada, Malayalam, Marathi, Gujarati, Punjabi, Odia, Assamese, Nepali, Sinhala, Divehi, Sanskrit, Bhojpuri, Maithili, Magahi, Awadhi, Chhattisgarhi, Konkani, Manipuri, Santali, Bodo, Dogri, Khasi, Mizo
+#### 🇮🇳 **South Asian Languages**
+- Arabic, Bengali, Gujarati, Hebrew, Hindi, Kannada, Malayalam, Marathi, Tamil, Telugu, Urdu
 
-#### �️ **Romance Languages (11)**
-- Spanish, French, French (Canada), Italian, Portuguese, Portuguese (Portugal), Catalan, Galician, Occitan, Romanian, Latin
+### Language Support Details
 
-#### � **Germanic Languages (8)**
-- German, Dutch, Danish, Swedish, Norwegian, Icelandic, Faroese, Luxembourgish
+- **✅ Official Chrome API**: All 43 languages are officially supported by Chrome's on-device Translation API
+- **🔄 Bidirectional Translation**: Most language pairs support translation in both directions
+- **⚡ On-Device Processing**: No cloud dependency, translations happen locally
+- **📱 Cross-Platform**: Works on Windows, macOS, and Linux (Chrome 138+)
 
-#### 🪆 **Slavic Languages (15)**
-- Russian, Ukrainian, Polish, Czech, Slovak, Croatian, Serbian (Latin), Serbian (Cyrillic), Bosnian, Slovenian, Bulgarian, Macedonian, Belarusian, Lower Sorbian, Upper Sorbian
+### Hardware Requirements
 
-#### � **Turkic Languages (9)**
-- Turkish, Azerbaijani, Kazakh, Kyrgyz, Tajik, Tatar, Uzbek (Latin), Turkmen, Uyghur
+Chrome's on-device Translation API requires:
+- **Operating System**: Windows, macOS 13+, or Linux
+- **Storage**: At least 22 GB available space
+- **GPU**: More than 4 GB VRAM
+- **Network**: Unmetered connection for initial model download
 
-#### 🕌 **Middle Eastern Languages (10)**
-- Arabic, Persian, Hebrew, Urdu, Pashto, Dari, Kurdish (Central), Kurdish (Northern), Sindhi, Kashmiri
+### Translation Quality
 
-#### �️ **Other European Languages (13)**
-- Greek, Basque, Maltese, Finnish, Estonian, Latvian, Lithuanian, Hungarian, Armenian, Georgian, Irish, Welsh
-
-#### ⛰️ **Caucasian Languages (3)**
-- Chechen, Chuvash, Bashkir
-
-#### �️ **Pacific Languages (7)**
-- Māori, Hawaiian, Samoan, Tongan, Fijian, Tahitian, Tetum
-
-#### � **American Languages (4)**
-- Haitian Creole, Hmong Daw, Querétaro Otomi, Yucatec Maya
-
-#### 🧊 **Arctic Languages (3)**
-- Inuktitut, Inuktitut (Latin), Inuinnaqtun
-
-#### 🛸 **Constructed Languages (1)**
-- Klingon (Latin)
-
-#### �️ **Tibetan Languages (2)**
-- Tibetan, Dzongkha
-
-### Translation Patterns
-
-The multilingual models support various translation patterns:
-- **English ↔️ Any Language**: Direct bidirectional translation
-- **Any Language → English → Any Language**: Pivot translation through English
-- **Multilingual Models**: Some models support multiple target languages simultaneously
-
-### Model Architecture
-
-The language support is based on Microsoft's multilingual translation models optimized for Edge devices:
-- **36 multilingual models** covering 305+ unique languages
-- **4-bit quantized ONNX models** optimized for performance
-- **Grouped by linguistic families** for optimal model efficiency
-- **Bidirectional support** for all language pairs with English
+- **Highest Quality**: English ↔ Major languages (Spanish, French, German, Chinese, Japanese, etc.)
+- **Good Quality**: Regional language pairs and commonly used combinations
+- **Note**: Translation quality may vary based on language complexity and available training data
 
 ## Browser Requirements
 
-### Chrome/Edge Requirements
-- **Browser**: Chrome 138+ or Microsoft Edge (Chromium-based)
+### Chrome Requirements
+- **Browser**: Chrome 138+ 
 - **OS**: Windows 10/11, macOS 13+, or Linux
-- **Storage**: At least 5+ GB available space (multilingual models are larger)
+- **Storage**: At least 22 GB available space
 - **Memory**: 8+ GB RAM recommended (4+ GB VRAM for optimal performance)
-- **Network**: Unlimited data connection (for model downloads - models can be several GB each)
+- **Network**: Unmetered connection for model downloads
 
 ### API Availability
 The Translation API is part of Chrome's Built-in AI features and requires:
@@ -122,15 +93,14 @@ The Translation API is part of Chrome's Built-in AI features and requires:
 
 ## How to Use
 
-1. **Open the Demo**: Navigate to `index.html` in a compatible browser
+1. **Open the Demo**: Navigate to `index.html` in Chrome 138+
 2. **Check API Status**: The page automatically checks API availability
 3. **Select Languages**: 
    - **Type to Search**: Click on language fields and type to find languages quickly
    - **Browse Categories**: Languages are organized by regions for easy browsing
    - **Keyboard Navigation**: Use arrow keys to navigate, Enter to select
-4. **Check Availability**: Click "Check Availability" to verify language pair support
-5. **Initialize Translator**: Click "Initialize Translator" to set up the translation model
-6. **Test Translations**: Use single translation or batch testing features
+4. **Initialize Translator**: Click "Initialize Translator" to set up the translation model
+5. **Test Translations**: Use single translation or batch testing features
 
 ## File Structure
 
@@ -184,14 +154,14 @@ The demo tracks several performance metrics:
 ## Troubleshooting
 
 ### API Not Available
-- Ensure you're using Chrome 138+ or compatible Edge version
+- Ensure you're using Chrome 138+
 - Check that your system meets hardware requirements
 - Verify network connection for model downloads
 
 ### Language Pair Not Supported
 - Try different language combinations
 - Check the Chrome documentation for supported language pairs
-- Some languages may require additional downloads
+- Most languages support translation with English
 
 ### Slow Performance
 - Ensure sufficient system resources
@@ -216,20 +186,18 @@ The demo tracks several performance metrics:
 ## Contributing
 
 To extend this demo:
-1. Add new language pairs to the dropdown options (based on available Edge models)
-2. Implement additional performance metrics for multilingual models
-3. Add visualization charts for batch results across language families
-4. Enhance the standardized benchmark texts for better cross-linguistic evaluation
-5. Add model-specific performance comparisons
-6. Implement language family grouping in the UI
+1. Add new language pairs based on Chrome's official API updates
+2. Implement additional performance metrics
+3. Add visualization charts for batch results
+4. Enhance the standardized benchmark texts
+5. Add language family grouping in the UI
 
 ## References
 
 - [Chrome Translation API Documentation](https://developer.chrome.com/docs/ai/translator-api)
 - [Chrome Built-in AI Overview](https://developer.chrome.com/docs/ai/built-in)
-- [Microsoft Translator Edge Integration](https://docs.microsoft.com/translator/)
-- [Jose Lea's Demo Page](https://joselea.github.io/) (benchmark inspiration)
-- [Microsoft Multilingual Models](https://edgemodelstorage.blob.core.windows.net/models/Translation/) (Edge Team)
+- [BCP 47 Language Tags](https://www.rfc-editor.org/info/bcp47)
+- [Chrome Early Preview Program](https://developer.chrome.com/docs/ai/join-epp)
 
 ## License
 

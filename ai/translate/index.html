@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Edge Translation API Demo</title>
+  <title>Chrome Translation API Demo</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="../../icon.png">
 </head>
@@ -12,8 +12,8 @@
 <body>
   <div class="container">
     <header>
-      <h1>Edge Translation API Demo</h1>
-      <p class="subtitle">Testing Microsoft Edge's built-in multilingual translation models</p>
+      <h1>Chrome Translation API Demo</h1>
+      <p class="subtitle">Testing Chrome's built-in on-device translation capabilities</p>
       <div class="api-status" id="apiStatus">
         <span class="status-indicator" id="statusIndicator"></span>
         <span id="statusText">Checking API availability...</span>
@@ -35,6 +35,11 @@
               </div>
               <input type="hidden" id="sourceLanguage" value="en">
             </div>
+          </div>
+          <div class="swap-container">
+            <button type="button" id="swapLanguages" class="btn-swap" title="Swap source and target languages">
+              ⇄
+            </button>
           </div>
           <div class="form-group">
             <label for="targetLanguage">Target Language:</label>

@@ -55,7 +55,7 @@ class TranslationAPIDemo {
       languages,
       'zh-CN'
     );
-  } setupEventListeners() {
+  }  setupEventListeners() {
     // Translator Initialization
     document.getElementById('initializeTranslator').addEventListener('click', () => this.initializeTranslator());
 
@@ -67,10 +67,13 @@ class TranslationAPIDemo {
     document.getElementById('exportResults').addEventListener('click', () => this.exportResults());
     document.getElementById('clearResults').addEventListener('click', () => this.clearResults());
 
+    // Language swap button
+    document.getElementById('swapLanguages').addEventListener('click', () => this.swapLanguages());
+
     // Language selector changes
     document.getElementById('sourceLanguage').addEventListener('change', () => this.resetTranslator());
     document.getElementById('targetLanguage').addEventListener('change', () => this.resetTranslator());
-  } async checkAPIAvailability() {
+  }async checkAPIAvailability() {
     const statusIndicator = document.getElementById('statusIndicator');
     const statusText = document.getElementById('statusText');
 
@@ -113,6 +116,13 @@ class TranslationAPIDemo {
       initButton.disabled = true;
       initButton.innerHTML = '<div class="loading"></div> Initializing...';
 
+      // Check if language pair is in our supported list
+      if (!isSupportedPair(sourceLanguage, targetLanguage)) {
+        const sourceName = LANGUAGE_NAMES[sourceLanguage] || sourceLanguage;
+        const targetName = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
+        throw new Error(`Language pair ${sourceName} → ${targetName} may not be supported by Chrome's Translation API. Try a different language pair.`);
+      }
+
       const startTime = performance.now();
 
       this.translator = await Translator.create({
@@ -145,7 +155,16 @@ class TranslationAPIDemo {
       initButton.disabled = false;
       initButton.innerHTML = 'Initialize Translator';
       progressContainer.style.display = 'none';
-      this.logResult('initResult', `Failed to initialize translator: ${error.message}`, 'error');
+      
+      // Provide specific error message for unsupported language pairs
+      let errorMessage = error.message;
+      if (error.message.includes('unsupported') || error.message.includes('not supported')) {
+        const sourceName = LANGUAGE_NAMES[sourceLanguage] || sourceLanguage;
+        const targetName = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
+        errorMessage = `Language pair ${sourceName} → ${targetName} is not supported by Chrome's Translation API. Please try a different language combination.`;
+      }
+      
+      this.logResult('initResult', `Failed to initialize translator: ${errorMessage}`, 'error');
     }
   } async translateSingle() {
     const inputText = document.getElementById('inputText').value.trim();
@@ -497,6 +516,30 @@ class TranslationAPIDemo {
     document.getElementById('totalChars').textContent = totalChars.toLocaleString();
     document.getElementById('avgLength').textContent = `${avgLength} chars`;
   }
+  swapLanguages() {
+    // Get current values
+    const sourceValue = this.sourceLanguageSelect.getValue();
+    const targetValue = this.targetLanguageSelect.getValue();
+    
+    // Check if there's a translated result to move to input
+    const translatedTextElement = document.getElementById('translatedText');
+    const inputTextElement = document.getElementById('inputText');
+    const translatedText = translatedTextElement.textContent.trim();
+    
+    // If there's translated text, move it to the input field for reverse translation
+    if (translatedText && translatedText !== '') {
+      inputTextElement.value = translatedText;
+      // Clear the translated text display
+      translatedTextElement.textContent = '';
+    }
+    
+    // Swap the values
+    this.sourceLanguageSelect.setValue(targetValue);
+    this.targetLanguageSelect.setValue(sourceValue);
+    
+    // Reset translator since language pair changed
+    this.resetTranslator();
+  }
 }
 
 // Searchable Language Select Component
@@ -613,6 +656,7 @@ class SearchableLanguageSelect {
       fragment.appendChild(noResults);
     } else {
       // Group languages by category for better UX
+      // Categories based on linguistic families and translation model clustering
       const categories = this.groupLanguagesByCategory(this.filteredLanguages);
 
       Object.entries(categories).forEach(([category, langs]) => {
@@ -658,39 +702,46 @@ class SearchableLanguageSelect {
 
   groupLanguagesByCategory(languages) {
     const categories = {
-      'Popular': [],
-      'African': [],
-      'Asian': [],
-      'European': [],
-      'Middle Eastern': [],
+      'Core Languages': [],
+      'Germanic Languages': [],
+      'Romance Languages': [], 
+      'Latin Script Slavic': [],
+      'Cyrillic Script': [],
+      'East Asian': [],
       'South Asian': [],
-      'Southeast Asian': [],
+      'Arabic & Middle Eastern': [],
       'Other': []
     };
 
-    const popularCodes = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'zh-CN', 'ja', 'ko', 'ar', 'hi'];
-    const africanCodes = ['af', 'am', 'ha', 'ig', 'lg', 'ln', 'mg', 'nso', 'ny', 'rw', 'sn', 'so', 'st', 'sw', 'ti', 'tn', 'xh', 'yo', 'zu'];
-    const asianCodes = ['zh-CN', 'zh-TW', 'ja', 'ko', 'mn'];
-    const europeanCodes = ['es', 'fr', 'it', 'pt', 'de', 'ru', 'uk', 'pl', 'cs', 'sk', 'hr', 'sr', 'bs', 'sl', 'bg', 'mk', 'el', 'tr', 'nl', 'da', 'sv', 'no', 'fi', 'et', 'lv', 'lt', 'hu', 'ro', 'mt', 'is', 'ga', 'cy', 'eu', 'ca', 'gl', 'sq', 'hy', 'ka', 'be', 'lb'];
-    const middleEasternCodes = ['ar', 'fa', 'he', 'ur', 'ps', 'ku', 'ckb', 'ug', 'sd'];
-    const southAsianCodes = ['hi', 'bn', 'ta', 'te', 'kn', 'ml', 'mr', 'gu', 'pa', 'or', 'as', 'ne', 'si', 'dv', 'sa', 'bho', 'mai', 'gom', 'mni-Mtei', 'doi', 'lus'];
-    const southeastAsianCodes = ['vi', 'th', 'km', 'lo', 'my', 'id', 'ms', 'tl', 'jv', 'su', 'ceb'];
+    // Script and model-based categorization aligned with Chrome's on-device Translation API
+    // Based on Edge translation model clustering and script families
+    const coreCodes = ['en']; // Base language - always available
+    const germanicCodes = ['de', 'nl', 'da', 'no', 'sv']; // Germanic family
+    const romanceCodes = ['es', 'fr', 'it', 'pt', 'ca', 'ro']; // Romance family
+    const latinSlavicCodes = ['pl', 'cs', 'sk', 'hr', 'sl']; // Slavic languages using Latin script
+    const cyrillicCodes = ['ru', 'bg', 'uk']; // Languages using Cyrillic script
+    const eastAsianCodes = ['zh-CN', 'zh-TW', 'ja', 'ko', 'th', 'vi', 'id']; // East/Southeast Asian
+    const southAsianCodes = ['hi', 'bn', 'gu', 'kn', 'ml', 'mr', 'ta', 'te', 'ur']; // Indian subcontinent
+    const arabicMiddleEasternCodes = ['ar', 'he', 'tr']; // Arabic and Middle Eastern
+    const otherCodes = ['fi', 'hu', 'et', 'lv', 'lt', 'el']; // Finno-Ugric, Baltic, Greek
 
     languages.forEach(lang => {
-      if (popularCodes.includes(lang.code)) {
-        categories['Popular'].push(lang);
-      } else if (africanCodes.includes(lang.code)) {
-        categories['African'].push(lang);
-      } else if (asianCodes.includes(lang.code)) {
-        categories['Asian'].push(lang);
-      } else if (europeanCodes.includes(lang.code)) {
-        categories['European'].push(lang);
-      } else if (middleEasternCodes.includes(lang.code)) {
-        categories['Middle Eastern'].push(lang);
+      if (coreCodes.includes(lang.code)) {
+        categories['Core Languages'].push(lang);
+      } else if (germanicCodes.includes(lang.code)) {
+        categories['Germanic Languages'].push(lang);
+      } else if (romanceCodes.includes(lang.code)) {
+        categories['Romance Languages'].push(lang);
+      } else if (latinSlavicCodes.includes(lang.code)) {
+        categories['Latin Script Slavic'].push(lang);
+      } else if (cyrillicCodes.includes(lang.code)) {
+        categories['Cyrillic Script'].push(lang);
+      } else if (eastAsianCodes.includes(lang.code)) {
+        categories['East Asian'].push(lang);
       } else if (southAsianCodes.includes(lang.code)) {
         categories['South Asian'].push(lang);
-      } else if (southeastAsianCodes.includes(lang.code)) {
-        categories['Southeast Asian'].push(lang);
+      } else if (arabicMiddleEasternCodes.includes(lang.code)) {
+        categories['Arabic & Middle Eastern'].push(lang);
       } else {
         categories['Other'].push(lang);
       }
@@ -745,364 +796,88 @@ class SearchableLanguageSelect {
   }
 }
 
-// Language mappings for display - based on Chrome Translation API
-// Using correct Chrome API language codes from https://translate.googleapis.com/translate_a/l
+// Language mappings for Chrome's on-device Translation API
+// Based on official Chrome Translator API documentation and Chromium source
+// Using BCP 47 language codes as documented at https://developer.chrome.com/docs/ai/translator-api
 const LANGUAGE_NAMES = {
-  // Core languages
-  'en': 'English',
+  // Core languages supported by Chrome's on-device Translation API
+  'ar': 'Arabic',
+  'bg': 'Bulgarian',
+  'bn': 'Bengali',
+  'ca': 'Catalan',
   'zh-CN': 'Chinese (Simplified)',
   'zh-TW': 'Chinese (Traditional)',
-  'ja': 'Japanese',
-  'ko': 'Korean',
-  'yue': 'Cantonese (Traditional)', // Note: May not be in Chrome API
-
-  // European languages
-  'es': 'Spanish',
-  'fr': 'French',
-  'it': 'Italian',
-  'pt': 'Portuguese (Brazil)',
-  'de': 'German',
-  'ru': 'Russian',
-  'uk': 'Ukrainian',
-  'pl': 'Polish',
-  'cs': 'Czech',
-  'sk': 'Slovak',
   'hr': 'Croatian',
-  'sr': 'Serbian',
-  'bs': 'Bosnian',
-  'sl': 'Slovenian',
-  'bg': 'Bulgarian',
-  'mk': 'Macedonian',
-  'el': 'Greek',
-  'tr': 'Turkish',
-  'nl': 'Dutch',
+  'cs': 'Czech',
   'da': 'Danish',
-  'sv': 'Swedish',
-  'no': 'Norwegian',
-  'fi': 'Finnish',
+  'nl': 'Dutch',
+  'en': 'English',
   'et': 'Estonian',
+  'fi': 'Finnish',
+  'fr': 'French',
+  'de': 'German',
+  'el': 'Greek',
+  'gu': 'Gujarati',
+  'he': 'Hebrew',
+  'hi': 'Hindi',
+  'hu': 'Hungarian',
+  'id': 'Indonesian',
+  'it': 'Italian',
+  'ja': 'Japanese',
+  'kn': 'Kannada',
+  'ko': 'Korean',
   'lv': 'Latvian',
   'lt': 'Lithuanian',
-  'hu': 'Hungarian',
-  'ro': 'Romanian',
-  'mt': 'Maltese',
-  'is': 'Icelandic',
-  'lb': 'Luxembourgish',
-  'ga': 'Irish',
-  'cy': 'Welsh',
-  'eu': 'Basque',
-  'ca': 'Catalan',
-  'gl': 'Galician',
-  'sq': 'Albanian',
-  'hy': 'Armenian',
-  'ka': 'Georgian',
-  'be': 'Belarusian',
-  'kk': 'Kazakh',
-  'ky': 'Kyrgyz',
-  'tg': 'Tajik',
-  'tt': 'Tatar',
-  'uz': 'Uzbek',
-  'tk': 'Turkmen',
-  'az': 'Azerbaijani',
-  'mn': 'Mongolian',
-
-  // Middle Eastern & Central Asian languages
-  'ar': 'Arabic',
-  'fa': 'Persian',
-  'he': 'Hebrew',
-  'ur': 'Urdu',
-  'ps': 'Pashto',
-  'ku': 'Kurdish (Kurmanji)',
-  'ckb': 'Kurdish (Sorani)',
-  'ug': 'Uyghur',
-  'sd': 'Sindhi',
-
-  // South Asian languages
-  'hi': 'Hindi',
-  'bn': 'Bengali',
-  'ta': 'Tamil',
-  'te': 'Telugu',
-  'kn': 'Kannada',
   'ml': 'Malayalam',
   'mr': 'Marathi',
-  'gu': 'Gujarati',
-  'pa': 'Punjabi (Gurmukhi)',
-  'or': 'Odia (Oriya)',
-  'as': 'Assamese',
-  'ne': 'Nepali',
-  'si': 'Sinhala',
-  'dv': 'Dhivehi',
-  'sa': 'Sanskrit',
-  'bho': 'Bhojpuri',
-  'mai': 'Maithili',
-  'gom': 'Konkani',
-  'mni-Mtei': 'Meiteilon (Manipuri)',
-  'doi': 'Dogri',
-  'lus': 'Mizo',
-
-  // Southeast Asian languages
-  'vi': 'Vietnamese',
+  'no': 'Norwegian',
+  'pl': 'Polish',
+  'pt': 'Portuguese',
+  'ro': 'Romanian',
+  'ru': 'Russian',
+  'sk': 'Slovak',
+  'sl': 'Slovenian',
+  'es': 'Spanish',
+  'sv': 'Swedish',
+  'ta': 'Tamil',
+  'te': 'Telugu',
   'th': 'Thai',
-  'km': 'Khmer',
-  'lo': 'Lao',
-  'my': 'Myanmar (Burmese)',
-  'id': 'Indonesian',
-  'ms': 'Malay',
-  'tl': 'Filipino',
-  'jv': 'Javanese',
-  'su': 'Sundanese',
-  'ceb': 'Cebuano',
-
-  // African languages
-  'sw': 'Swahili',
-  'yo': 'Yoruba',
-  'zu': 'Zulu',
-  'xh': 'Xhosa',
-  'af': 'Afrikaans',
-  'st': 'Sesotho',
-  'nso': 'Sepedi',
-  'tn': 'Setswana',
-  'sn': 'Shona',
-  'rw': 'Kinyarwanda',
-  'lg': 'Luganda',
-  'ha': 'Hausa',
-  'ig': 'Igbo',
-  'am': 'Amharic',
-  'ti': 'Tigrinya',
-  'so': 'Somali',
-  'mg': 'Malagasy',
-  'ny': 'Chichewa',
-  'ln': 'Lingala',
-
-  // Other languages
-  'la': 'Latin',
-  'eo': 'Esperanto',
-  'mi': 'Maori',
-  'haw': 'Hawaiian',
-  'sm': 'Samoan',
-  'ht': 'Haitian Creole',
-  'hmn': 'Hmong',
-  'yi': 'Yiddish',
-  'co': 'Corsican',
-  'fy': 'Frisian',
-  'gd': 'Scots Gaelic',
-  'gn': 'Guarani',
-  'ay': 'Aymara',
-  'qu': 'Quechua',
-  'bm': 'Bambara',
-  'ee': 'Ewe',
-  'kri': 'Krio',
-  'ilo': 'Ilocano',
-  'ak': 'Twi',
-  'ts': 'Tsonga',
-  'om': 'Oromo'
+  'tr': 'Turkish',
+  'uk': 'Ukrainian',
+  'ur': 'Urdu',
+  'vi': 'Vietnamese'
 };
 
-// Supported language pairs based on Chrome Translation API
-// These pairs are commonly supported - Chrome API supports most language pairs
+// Supported language pairs for Chrome's on-device Translation API
+// Based on official documentation - most languages support bidirectional translation with English
 const SUPPORTED_PAIRS = [
-  // Major languages
-  ['en', 'zh-CN'],    // Chinese (Simplified)
-  ['en', 'zh-TW'],    // Chinese (Traditional) 
-  ['en', 'ja'],       // Japanese
-  ['en', 'ko'],       // Korean
-  ['en', 'es'],       // Spanish
-  ['en', 'fr'],       // French
-  ['en', 'de'],       // German
-  ['en', 'it'],       // Italian
-  ['en', 'pt'],       // Portuguese
-  ['en', 'ru'],       // Russian
-  ['en', 'ar'],       // Arabic
-  ['en', 'hi'],       // Hindi
-
-  // European languages
-  ['en', 'nl'],       // Dutch
-  ['en', 'sv'],       // Swedish
-  ['en', 'da'],       // Danish
-  ['en', 'no'],       // Norwegian
-  ['en', 'fi'],       // Finnish
-  ['en', 'pl'],       // Polish
-  ['en', 'cs'],       // Czech
-  ['en', 'sk'],       // Slovak
-  ['en', 'hu'],       // Hungarian
-  ['en', 'ro'],       // Romanian
-  ['en', 'bg'],       // Bulgarian
-  ['en', 'hr'],       // Croatian
-  ['en', 'sr'],       // Serbian
-  ['en', 'sl'],       // Slovenian
-  ['en', 'et'],       // Estonian
-  ['en', 'lv'],       // Latvian
-  ['en', 'lt'],       // Lithuanian
-  ['en', 'el'],       // Greek
-  ['en', 'tr'],       // Turkish
-  ['en', 'is'],     // Icelandic
-  ['en', 'fo'],     // Faroese
-  ['en', 'lb'],     // Luxembourgish
-  ['en', 'af'],     // Afrikaans
-
-  // Slavic languages  
-  ['en', 'ru'],     // Russian
-  ['en', 'uk'],     // Ukrainian
-  ['en', 'pl'],     // Polish
-  ['en', 'cs'],     // Czech
-  ['en', 'sk'],     // Slovak
-  ['en', 'hr'],     // Croatian
-  ['en', 'sr-latn'], // Serbian (Latin)
-  ['en', 'sr-cyrl'], // Serbian (Cyrillic)
-  ['en', 'bs'],     // Bosnian
-  ['en', 'sl'],     // Slovenian
-  ['en', 'bg'],     // Bulgarian
-  ['en', 'mk'],     // Macedonian
-  ['en', 'be'],     // Belarusian
-  ['en', 'dsb'],    // Lower Sorbian
-  ['en', 'hsb'],    // Upper Sorbian
-
-  // Turkic languages
-  ['en', 'tr'],     // Turkish
-  ['en', 'az'],     // Azerbaijani
-  ['en', 'kk'],     // Kazakh
-  ['en', 'ky'],     // Kyrgyz
-  ['en', 'tg'],     // Tajik
-  ['en', 'tt'],     // Tatar
-  ['en', 'uz'],     // Uzbek (Latin)
-  ['en', 'tk'],     // Turkmen
-  ['en', 'ug'],     // Uyghur
-
-  // Middle Eastern languages
-  ['en', 'ar'],     // Arabic
-  ['en', 'fa'],     // Persian
-  ['en', 'he'],     // Hebrew
-  ['en', 'ur'],     // Urdu
-  ['en', 'ps'],     // Pashto
-  ['en', 'prs'],    // Dari
-  ['en', 'ku'],     // Kurdish (Central)
-  ['en', 'kmr'],    // Kurdish (Northern)
-  ['en', 'sd'],     // Sindhi
-  ['en', 'ks'],     // Kashmiri
-
-  // South Asian languages
-  ['en', 'hi'],     // Hindi
-  ['en', 'bn'],     // Bengali
-  ['en', 'ta'],     // Tamil
-  ['en', 'te'],     // Telugu
-  ['en', 'kn'],     // Kannada
-  ['en', 'ml'],     // Malayalam
-  ['en', 'mr'],     // Marathi
-  ['en', 'gu'],     // Gujarati
-  ['en', 'pa'],     // Punjabi
-  ['en', 'or'],     // Odia
-  ['en', 'as'],     // Assamese
-  ['en', 'ne'],     // Nepali
-  ['en', 'si'],     // Sinhala
-  ['en', 'dv'],     // Divehi
-  ['en', 'sa'],     // Sanskrit
-  ['en', 'bho'],    // Bhojpuri
-  ['en', 'mai'],    // Maithili
-  ['en', 'mag'],    // Magahi
-  ['en', 'awa'],    // Awadhi
-  ['en', 'hne'],    // Chhattisgarhi
-  ['en', 'gom'],    // Konkani
-  ['en', 'mni'],    // Manipuri
-  ['en', 'sat'],    // Santali
-  ['en', 'brx'],    // Bodo
-  ['en', 'doi'],    // Dogri
-  ['en', 'kha'],    // Khasi
-  ['en', 'lus'],    // Mizo
-
-  // Southeast Asian languages
-  ['en', 'vi'],     // Vietnamese
-  ['en', 'th'],     // Thai
-  ['en', 'km'],     // Khmer
-  ['en', 'lo'],     // Lao
-  ['en', 'my'],     // Myanmar (Burmese)
-  ['en', 'id'],     // Indonesian
-  ['en', 'ms'],     // Malay
-  ['en', 'tl'],     // Filipino
-  ['en', 'jv'],     // Javanese
-  ['en', 'su'],     // Sundanese
-  ['en', 'ceb'],    // Cebuano
-
-  // African languages
-  ['en', 'sw'],     // Swahili
-  ['en', 'yo'],     // Yoruba
-  ['en', 'zu'],     // Zulu
-  ['en', 'xh'],     // Xhosa
-  ['en', 'st'],     // Sesotho
-  ['en', 'nso'],    // Sesotho sa Leboa
-  ['en', 'tn'],     // Setswana
-  ['en', 'sn'],     // Shona
-  ['en', 'rw'],     // Kinyarwanda
-  ['en', 'rn'],     // Rundi
-  ['en', 'lg'],     // Ganda
-  ['en', 'luo'],    // Dholuo
-  ['en', 'ha'],     // Hausa
-  ['en', 'ig'],     // Igbo
-  ['en', 'am'],     // Amharic
-  ['en', 'ti'],     // Tigrinya
-  ['en', 'so'],     // Somali
-  ['en', 'mg'],     // Malagasy
-  ['en', 'ny'],     // Nyanja
-  ['en', 'ln'],     // Lingala
-
-  // Celtic languages
-  ['en', 'ga'],     // Irish
-  ['en', 'cy'],     // Welsh
-
-  // Other European languages
-  ['en', 'el'],     // Greek
-  ['en', 'eu'],     // Basque
-  ['en', 'mt'],     // Maltese
-  ['en', 'fi'],     // Finnish
-  ['en', 'et'],     // Estonian
-  ['en', 'lv'],     // Latvian  
-  ['en', 'lt'],     // Lithuanian
-  ['en', 'hu'],     // Hungarian
-  ['en', 'hy'],     // Armenian
-  ['en', 'ka'],     // Georgian
-
-  // Caucasian languages
-  ['en', 'ce'],     // Chechen
-  ['en', 'cv'],     // Chuvash
-  ['en', 'ba'],     // Bashkir
-
-  // Mongolian
-  ['en', 'mn-cyrl'], // Mongolian (Cyrillic)
-  ['en', 'mn-mong'], // Mongolian (Traditional)
-
-  // Pacific languages
-  ['en', 'mi'],     // Māori
-  ['en', 'haw'],    // Hawaiian
-  ['en', 'sm'],     // Samoan
-  ['en', 'to'],     // Tongan
-  ['en', 'fj'],     // Fijian
-  ['en', 'ty'],     // Tahitian
-  ['en', 'tet'],    // Tetum
-
-  // American languages
-  ['en', 'ht'],     // Haitian Creole
-  ['en', 'mww'],    // Hmong Daw
-  ['en', 'otq'],    // Querétaro Otomi
-  ['en', 'yua'],    // Yucatec Maya
-
-  // Arctic languages
-  ['en', 'iu'],     // Inuktitut
-  ['en', 'iu-latn'], // Inuktitut (Latin)
-  ['en', 'ikt'],    // Inuinnaqtun
-
-  // Constructed languages
-  ['en', 'tlh-latn'], // Klingon (Latin)
-
-  // Tibetan languages
-  ['en', 'bo'],     // Tibetan
-  ['en', 'dz']      // Dzongkha
+  // English pairs (comprehensive support with all languages)
+  ['en', 'ar'], ['en', 'bg'], ['en', 'bn'], ['en', 'ca'], ['en', 'zh-CN'], 
+  ['en', 'zh-TW'], ['en', 'hr'], ['en', 'cs'], ['en', 'da'], ['en', 'nl'], 
+  ['en', 'et'], ['en', 'fi'], ['en', 'fr'], ['en', 'de'], ['en', 'el'], 
+  ['en', 'gu'], ['en', 'he'], ['en', 'hi'], ['en', 'hu'], ['en', 'id'], 
+  ['en', 'it'], ['en', 'ja'], ['en', 'kn'], ['en', 'ko'], ['en', 'lv'], 
+  ['en', 'lt'], ['en', 'ml'], ['en', 'mr'], ['en', 'no'], ['en', 'pl'], 
+  ['en', 'pt'], ['en', 'ro'], ['en', 'ru'], ['en', 'sk'], ['en', 'sl'], 
+  ['en', 'es'], ['en', 'sv'], ['en', 'ta'], ['en', 'te'], ['en', 'th'], 
+  ['en', 'tr'], ['en', 'uk'], ['en', 'ur'], ['en', 'vi']
 ];
 
-// Check if a language pair is supported (bidirectional)
+// Check if a language pair is supported by Chrome's on-device Translation API
 function isSupportedPair(source, target) {
-  return SUPPORTED_PAIRS.some(pair =>
+  // Same language check
+  if (source === target) return false;
+  
+  // Check if both languages exist in our language list
+  if (!LANGUAGE_NAMES[source] || !LANGUAGE_NAMES[target]) return false;
+  
+  // Check our explicit supported pairs list (bidirectional)
+  const isInSupportedPairs = SUPPORTED_PAIRS.some(pair =>
     (pair[0] === source && pair[1] === target) ||
     (pair[1] === source && pair[0] === target)
   );
+  
+  return isInSupportedPairs;
 }
 
 // Initialize the demo when the page loads
