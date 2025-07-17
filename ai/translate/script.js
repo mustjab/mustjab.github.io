@@ -53,7 +53,7 @@ class TranslationAPIDemo {
       'targetLanguageDropdown',
       'targetLanguage',
       languages,
-      'zh-CN'
+      'zh-hans'
     );
   }  setupEventListeners() {
     // Translator Initialization
@@ -125,6 +125,7 @@ class TranslationAPIDemo {
 
       const startTime = performance.now();
 
+      console.log(`Initializing translator for ${sourceLanguage} → ${targetLanguage}...`);
       this.translator = await Translator.create({
         sourceLanguage,
         targetLanguage,
@@ -199,7 +200,9 @@ class TranslationAPIDemo {
     } catch (error) {
       alert(`Translation failed: ${error.message}`);
     }
-  } async runBatchTest() {
+  }
+
+  async runBatchTest() {
     // Use predefined benchmark texts
     const batchTexts = BENCHMARK_TEXTS;
 
@@ -625,6 +628,9 @@ class SearchableLanguageSelect {
         e.preventDefault();
         if (this.selectedIndex >= 0) {
           this.selectLanguage(this.filteredLanguages[this.selectedIndex]);
+        } else if (this.filteredLanguages.length > 0) {
+          // If no option is selected but there are filtered results, select the first one
+          this.selectLanguage(this.filteredLanguages[0]);
         }
         break;
       case 'Escape':
@@ -709,22 +715,26 @@ class SearchableLanguageSelect {
       'Cyrillic Script': [],
       'East Asian': [],
       'South Asian': [],
-      'Arabic & Middle Eastern': [],
+      'Southeast Asian': [],
+      'Arabic Script': [],
+      'African Languages': [],
+      'Other European': [],
       'Other': []
     };
 
-    // Script and model-based categorization aligned with Chrome's on-device Translation API
-    // Based on Edge translation model clustering and script families
+    // Script and model-based categorization based on Edge translation models
     const coreCodes = ['en']; // Base language - always available
-    const germanicCodes = ['de', 'nl', 'da', 'no', 'sv']; // Germanic family
-    const romanceCodes = ['es', 'fr', 'it', 'pt', 'ca', 'ro']; // Romance family
-    const latinSlavicCodes = ['pl', 'cs', 'sk', 'hr', 'sl']; // Slavic languages using Latin script
-    const cyrillicCodes = ['ru', 'bg', 'uk']; // Languages using Cyrillic script
-    const eastAsianCodes = ['zh-CN', 'zh-TW', 'ja', 'ko', 'th', 'vi', 'id']; // East/Southeast Asian
-    const southAsianCodes = ['hi', 'bn', 'gu', 'kn', 'ml', 'mr', 'ta', 'te', 'ur']; // Indian subcontinent
-    const arabicMiddleEasternCodes = ['ar', 'he', 'tr']; // Arabic and Middle Eastern
-    const otherCodes = ['fi', 'hu', 'et', 'lv', 'lt', 'el']; // Finno-Ugric, Baltic, Greek
-
+    const germanicCodes = ['de', 'nl', 'da', 'nb', 'sv', 'af', 'is', 'fo', 'lb']; // Germanic family
+    const romanceCodes = ['es', 'fr', 'it', 'pt', 'pt-pt', 'ca', 'ro', 'gl', 'oc', 'la']; // Romance family
+    const latinSlavicCodes = ['pl', 'cs', 'sk', 'hr', 'sl', 'bs', 'dsb', 'hsb', 'sr-latn']; // Slavic languages using Latin script
+    const cyrillicCodes = ['ru', 'bg', 'uk', 'be', 'mk', 'sr-cyrl', 'kk', 'ky', 'tg', 'tt', 'mn-cyrl', 'ba', 'ce', 'cv']; // Languages using Cyrillic script
+    const eastAsianCodes = ['zh-hans', 'zh-hant', 'ja', 'ko', 'lzh', 'yue']; // East Asian languages
+    const southAsianCodes = ['hi', 'bn', 'gu', 'kn', 'ml', 'mr', 'ta', 'te', 'ur', 'as', 'or', 'pa', 'ne', 'si', 'my', 'dv', 'awa', 'bho', 'brx', 'doi', 'gom', 'hne', 'kha', 'lus', 'mag', 'mai', 'mni', 'sat']; // South Asian languages
+    const southeastAsianCodes = ['th', 'vi', 'id', 'ms', 'km', 'lo', 'jv', 'su', 'ceb', 'fil', 'mi', 'fj', 'haw', 'sm', 'to', 'ty', 'tet']; // Southeast Asian and Pacific
+    const arabicScriptCodes = ['ar', 'fa', 'he', 'ps', 'prs', 'ku', 'ks', 'sd', 'ug']; // Arabic script languages
+    const africanCodes = ['ha', 'ig', 'yo', 'zu', 'xh', 'sw', 'sn', 'st', 'tn', 'nso', 'run', 'rw', 'ln', 'mg', 'so', 'am', 'ti', 'nya']; // African languages
+    const otherEuropeanCodes = ['fi', 'hu', 'et', 'lv', 'lt', 'el', 'mt', 'eu', 'cy', 'ga', 'sq', 'hy', 'ka', 'tr', 'az', 'uz', 'tk', 'kk', 'ky']; // Other European languages
+    
     languages.forEach(lang => {
       if (coreCodes.includes(lang.code)) {
         categories['Core Languages'].push(lang);
@@ -740,8 +750,14 @@ class SearchableLanguageSelect {
         categories['East Asian'].push(lang);
       } else if (southAsianCodes.includes(lang.code)) {
         categories['South Asian'].push(lang);
-      } else if (arabicMiddleEasternCodes.includes(lang.code)) {
-        categories['Arabic & Middle Eastern'].push(lang);
+      } else if (southeastAsianCodes.includes(lang.code)) {
+        categories['Southeast Asian'].push(lang);
+      } else if (arabicScriptCodes.includes(lang.code)) {
+        categories['Arabic Script'].push(lang);
+      } else if (africanCodes.includes(lang.code)) {
+        categories['African Languages'].push(lang);
+      } else if (otherEuropeanCodes.includes(lang.code)) {
+        categories['Other European'].push(lang);
       } else {
         categories['Other'].push(lang);
       }
@@ -796,71 +812,223 @@ class SearchableLanguageSelect {
   }
 }
 
-// Language mappings for Chrome's on-device Translation API
-// Based on official Chrome Translator API documentation and Chromium source
-// Using BCP 47 language codes as documented at https://developer.chrome.com/docs/ai/translator-api
 const LANGUAGE_NAMES = {
-  // Core languages supported by Chrome's on-device Translation API
+  'af': 'Afrikaans',
+  'am': 'Amharic',
   'ar': 'Arabic',
+  'as': 'Assamese',
+  'awa': 'Awadhi',
+  'az': 'Azerbaijani',
+  'ba': 'Bashkir',
+  'be': 'Belarusian',
   'bg': 'Bulgarian',
-  'bn': 'Bengali',
+  'bho': 'Bhojpuri',
+  'bn': 'Bangla',
+  'bo': 'Tibetan',
+  'brx': 'Bodo',
+  'bs': 'Bosnian',
   'ca': 'Catalan',
-  'zh-CN': 'Chinese (Simplified)',
-  'zh-TW': 'Chinese (Traditional)',
-  'hr': 'Croatian',
+  'ceb': 'Cebuano',
+  'ce': 'Chechen',
+  'zh-hans': 'Chinese Simplified',
+  'zh-hant': 'Chinese Traditional',
+  'cv': 'Chuvash',
   'cs': 'Czech',
+  'cy': 'Welsh',
   'da': 'Danish',
-  'nl': 'Dutch',
-  'en': 'English',
-  'et': 'Estonian',
-  'fi': 'Finnish',
-  'fr': 'French',
   'de': 'German',
+  'doi': 'Dogri',
+  'dv': 'Divehi',
+  'dsb': 'Lower Sorbian',
+  'dzo': 'Dzongkha',
   'el': 'Greek',
+  'en': 'English',
+  'es': 'Spanish',
+  'et': 'Estonian',
+  'eu': 'Basque',
+  'fa': 'Persian',
+  'fj': 'Fijian',
+  'fil': 'Filipino',
+  'fi': 'Finnish',
+  'fo': 'Faroese',
+  'fr': 'French',
+  'fr-ca': 'French (Canada)',
+  'gl': 'Galician',
+  'gom': 'Konkani',
   'gu': 'Gujarati',
+  'ht': 'Haitian Creole',
+  'ha': 'Hausa',
+  'haw': 'Hawaiian',
   'he': 'Hebrew',
   'hi': 'Hindi',
+  'hne': 'Chhattisgarhi',
+  'hr': 'Croatian',
+  'hsb': 'Upper Sorbian',
   'hu': 'Hungarian',
+  'hy': 'Armenian',
+  'ig': 'Igbo',
+  'ikt': 'Inuinnaqtun',
   'id': 'Indonesian',
+  'ga': 'Irish',
+  'is': 'Icelandic',
   'it': 'Italian',
+  'iu-latn': 'Inuktitut (Latin)',
+  'iu': 'Inuktitut',
+  'jv': 'basa Djawa',
   'ja': 'Japanese',
+  'ks': 'Kashmiri',
+  'ka': 'Georgian',
   'kn': 'Kannada',
+  'kha': 'Khasi',
+  'km': 'Khmer',
+  'rw': 'Kinyarwanda',
+  'kk': 'Kazakh',
+  'kmr': 'Kurdish (Northern)',
   'ko': 'Korean',
-  'lv': 'Latvian',
+  'ku': 'Kurdish (Central)',
+  'ky': 'Kyrgyz',
+  'lo': 'Lao',
+  'la': 'Latin',
+  'lb': 'Luxembourgish',
+  'ln': 'Lingala',
   'lt': 'Lithuanian',
-  'ml': 'Malayalam',
+  'lug': 'Ganda',
+  'luo': 'Dholuo',
+  'lus': 'Mizo',
+  'lv': 'Latvian',
+  'lzh': 'Chinese (Literary)',
+  'mag': 'Magahi',
+  'mai': 'Maithili',
   'mr': 'Marathi',
-  'no': 'Norwegian',
+  'mk': 'Macedonian',
+  'mg': 'Malagasy',
+  'mt': 'Maltese',
+  'mn-mong': 'Mongolian (Traditional)',
+  'mni': 'Manipuri',
+  'mn-cyrl': 'Mongolian (Cyrillic)',
+  'mi': 'Māori',
+  'ms': 'Malay',
+  'mww': 'Hmong Daw',
+  'my': 'Myanmar (Burmese)',
+  'ml': 'Malayalam',
+  'ne': 'Nepali',
+  'nl': 'Dutch',
+  'nb': 'Norwegian',
+  'nso': 'Sesotho sa Leboa',
+  'nya': 'Nyanja',
+  'oc': 'Occitan',
+  'or': 'Odia',
+  'otq': 'Querétaro Otomi',
+  'pa': 'Punjabi',
+  'ps': 'Pashto',
   'pl': 'Polish',
-  'pt': 'Portuguese',
+  'prs': 'Dari',
+  'pt': 'Portuguese (Brazil)',
+  'pt-pt': 'Portuguese (Portugal)',
   'ro': 'Romanian',
+  'run': 'Rundi',
   'ru': 'Russian',
+  'sa': 'Sanskrit',
+  'sat': 'Santali',
+  'si': 'Sinhala',
+  'sd': 'Sindhi',
   'sk': 'Slovak',
   'sl': 'Slovenian',
-  'es': 'Spanish',
+  'sm': 'Samoan',
+  'sn': 'Shona',
+  'so': 'Somali',
+  'st': 'Sesotho',
+  'sq': 'Albanian',
+  'sr-latn': 'Serbian (Latin)',
+  'sr-cyrl': 'Serbian (Cyrillic)',
+  'su': 'Sundanese',
   'sv': 'Swedish',
+  'sw': 'Swahili',
+  'ty': 'Tahitian',
+  'tg': 'Tajik',
   'ta': 'Tamil',
   'te': 'Telugu',
+  'tet': 'Tetum',
   'th': 'Thai',
+  'ti': 'Tigrinya',
+  'tlh-latn': 'Klingon (Latin)',
+  'to': 'Tongan',
   'tr': 'Turkish',
+  'tn': 'Setswana',
+  'tt': 'Tatar',
+  'tk': 'Turkmen',
+  'ug': 'Uyghur',
   'uk': 'Ukrainian',
   'ur': 'Urdu',
-  'vi': 'Vietnamese'
+  'uz': 'Uzbek (Latin)',
+  'vi': 'Vietnamese',
+  'xh': 'Xhosa',
+  'yo': 'Yoruba',
+  'yua': 'Yucatec Maya',
+  'yue': 'Cantonese (Traditional)',
+  'zu': 'Zulu'
 };
 
-// Supported language pairs for Chrome's on-device Translation API
-// Based on official documentation - most languages support bidirectional translation with English
 const SUPPORTED_PAIRS = [
   // English pairs (comprehensive support with all languages)
-  ['en', 'ar'], ['en', 'bg'], ['en', 'bn'], ['en', 'ca'], ['en', 'zh-CN'], 
-  ['en', 'zh-TW'], ['en', 'hr'], ['en', 'cs'], ['en', 'da'], ['en', 'nl'], 
-  ['en', 'et'], ['en', 'fi'], ['en', 'fr'], ['en', 'de'], ['en', 'el'], 
-  ['en', 'gu'], ['en', 'he'], ['en', 'hi'], ['en', 'hu'], ['en', 'id'], 
-  ['en', 'it'], ['en', 'ja'], ['en', 'kn'], ['en', 'ko'], ['en', 'lv'], 
-  ['en', 'lt'], ['en', 'ml'], ['en', 'mr'], ['en', 'no'], ['en', 'pl'], 
-  ['en', 'pt'], ['en', 'ro'], ['en', 'ru'], ['en', 'sk'], ['en', 'sl'], 
-  ['en', 'es'], ['en', 'sv'], ['en', 'ta'], ['en', 'te'], ['en', 'th'], 
-  ['en', 'tr'], ['en', 'uk'], ['en', 'ur'], ['en', 'vi']
+  ['en', 'af'], ['en', 'am'], ['en', 'ar'], ['en', 'as'], ['en', 'awa'], ['en', 'az'], 
+  ['en', 'ba'], ['en', 'be'], ['en', 'bg'], ['en', 'bho'], ['en', 'bn'], ['en', 'bo'], 
+  ['en', 'brx'], ['en', 'bs'], ['en', 'ca'], ['en', 'ceb'], ['en', 'ce'], ['en', 'zh-hans'], 
+  ['en', 'zh-hant'], ['en', 'cv'], ['en', 'cs'], ['en', 'cy'], ['en', 'da'], ['en', 'de'], 
+  ['en', 'doi'], ['en', 'dv'], ['en', 'dsb'], ['en', 'dzo'], ['en', 'el'], ['en', 'es'], 
+  ['en', 'et'], ['en', 'eu'], ['en', 'fa'], ['en', 'fj'], ['en', 'fil'], ['en', 'fi'], 
+  ['en', 'fo'], ['en', 'fr'], ['en', 'fr-ca'], ['en', 'gl'], ['en', 'gom'], ['en', 'gu'], 
+  ['en', 'ht'], ['en', 'ha'], ['en', 'haw'], ['en', 'he'], ['en', 'hi'], ['en', 'hne'], 
+  ['en', 'hr'], ['en', 'hsb'], ['en', 'hu'], ['en', 'hy'], ['en', 'ig'], ['en', 'ikt'], 
+  ['en', 'id'], ['en', 'ga'], ['en', 'is'], ['en', 'it'], ['en', 'iu-latn'], ['en', 'iu'], 
+  ['en', 'jv'], ['en', 'ja'], ['en', 'ks'], ['en', 'ka'], ['en', 'kn'], ['en', 'kha'], 
+  ['en', 'km'], ['en', 'rw'], ['en', 'kk'], ['en', 'kmr'], ['en', 'ko'], ['en', 'ku'], 
+  ['en', 'ky'], ['en', 'lo'], ['en', 'la'], ['en', 'lb'], ['en', 'ln'], ['en', 'lt'], 
+  ['en', 'lug'], ['en', 'luo'], ['en', 'lus'], ['en', 'lv'], ['en', 'lzh'], ['en', 'mag'], 
+  ['en', 'mai'], ['en', 'mr'], ['en', 'mk'], ['en', 'mg'], ['en', 'mt'], ['en', 'mn-mong'], 
+  ['en', 'mni'], ['en', 'mn-cyrl'], ['en', 'mi'], ['en', 'ms'], ['en', 'mww'], ['en', 'my'], 
+  ['en', 'ml'], ['en', 'ne'], ['en', 'nl'], ['en', 'nb'], ['en', 'nso'], ['en', 'nya'], 
+  ['en', 'oc'], ['en', 'or'], ['en', 'otq'], ['en', 'pa'], ['en', 'ps'], ['en', 'pl'], 
+  ['en', 'prs'], ['en', 'pt'], ['en', 'pt-pt'], ['en', 'ro'], ['en', 'run'], ['en', 'ru'], 
+  ['en', 'sa'], ['en', 'sat'], ['en', 'si'], ['en', 'sd'], ['en', 'sk'], ['en', 'sl'], 
+  ['en', 'sm'], ['en', 'sn'], ['en', 'so'], ['en', 'st'], ['en', 'sq'], ['en', 'sr-latn'], 
+  ['en', 'sr-cyrl'], ['en', 'su'], ['en', 'sv'], ['en', 'sw'], ['en', 'ty'], ['en', 'tg'], 
+  ['en', 'ta'], ['en', 'te'], ['en', 'tet'], ['en', 'th'], ['en', 'ti'], ['en', 'tlh-latn'], 
+  ['en', 'to'], ['en', 'tr'], ['en', 'tn'], ['en', 'tt'], ['en', 'tk'], ['en', 'ug'], 
+  ['en', 'uk'], ['en', 'ur'], ['en', 'uz'], ['en', 'vi'], ['en', 'xh'], ['en', 'yo'], 
+  ['en', 'yua'], ['en', 'yue'], ['en', 'zu'],
+  
+  // Additional non-English pairs based on Edge model groups
+  // Germanic languages (afk model group)
+  ['af', 'lb'], ['af', 'de'], ['af', 'sv'], ['af', 'nl'], ['af', 'da'], ['af', 'fo'], 
+  ['af', 'is'], ['af', 'nb'], ['lb', 'de'], ['lb', 'sv'], ['lb', 'nl'], ['lb', 'da'], 
+  ['lb', 'fo'], ['lb', 'is'], ['lb', 'nb'], ['de', 'sv'], ['de', 'nl'], ['de', 'da'], 
+  ['de', 'fo'], ['de', 'is'], ['de', 'nb'], ['sv', 'nl'], ['sv', 'da'], ['sv', 'fo'], 
+  ['sv', 'is'], ['sv', 'nb'], ['nl', 'da'], ['nl', 'fo'], ['nl', 'is'], ['nl', 'nb'], 
+  ['da', 'fo'], ['da', 'is'], ['da', 'nb'], ['fo', 'is'], ['fo', 'nb'], ['is', 'nb'],
+  
+  // Chinese languages (chs model group)
+  ['zh-hans', 'zh-hant'], ['zh-hans', 'ja'], ['zh-hans', 'ko'], ['zh-hans', 'lzh'], 
+  ['zh-hans', 'yue'], ['zh-hant', 'ja'], ['zh-hant', 'ko'], ['zh-hant', 'lzh'], 
+  ['zh-hant', 'yue'], ['ja', 'ko'], ['ja', 'lzh'], ['ja', 'yue'], ['ko', 'lzh'], 
+  ['ko', 'yue'], ['lzh', 'yue'],
+  
+  // Romance languages (cat model group)
+  ['ca', 'eu'], ['ca', 'gl'], ['ca', 'ht'], ['ca', 'la'], ['ca', 'mt'], ['ca', 'oc'], 
+  ['ca', 'otq'], ['ca', 'ro'], ['ca', 'yua'], ['ca', 'pt'], ['ca', 'es'], ['ca', 'fr'], 
+  ['ca', 'it'], ['eu', 'gl'], ['eu', 'ht'], ['eu', 'la'], ['eu', 'mt'], ['eu', 'oc'], 
+  ['eu', 'otq'], ['eu', 'ro'], ['eu', 'yua'], ['eu', 'pt'], ['eu', 'es'], ['eu', 'fr'], 
+  ['eu', 'it'], ['gl', 'ht'], ['gl', 'la'], ['gl', 'mt'], ['gl', 'oc'], ['gl', 'otq'], 
+  ['gl', 'ro'], ['gl', 'yua'], ['gl', 'pt'], ['gl', 'es'], ['gl', 'fr'], ['gl', 'it'],
+  
+  // Slavic languages (bsb model group)
+  ['bs', 'dsb'], ['bs', 'hr'], ['bs', 'hsb'], ['bs', 'pl'], ['bs', 'sk'], ['bs', 'sl'], 
+  ['bs', 'sr-latn'], ['bs', 'cs'], ['dsb', 'hr'], ['dsb', 'hsb'], ['dsb', 'pl'], 
+  ['dsb', 'sk'], ['dsb', 'sl'], ['dsb', 'sr-latn'], ['dsb', 'cs'], ['hr', 'hsb'], 
+  ['hr', 'pl'], ['hr', 'sk'], ['hr', 'sl'], ['hr', 'sr-latn'], ['hr', 'cs'], ['hsb', 'pl'], 
+  ['hsb', 'sk'], ['hsb', 'sl'], ['hsb', 'sr-latn'], ['hsb', 'cs'], ['pl', 'sk'], 
+  ['pl', 'sl'], ['pl', 'sr-latn'], ['pl', 'cs'], ['sk', 'sl'], ['sk', 'sr-latn'], 
+  ['sk', 'cs'], ['sl', 'sr-latn'], ['sl', 'cs'], ['sr-latn', 'cs']
 ];
 
 // Check if a language pair is supported by Chrome's on-device Translation API
