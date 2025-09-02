@@ -1,13 +1,13 @@
-# Chrome Translation API Demo
+# Edge Translation API Demo
 
-A professional demo page for testing Chrome's built-in on-device Translation API. This demo focuses on standardized translation benchmarking with a clean, concise UI and supports only the official languages available in Chrome's Translation API.
+A professional demo page for testing Microsoft Edge's built-in on-device Translation API. This demo provides comprehensive translation benchmarking with a clean, intuitive UI and supports all languages available in Edge's Translation models.
 
 ## Features
 
 ### 🏷️ Standards Compliance
-- **BCP 47 Language Tags**: All language selection and API calls use standardized [BCP 47 language tags](https://www.rfc-editor.org/info/bcp47) as required by Chrome's Translation API
-- **Official Chrome API**: Uses only Chrome's built-in Translation API as documented at [developer.chrome.com/docs/ai/translator-api](https://developer.chrome.com/docs/ai/translator-api)
-- **Language Code Examples**: `en` (English), `zh-CN` (Chinese Simplified), `zh-TW` (Chinese Traditional), `he` (Hebrew), `hi` (Hindi)
+- **Microsoft Language Codes**: All language selection and API calls use Microsoft Translator API language codes as defined in the Edge translation models
+- **Official Edge API**: Uses Edge's built-in Translation API with comprehensive language support based on Microsoft's translation models
+- **Language Code Examples**: `en` (English), `zh-hans` (Chinese Simplified), `zh-hant` (Chinese Traditional), `he` (Hebrew), `hi` (Hindi)
 
 ### 🔍 API Availability Check
 - Detects if Translation API is available
@@ -15,14 +15,14 @@ A professional demo page for testing Chrome's built-in on-device Translation API
 - Shows API status with visual indicators
 
 ### 🌐 Smart Language Selection
-- **Searchable Language Dropdowns**: Type to quickly find any of 40+ officially supported languages
-- **Categorized Results**: Languages grouped by regions (Popular, European, Asian, South Asian)
+- **Searchable Language Dropdowns**: Type to quickly find any of 130+ officially supported languages
+- **Script-Based Categorization**: Languages grouped by script families (Latin Script Slavic, Cyrillic Script, East Asian, South Asian, Arabic Script, African Languages, etc.)
 - **Keyboard Navigation**: Use arrow keys and Enter to navigate options
-- **Language Code Display**: Shows both language names and BCP 47 codes
+- **Language Code Display**: Shows both language names and Microsoft language codes
 
 ### 🚀 Translator Initialization
 - Initialize translator for specific language pairs
-- **Official Support Detection**: Only shows language pairs officially supported by Chrome's on-device Translation API
+- **Comprehensive Support**: Supports all language pairs available in Microsoft's Edge translation models
 - Monitor download progress for language models
 - Real-time feedback on initialization status
 

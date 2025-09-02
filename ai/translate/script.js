@@ -120,7 +120,7 @@ class TranslationAPIDemo {
       if (!isSupportedPair(sourceLanguage, targetLanguage)) {
         const sourceName = LANGUAGE_NAMES[sourceLanguage] || sourceLanguage;
         const targetName = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
-        throw new Error(`Language pair ${sourceName} → ${targetName} may not be supported by Chrome's Translation API. Try a different language pair.`);
+        throw new Error(`Language pair ${sourceName} → ${targetName} may not be supported by browser's Translation API. Try a different language pair.`);
       }
 
       const startTime = performance.now();
@@ -162,7 +162,7 @@ class TranslationAPIDemo {
       if (error.message.includes('unsupported') || error.message.includes('not supported')) {
         const sourceName = LANGUAGE_NAMES[sourceLanguage] || sourceLanguage;
         const targetName = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
-        errorMessage = `Language pair ${sourceName} → ${targetName} is not supported by Chrome's Translation API. Please try a different language combination.`;
+        errorMessage = `Language pair ${sourceName} → ${targetName} is not supported by browser's Translation API. Please try a different language combination.`;
       }
       
       this.logResult('initResult', `Failed to initialize translator: ${errorMessage}`, 'error');
@@ -1031,7 +1031,7 @@ const SUPPORTED_PAIRS = [
   ['sk', 'cs'], ['sl', 'sr-latn'], ['sl', 'cs'], ['sr-latn', 'cs']
 ];
 
-// Check if a language pair is supported by Chrome's on-device Translation API
+// Check if a language pair is supported by browser's on-device Translation API
 function isSupportedPair(source, target) {
   // Same language check
   if (source === target) return false;
