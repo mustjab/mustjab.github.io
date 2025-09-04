@@ -116,13 +116,6 @@ class TranslationAPIDemo {
       initButton.disabled = true;
       initButton.innerHTML = '<div class="loading"></div> Initializing...';
 
-      // Check if language pair is in our supported list
-      if (!isSupportedPair(sourceLanguage, targetLanguage)) {
-        const sourceName = LANGUAGE_NAMES[sourceLanguage] || sourceLanguage;
-        const targetName = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
-        throw new Error(`Language pair ${sourceName} → ${targetName} may not be supported by browser's Translation API. Try a different language pair.`);
-      }
-
       const startTime = performance.now();
 
       console.log(`Initializing translator for ${sourceLanguage} → ${targetLanguage}...`);
@@ -157,15 +150,7 @@ class TranslationAPIDemo {
       initButton.innerHTML = 'Initialize Translator';
       progressContainer.style.display = 'none';
       
-      // Provide specific error message for unsupported language pairs
-      let errorMessage = error.message;
-      if (error.message.includes('unsupported') || error.message.includes('not supported')) {
-        const sourceName = LANGUAGE_NAMES[sourceLanguage] || sourceLanguage;
-        const targetName = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
-        errorMessage = `Language pair ${sourceName} → ${targetName} is not supported by browser's Translation API. Please try a different language combination.`;
-      }
-      
-      this.logResult('initResult', `Failed to initialize translator: ${errorMessage}`, 'error');
+      this.logResult('initResult', `Failed to initialize translator: ${error.message}`, 'error');
     }
   } async translateSingle() {
     const inputText = document.getElementById('inputText').value.trim();
@@ -968,85 +953,6 @@ const LANGUAGE_NAMES = {
   'yue': 'Cantonese (Traditional)',
   'zu': 'Zulu'
 };
-
-const SUPPORTED_PAIRS = [
-  // English pairs (comprehensive support with all languages)
-  ['en', 'af'], ['en', 'am'], ['en', 'ar'], ['en', 'as'], ['en', 'awa'], ['en', 'az'], 
-  ['en', 'ba'], ['en', 'be'], ['en', 'bg'], ['en', 'bho'], ['en', 'bn'], ['en', 'bo'], 
-  ['en', 'brx'], ['en', 'bs'], ['en', 'ca'], ['en', 'ceb'], ['en', 'ce'], ['en', 'zh-hans'], 
-  ['en', 'zh-hant'], ['en', 'cv'], ['en', 'cs'], ['en', 'cy'], ['en', 'da'], ['en', 'de'], 
-  ['en', 'doi'], ['en', 'dv'], ['en', 'dsb'], ['en', 'dzo'], ['en', 'el'], ['en', 'es'], 
-  ['en', 'et'], ['en', 'eu'], ['en', 'fa'], ['en', 'fj'], ['en', 'fil'], ['en', 'fi'], 
-  ['en', 'fo'], ['en', 'fr'], ['en', 'fr-ca'], ['en', 'gl'], ['en', 'gom'], ['en', 'gu'], 
-  ['en', 'ht'], ['en', 'ha'], ['en', 'haw'], ['en', 'he'], ['en', 'hi'], ['en', 'hne'], 
-  ['en', 'hr'], ['en', 'hsb'], ['en', 'hu'], ['en', 'hy'], ['en', 'ig'], ['en', 'ikt'], 
-  ['en', 'id'], ['en', 'ga'], ['en', 'is'], ['en', 'it'], ['en', 'iu-latn'], ['en', 'iu'], 
-  ['en', 'jv'], ['en', 'ja'], ['en', 'ks'], ['en', 'ka'], ['en', 'kn'], ['en', 'kha'], 
-  ['en', 'km'], ['en', 'rw'], ['en', 'kk'], ['en', 'kmr'], ['en', 'ko'], ['en', 'ku'], 
-  ['en', 'ky'], ['en', 'lo'], ['en', 'la'], ['en', 'lb'], ['en', 'ln'], ['en', 'lt'], 
-  ['en', 'lug'], ['en', 'luo'], ['en', 'lus'], ['en', 'lv'], ['en', 'lzh'], ['en', 'mag'], 
-  ['en', 'mai'], ['en', 'mr'], ['en', 'mk'], ['en', 'mg'], ['en', 'mt'], ['en', 'mn-mong'], 
-  ['en', 'mni'], ['en', 'mn-cyrl'], ['en', 'mi'], ['en', 'ms'], ['en', 'mww'], ['en', 'my'], 
-  ['en', 'ml'], ['en', 'ne'], ['en', 'nl'], ['en', 'nb'], ['en', 'nso'], ['en', 'nya'], 
-  ['en', 'oc'], ['en', 'or'], ['en', 'otq'], ['en', 'pa'], ['en', 'ps'], ['en', 'pl'], 
-  ['en', 'prs'], ['en', 'pt'], ['en', 'pt-pt'], ['en', 'ro'], ['en', 'run'], ['en', 'ru'], 
-  ['en', 'sa'], ['en', 'sat'], ['en', 'si'], ['en', 'sd'], ['en', 'sk'], ['en', 'sl'], 
-  ['en', 'sm'], ['en', 'sn'], ['en', 'so'], ['en', 'st'], ['en', 'sq'], ['en', 'sr-latn'], 
-  ['en', 'sr-cyrl'], ['en', 'su'], ['en', 'sv'], ['en', 'sw'], ['en', 'ty'], ['en', 'tg'], 
-  ['en', 'ta'], ['en', 'te'], ['en', 'tet'], ['en', 'th'], ['en', 'ti'], ['en', 'tlh-latn'], 
-  ['en', 'to'], ['en', 'tr'], ['en', 'tn'], ['en', 'tt'], ['en', 'tk'], ['en', 'ug'], 
-  ['en', 'uk'], ['en', 'ur'], ['en', 'uz'], ['en', 'vi'], ['en', 'xh'], ['en', 'yo'], 
-  ['en', 'yua'], ['en', 'yue'], ['en', 'zu'],
-  
-  // Additional non-English pairs based on Edge model groups
-  // Germanic languages (afk model group)
-  ['af', 'lb'], ['af', 'de'], ['af', 'sv'], ['af', 'nl'], ['af', 'da'], ['af', 'fo'], 
-  ['af', 'is'], ['af', 'nb'], ['lb', 'de'], ['lb', 'sv'], ['lb', 'nl'], ['lb', 'da'], 
-  ['lb', 'fo'], ['lb', 'is'], ['lb', 'nb'], ['de', 'sv'], ['de', 'nl'], ['de', 'da'], 
-  ['de', 'fo'], ['de', 'is'], ['de', 'nb'], ['sv', 'nl'], ['sv', 'da'], ['sv', 'fo'], 
-  ['sv', 'is'], ['sv', 'nb'], ['nl', 'da'], ['nl', 'fo'], ['nl', 'is'], ['nl', 'nb'], 
-  ['da', 'fo'], ['da', 'is'], ['da', 'nb'], ['fo', 'is'], ['fo', 'nb'], ['is', 'nb'],
-  
-  // Chinese languages (chs model group)
-  ['zh-hans', 'zh-hant'], ['zh-hans', 'ja'], ['zh-hans', 'ko'], ['zh-hans', 'lzh'], 
-  ['zh-hans', 'yue'], ['zh-hant', 'ja'], ['zh-hant', 'ko'], ['zh-hant', 'lzh'], 
-  ['zh-hant', 'yue'], ['ja', 'ko'], ['ja', 'lzh'], ['ja', 'yue'], ['ko', 'lzh'], 
-  ['ko', 'yue'], ['lzh', 'yue'],
-  
-  // Romance languages (cat model group)
-  ['ca', 'eu'], ['ca', 'gl'], ['ca', 'ht'], ['ca', 'la'], ['ca', 'mt'], ['ca', 'oc'], 
-  ['ca', 'otq'], ['ca', 'ro'], ['ca', 'yua'], ['ca', 'pt'], ['ca', 'es'], ['ca', 'fr'], 
-  ['ca', 'it'], ['eu', 'gl'], ['eu', 'ht'], ['eu', 'la'], ['eu', 'mt'], ['eu', 'oc'], 
-  ['eu', 'otq'], ['eu', 'ro'], ['eu', 'yua'], ['eu', 'pt'], ['eu', 'es'], ['eu', 'fr'], 
-  ['eu', 'it'], ['gl', 'ht'], ['gl', 'la'], ['gl', 'mt'], ['gl', 'oc'], ['gl', 'otq'], 
-  ['gl', 'ro'], ['gl', 'yua'], ['gl', 'pt'], ['gl', 'es'], ['gl', 'fr'], ['gl', 'it'],
-  
-  // Slavic languages (bsb model group)
-  ['bs', 'dsb'], ['bs', 'hr'], ['bs', 'hsb'], ['bs', 'pl'], ['bs', 'sk'], ['bs', 'sl'], 
-  ['bs', 'sr-latn'], ['bs', 'cs'], ['dsb', 'hr'], ['dsb', 'hsb'], ['dsb', 'pl'], 
-  ['dsb', 'sk'], ['dsb', 'sl'], ['dsb', 'sr-latn'], ['dsb', 'cs'], ['hr', 'hsb'], 
-  ['hr', 'pl'], ['hr', 'sk'], ['hr', 'sl'], ['hr', 'sr-latn'], ['hr', 'cs'], ['hsb', 'pl'], 
-  ['hsb', 'sk'], ['hsb', 'sl'], ['hsb', 'sr-latn'], ['hsb', 'cs'], ['pl', 'sk'], 
-  ['pl', 'sl'], ['pl', 'sr-latn'], ['pl', 'cs'], ['sk', 'sl'], ['sk', 'sr-latn'], 
-  ['sk', 'cs'], ['sl', 'sr-latn'], ['sl', 'cs'], ['sr-latn', 'cs']
-];
-
-// Check if a language pair is supported by browser's on-device Translation API
-function isSupportedPair(source, target) {
-  // Same language check
-  if (source === target) return false;
-  
-  // Check if both languages exist in our language list
-  if (!LANGUAGE_NAMES[source] || !LANGUAGE_NAMES[target]) return false;
-  
-  // Check our explicit supported pairs list (bidirectional)
-  const isInSupportedPairs = SUPPORTED_PAIRS.some(pair =>
-    (pair[0] === source && pair[1] === target) ||
-    (pair[1] === source && pair[0] === target)
-  );
-  
-  return isInSupportedPairs;
-}
 
 // Initialize the demo when the page loads
 document.addEventListener('DOMContentLoaded', () => {
