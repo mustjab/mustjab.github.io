@@ -66,7 +66,8 @@
         <h2>Translation Test</h2>
         <div class="info-banner">
           <h3>🔄 Compare Translation Methods</h3>
-          <p>Test both <code>translate()</code> for standard translation and <code>translateStreaming()</code> for progressive results. Watch the "Chunks Received" counter and visual flash effect during streaming!</p>
+          <p><code>translate()</code> returns complete translation. <code>translateStreaming()</code> can stream
+            sentence-by-sentence (enable with <code>--enable-features=TranslateStreamingBySentence</code>).</p>
         </div>
         <div class="form-group">
           <label for="inputText">Text to Translate:</label>
@@ -95,6 +96,10 @@
           <div class="single-stat-item">
             <label>Chunks:</label>
             <div id="streamingChunks">-</div>
+          </div>
+          <div class="single-stat-item">
+            <label>Chunks/Sec:</label>
+            <div id="chunksPerSec">-</div>
           </div>
         </div>
 

@@ -55,7 +55,7 @@ class TranslationAPIDemo {
       languages,
       'zh-hans'
     );
-  }  setupEventListeners() {
+  } setupEventListeners() {
     // Translator Initialization
     document.getElementById('initializeTranslator').addEventListener('click', () => this.initializeTranslator());
 
@@ -76,7 +76,7 @@ class TranslationAPIDemo {
     // Language selector changes
     document.getElementById('sourceLanguage').addEventListener('change', () => this.resetTranslator());
     document.getElementById('targetLanguage').addEventListener('change', () => this.resetTranslator());
-  }async checkAPIAvailability() {
+  } async checkAPIAvailability() {
     const statusIndicator = document.getElementById('statusIndicator');
     const statusText = document.getElementById('statusText');
 
@@ -153,7 +153,7 @@ class TranslationAPIDemo {
       initButton.disabled = false;
       initButton.innerHTML = 'Initialize Translator';
       progressContainer.style.display = 'none';
-      
+
       this.logResult('initResult', `Failed to initialize translator: ${error.message}`, 'error');
     }
   } async translateSingle() {
@@ -178,6 +178,8 @@ class TranslationAPIDemo {
       const charactersPerSecond = Math.round((inputText.length / translationTime) * 1000);
       const totalCharacters = inputText.length;
 
+      console.log(`✅ Translation complete: ${translationTime}ms (${totalCharacters}→${translatedText.length} chars, ${charactersPerSecond} chars/sec)`);
+
       // Update results
       const outputElement = document.getElementById('translatedText');
       outputElement.textContent = translatedText;
@@ -188,6 +190,7 @@ class TranslationAPIDemo {
       document.getElementById('singleTime').textContent = translationTime;
       document.getElementById('singleThroughput').textContent = `${charactersPerSecond} chars/sec`;
       document.getElementById('streamingChunks').textContent = '-';
+      document.getElementById('chunksPerSec').textContent = '-';
 
     } catch (error) {
       alert(`Translation failed: ${error.message}`);
@@ -210,13 +213,13 @@ class TranslationAPIDemo {
     const streamButton = document.getElementById('translateStreaming');
     const singleButton = document.getElementById('translateSingle');
     const outputElement = document.getElementById('translatedText');
-    
+
     try {
       // Disable both buttons and show loading state
       streamButton.disabled = true;
       singleButton.disabled = true;
       streamButton.innerHTML = '<div class="loading"></div> Streaming...';
-      
+
       // Clear previous results and add streaming class
       outputElement.textContent = '';
       outputElement.classList.add('streaming');
@@ -228,54 +231,77 @@ class TranslationAPIDemo {
       const startTime = performance.now();
       let chunkCount = 0;
       let previousLength = 0;
+      let previousContent = '';
+      let accumulatedTranslation = ''; // Accumulate all chunks
 
-      console.log('Starting streaming translation...');
-      
+      console.log(`🔄 Starting streaming translation (${inputText.length} chars)`);
+
+      // Add a progress indicator for the waiting period
+      let progressInterval = setInterval(() => {
+        const elapsed = Math.round(performance.now() - startTime);
+        document.getElementById('singleTime').textContent = elapsed;
+        outputElement.textContent = `⏳ Translating... (${elapsed}ms elapsed)`;
+      }, 100);
+
       // Use translateStreaming API
       const stream = this.translator.translateStreaming(inputText);
-      
-      for await (const chunk of stream) {
-        chunkCount++;
-        const chunkTime = Math.round(performance.now() - startTime);
-        
-        console.log(`Chunk ${chunkCount} received at ${chunkTime}ms - Length: ${chunk.length} chars`);
-        console.log(`Content: "${chunk.substring(0, 100)}${chunk.length > 100 ? '...' : ''}"`);
-        
-        // Add visual flash effect when new content arrives
-        if (chunk.length !== previousLength) {
-          outputElement.classList.add('chunk-update');
-          setTimeout(() => outputElement.classList.remove('chunk-update'), 150);
-          previousLength = chunk.length;
+
+      try {
+        for await (const chunk of stream) {
+          // Clear progress indicator on first chunk
+          if (chunkCount === 0) {
+            clearInterval(progressInterval);
+            outputElement.textContent = '';
+          }
+          chunkCount++;
+
+          // Accumulate chunks (each chunk is a sentence)
+          accumulatedTranslation += chunk;
+
+          // Update the display with accumulated translation
+          outputElement.textContent = accumulatedTranslation;
+          previousLength = accumulatedTranslation.length;
+
+          // Update metrics in real-time
+          const currentTime = performance.now();
+          const elapsedTime = Math.round(currentTime - startTime);
+          document.getElementById('singleTime').textContent = elapsedTime;
+          document.getElementById('streamingChunks').textContent = chunkCount;
         }
-        
-        // Update the display with the current chunk (full translation so far)
-        outputElement.textContent = chunk;
-        
-        // Update metrics in real-time
-        const currentTime = performance.now();
-        const elapsedTime = Math.round(currentTime - startTime);
-        document.getElementById('singleTime').textContent = elapsedTime;
+
+        const endTime = performance.now();
+        const translationTime = Math.round(endTime - startTime);
+
+        // Final update of performance metrics
+        const throughput = Math.round((inputText.length / translationTime) * 1000);
+        const chunksPerSecond = chunkCount > 1 ? ((chunkCount / translationTime) * 1000).toFixed(1) : '-';
+
+        if (chunkCount === 1) {
+          console.log(`✅ Streaming complete: 1 chunk in ${translationTime}ms (${inputText.length}→${accumulatedTranslation.length} chars, ${throughput} chars/sec)`);
+          console.log('💡 Tip: Enable sentence-by-sentence streaming with --enable-features=TranslateStreamingBySentence');
+        } else {
+          console.log(`✅ Streaming complete: ${chunkCount} chunks in ${translationTime}ms (${inputText.length}→${accumulatedTranslation.length} chars, ${throughput} chars/sec, ${chunksPerSecond} chunks/sec)`);
+        }
+        document.getElementById('singleTime').textContent = translationTime;
         document.getElementById('streamingChunks').textContent = chunkCount;
+        document.getElementById('singleThroughput').textContent = `${throughput} chars/sec`;
+        document.getElementById('chunksPerSec').textContent = chunksPerSecond;
+
+        // Re-enable buttons and remove streaming class
+        streamButton.disabled = false;
+        singleButton.disabled = false;
+        streamButton.innerHTML = 'Translate with Streaming';
+        outputElement.classList.remove('streaming');
+
+      } catch (iteratorError) {
+        console.error('Error during stream iteration:', iteratorError);
+        throw iteratorError;
+      } finally {
+        clearInterval(progressInterval);
       }
-      
-      console.log(`Streaming complete! Total chunks: ${chunkCount}`);
-
-      const endTime = performance.now();
-      const translationTime = Math.round(endTime - startTime);
-
-      // Final update of performance metrics
-      const throughput = Math.round((inputText.length / translationTime) * 1000);
-      document.getElementById('singleTime').textContent = translationTime;
-      document.getElementById('streamingChunks').textContent = chunkCount;
-      document.getElementById('singleThroughput').textContent = `${throughput} chars/sec`;
-
-      // Re-enable buttons and remove streaming class
-      streamButton.disabled = false;
-      singleButton.disabled = false;
-      streamButton.innerHTML = 'Translate with Streaming';
-      outputElement.classList.remove('streaming');
 
     } catch (error) {
+      clearInterval(progressInterval);
       alert(`Streaming translation failed: ${error.message}`);
       streamButton.disabled = false;
       singleButton.disabled = false;
@@ -607,23 +633,23 @@ class TranslationAPIDemo {
     // Get current values
     const sourceValue = this.sourceLanguageSelect.getValue();
     const targetValue = this.targetLanguageSelect.getValue();
-    
+
     // Check if there's a translated result to move to input
     const translatedTextElement = document.getElementById('translatedText');
     const inputTextElement = document.getElementById('inputText');
     const translatedText = translatedTextElement.textContent.trim();
-    
+
     // If there's translated text, move it to the input field for reverse translation
     if (translatedText && translatedText !== '') {
       inputTextElement.value = translatedText;
       // Clear the translated text display
       translatedTextElement.textContent = '';
     }
-    
+
     // Swap the values
     this.sourceLanguageSelect.setValue(targetValue);
     this.targetLanguageSelect.setValue(sourceValue);
-    
+
     // Reset translator since language pair changed
     this.resetTranslator();
   }
@@ -794,7 +820,7 @@ class SearchableLanguageSelect {
     const categories = {
       'Core Languages': [],
       'Germanic Languages': [],
-      'Romance Languages': [], 
+      'Romance Languages': [],
       'Latin Script Slavic': [],
       'Cyrillic Script': [],
       'East Asian': [],
@@ -818,7 +844,7 @@ class SearchableLanguageSelect {
     const arabicScriptCodes = ['ar', 'fa', 'he', 'ps', 'prs', 'ku', 'ks', 'sd', 'ug']; // Arabic script languages
     const africanCodes = ['ha', 'ig', 'yo', 'zu', 'xh', 'sw', 'sn', 'st', 'tn', 'nso', 'run', 'rw', 'ln', 'mg', 'so', 'am', 'ti', 'nya']; // African languages
     const otherEuropeanCodes = ['fi', 'hu', 'et', 'lv', 'lt', 'el', 'mt', 'eu', 'cy', 'ga', 'sq', 'hy', 'ka', 'tr', 'az', 'uz', 'tk', 'kk', 'ky']; // Other European languages
-    
+
     languages.forEach(lang => {
       if (coreCodes.includes(lang.code)) {
         categories['Core Languages'].push(lang);
