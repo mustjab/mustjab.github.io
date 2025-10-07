@@ -62,6 +62,9 @@ class TranslationAPIDemo {
     // Single Translation
     document.getElementById('translateSingle').addEventListener('click', () => this.translateSingle());
 
+    // Streaming Translation
+    document.getElementById('translateStreaming').addEventListener('click', () => this.translateStreaming());
+
     // Batch Translation
     document.getElementById('runBatchTest').addEventListener('click', () => this.runBatchTest());
     document.getElementById('exportResults').addEventListener('click', () => this.exportResults());
@@ -140,6 +143,7 @@ class TranslationAPIDemo {
 
       // Enable translation buttons
       document.getElementById('translateSingle').disabled = false;
+      document.getElementById('translateStreaming').disabled = false;
       document.getElementById('runBatchTest').disabled = false;
 
       initButton.innerHTML = 'Translator Initialized ✅';
@@ -175,15 +179,109 @@ class TranslationAPIDemo {
       const totalCharacters = inputText.length;
 
       // Update results
-      document.getElementById('translatedText').textContent = translatedText;
+      const outputElement = document.getElementById('translatedText');
+      outputElement.textContent = translatedText;
+      outputElement.classList.remove('streaming'); // Remove streaming class if it was there
 
       // Update performance metrics
       document.getElementById('singleChars').textContent = totalCharacters;
       document.getElementById('singleTime').textContent = translationTime;
-      document.getElementById('singleThroughput').textContent = charactersPerSecond;
+      document.getElementById('singleThroughput').textContent = `${charactersPerSecond} chars/sec`;
+      document.getElementById('streamingChunks').textContent = '-';
 
     } catch (error) {
       alert(`Translation failed: ${error.message}`);
+    }
+  }
+
+  async translateStreaming() {
+    const inputText = document.getElementById('inputText').value.trim();
+
+    if (!inputText) {
+      alert('Please enter text to translate');
+      return;
+    }
+
+    if (!this.translator) {
+      alert('Please initialize the translator first');
+      return;
+    }
+
+    const streamButton = document.getElementById('translateStreaming');
+    const singleButton = document.getElementById('translateSingle');
+    const outputElement = document.getElementById('translatedText');
+    
+    try {
+      // Disable both buttons and show loading state
+      streamButton.disabled = true;
+      singleButton.disabled = true;
+      streamButton.innerHTML = '<div class="loading"></div> Streaming...';
+      
+      // Clear previous results and add streaming class
+      outputElement.textContent = '';
+      outputElement.classList.add('streaming');
+      document.getElementById('singleChars').textContent = inputText.length;
+      document.getElementById('singleTime').textContent = '0';
+      document.getElementById('streamingChunks').textContent = '0';
+      document.getElementById('singleThroughput').textContent = '0 chars/sec';
+
+      const startTime = performance.now();
+      let chunkCount = 0;
+      let previousLength = 0;
+
+      console.log('Starting streaming translation...');
+      
+      // Use translateStreaming API
+      const stream = this.translator.translateStreaming(inputText);
+      
+      for await (const chunk of stream) {
+        chunkCount++;
+        const chunkTime = Math.round(performance.now() - startTime);
+        
+        console.log(`Chunk ${chunkCount} received at ${chunkTime}ms - Length: ${chunk.length} chars`);
+        console.log(`Content: "${chunk.substring(0, 100)}${chunk.length > 100 ? '...' : ''}"`);
+        
+        // Add visual flash effect when new content arrives
+        if (chunk.length !== previousLength) {
+          outputElement.classList.add('chunk-update');
+          setTimeout(() => outputElement.classList.remove('chunk-update'), 150);
+          previousLength = chunk.length;
+        }
+        
+        // Update the display with the current chunk (full translation so far)
+        outputElement.textContent = chunk;
+        
+        // Update metrics in real-time
+        const currentTime = performance.now();
+        const elapsedTime = Math.round(currentTime - startTime);
+        document.getElementById('singleTime').textContent = elapsedTime;
+        document.getElementById('streamingChunks').textContent = chunkCount;
+      }
+      
+      console.log(`Streaming complete! Total chunks: ${chunkCount}`);
+
+      const endTime = performance.now();
+      const translationTime = Math.round(endTime - startTime);
+
+      // Final update of performance metrics
+      const throughput = Math.round((inputText.length / translationTime) * 1000);
+      document.getElementById('singleTime').textContent = translationTime;
+      document.getElementById('streamingChunks').textContent = chunkCount;
+      document.getElementById('singleThroughput').textContent = `${throughput} chars/sec`;
+
+      // Re-enable buttons and remove streaming class
+      streamButton.disabled = false;
+      singleButton.disabled = false;
+      streamButton.innerHTML = 'Translate with Streaming';
+      outputElement.classList.remove('streaming');
+
+    } catch (error) {
+      alert(`Streaming translation failed: ${error.message}`);
+      streamButton.disabled = false;
+      singleButton.disabled = false;
+      streamButton.innerHTML = 'Translate with Streaming';
+      outputElement.textContent = `Error: ${error.message}`;
+      outputElement.classList.remove('streaming');
     }
   }
 
@@ -480,6 +578,7 @@ class TranslationAPIDemo {
     document.getElementById('initializeTranslator').disabled = !apiAvailable;
     document.getElementById('initializeTranslator').innerHTML = 'Initialize Translator';
     document.getElementById('translateSingle').disabled = true;
+    document.getElementById('translateStreaming').disabled = true;
     document.getElementById('runBatchTest').disabled = true;
     // Clear results
     document.getElementById('initResult').innerHTML = '';

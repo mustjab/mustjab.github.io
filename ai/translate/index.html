@@ -61,15 +61,22 @@
           <div class="progress-text" id="progressText">0%</div>
         </div>
         <div id="initResult" class="result-box"></div>
-      </section><!-- Single Translation Section -->
+      </section><!-- Translation Test Section -->
       <section class="card">
-        <h2>Single Translation Test</h2>
+        <h2>Translation Test</h2>
+        <div class="info-banner">
+          <h3>🔄 Compare Translation Methods</h3>
+          <p>Test both <code>translate()</code> for standard translation and <code>translateStreaming()</code> for progressive results. Watch the "Chunks Received" counter and visual flash effect during streaming!</p>
+        </div>
         <div class="form-group">
           <label for="inputText">Text to Translate:</label>
-          <textarea id="inputText" rows="4"
-            placeholder="Enter text to translate...">The quick brown fox jumps over the lazy dog near the river.</textarea>
+          <textarea id="inputText" rows="6"
+            placeholder="Enter text to translate...">Artificial intelligence and machine learning technologies are revolutionizing how we approach language translation and natural language processing. These advanced systems can now understand context, idioms, and cultural nuances that were previously challenging for automated translation systems. The integration of neural networks has significantly improved translation quality across multiple languages.</textarea>
         </div>
-        <button id="translateSingle" class="btn btn-primary" disabled>Translate</button>
+        <div class="button-group">
+          <button id="translateSingle" class="btn btn-primary" disabled>Translate</button>
+          <button id="translateStreaming" class="btn btn-secondary" disabled>Translate with Streaming</button>
+        </div>
 
         <!-- Performance Metrics -->
         <div class="single-stats">
@@ -82,8 +89,12 @@
             <div id="singleTime">0</div>
           </div>
           <div class="single-stat-item">
-            <label>Chars/Sec:</label>
-            <div id="singleThroughput">0</div>
+            <label>Throughput:</label>
+            <div id="singleThroughput">0 chars/sec</div>
+          </div>
+          <div class="single-stat-item">
+            <label>Chunks:</label>
+            <div id="streamingChunks">-</div>
           </div>
         </div>
 

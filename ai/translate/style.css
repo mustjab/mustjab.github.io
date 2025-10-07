@@ -144,6 +144,13 @@ textarea:focus {
 }
 
 /* Buttons */
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
 .btn {
   padding: 10px 20px;
   border: none;
@@ -154,8 +161,6 @@ textarea:focus {
   transition: all 0.3s ease;
   display: inline-block;
   text-decoration: none;
-  margin-right: 8px;
-  margin-bottom: 8px;
 }
 
 .btn-primary {
@@ -275,6 +280,18 @@ textarea:focus {
   border-radius: 4px;
   border: 1px solid #e1e5e9;
   min-height: 18px;
+}
+
+.text-output.streaming {
+  background: linear-gradient(90deg, #f0f4ff 0%, #ffffff 100%);
+  border: 1px solid #667eea;
+  position: relative;
+  transition: background-color 0.15s ease;
+}
+
+.text-output.chunk-update {
+  background: linear-gradient(90deg, #d0e0ff 0%, #e8f0ff 100%);
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.6);
 }
 
 /* Batch results */
@@ -476,31 +493,31 @@ table tbody tr {
 /* Single translation stats */
 .single-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   margin: 15px 0;
 }
 
 .single-stat-item {
   background: #f8f9fa;
-  padding: 10px;
+  padding: 8px;
   border-radius: 6px;
   text-align: center;
   border: 1px solid #e9ecef;
 }
 
 .single-stat-item label {
-  font-size: 11px;
+  font-size: 10px;
   color: #666;
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   font-weight: 600;
 }
 
 .single-stat-item div {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #667eea;
 }
@@ -671,7 +688,7 @@ footer a {
   }
 
   .single-stats {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -681,7 +698,7 @@ footer a {
   }
 
   .single-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .btn {
