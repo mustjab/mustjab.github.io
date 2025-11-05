@@ -233,14 +233,12 @@ async function createSession() {
 
               // Convert from 0-1 range to 0-100 percentage
               const percentage = loaded * 100;
-              const estimatedModelSizeMB = 3000; // Approximate model size
-              const estimatedDownloadedMB = (loaded * estimatedModelSizeMB).toFixed(1);
 
-              updateProgress(percentage, `Downloaded ~${estimatedDownloadedMB} MB / ~${estimatedModelSizeMB} MB (${percentage.toFixed(1)}%)`);
+              updateProgress(percentage, `Downloading model: ${percentage.toFixed(1)}%`);
 
               // Mark complete when API indicates completion (loaded >= 1.0 or very close)
               if (loaded >= 0.99) {
-                updateProgress(100, `Download complete: ~${estimatedModelSizeMB} MB`);
+                updateProgress(100, `Download complete`);
                 modelReady = true;
                 modelDownloadInProgress = false;
 
@@ -258,40 +256,15 @@ async function createSession() {
               console.log(`Unexpected progress data format: total=${total}, loaded=${loaded} - using fallback estimation`);
             }
           }
-        };// Show immediate progress and start fallback estimation
+        };
+
+        // Show initial progress state
         if (!progressShown) {
           showProgress(true);
           updateStatus('downloading', 'Downloading...', 'info');
+          updateProgress(0, 'Starting download...');
           progressShown = true;
         }
-        // Start immediate progress display and fallback estimation
-        let downloadStartTime = Date.now();
-        updateProgress(0, 'Starting download...'); const startFallbackEstimation = () => {
-          let estimationStartTime = Date.now();
-          const updateEstimatedProgress = () => {
-            if (!modelReady && !validApiDataReceived) {
-              const elapsedSeconds = Math.floor((Date.now() - estimationStartTime) / 1000);
-              const estimatedSpeedMBps = 2; // Conservative estimate: 2 MB/s
-              const estimatedMBDownloaded = elapsedSeconds * estimatedSpeedMBps;
-              const modelSizeMB = 3000; // Approximate model size
-              const estimatedProgress = Math.min((estimatedMBDownloaded / modelSizeMB) * 100, 95);
-
-              updateProgress(estimatedProgress, `Downloaded ~${estimatedMBDownloaded.toFixed(1)} MB / ~${modelSizeMB} MB (estimated)`);
-
-              // Continue updating every 2 seconds  
-              setTimeout(updateEstimatedProgress, 2000);
-            }
-          };
-          updateEstimatedProgress();
-        };
-
-        // Start fallback estimation immediately since API often provides invalid data
-        setTimeout(() => {
-          if (!validApiDataReceived) {
-            console.log('No valid progress data from API, starting fallback estimation');
-            startFallbackEstimation();
-          }
-        }, 500); // Brief delay to check for valid API data first
       };
     }
 
