@@ -219,28 +219,28 @@ async function createSession() {
             const loaded = e.loaded;
             const total = e.total || 0;
 
-            // Use actual API data for progress display
-            const loadedMB = (loaded / 1024 / 1024).toFixed(1);
-            console.log(`Progress: ${loadedMB} MB loaded, total: ${total}, lengthComputable: ${e.lengthComputable}`);            // Validate API data - AI models are typically 1GB+ so reject unrealistic values
-            const isValidApiData = total > 100 * 1024 * 1024; // At least 100MB seems reasonable
+            console.log(`Progress: loaded=${loaded}, total=${total}, lengthComputable=${e.lengthComputable}`);
 
-            if (!isValidApiData && total > 0) {
-              console.log(`⚠️ API progress data appears invalid for AI model: total=${total} bytes (${(total / 1024 / 1024).toFixed(2)} MB). Expected >100MB. Using fallback estimation.`);
-            }
+            // Check if API is returning percentage-based progress (0-1 range)
+            // where total=1 represents 100% and loaded is a fraction between 0 and 1
+            const isPercentageBasedProgress = total === 1 && loaded >= 0 && loaded <= 1;
 
-            if (total > 0 && e.lengthComputable && isValidApiData) {
+            if (isPercentageBasedProgress && e.lengthComputable) {
               if (!validApiDataReceived) {
-                console.log('✅ Valid API progress data received, switching from estimation to real data');
+                console.log('✅ Valid API progress data received (percentage-based: 0-1 range)');
                 validApiDataReceived = true;
               }
 
-              const totalMB = (total / 1024 / 1024).toFixed(1);
-              const percentage = (loaded / total) * 100;
-              updateProgress(percentage, `Downloaded ${loadedMB} MB / ${totalMB} MB`);
+              // Convert from 0-1 range to 0-100 percentage
+              const percentage = loaded * 100;
+              const estimatedModelSizeMB = 3000; // Approximate model size
+              const estimatedDownloadedMB = (loaded * estimatedModelSizeMB).toFixed(1);
 
-              // Mark complete when API indicates completion
-              if (loaded >= total) {
-                updateProgress(100, `Download complete: ${totalMB} MB`);
+              updateProgress(percentage, `Downloaded ~${estimatedDownloadedMB} MB / ~${estimatedModelSizeMB} MB (${percentage.toFixed(1)}%)`);
+
+              // Mark complete when API indicates completion (loaded >= 1.0 or very close)
+              if (loaded >= 0.99) {
+                updateProgress(100, `Download complete: ~${estimatedModelSizeMB} MB`);
                 modelReady = true;
                 modelDownloadInProgress = false;
 
@@ -254,8 +254,8 @@ async function createSession() {
                 showProgress(false);
               }
             } else {
-              // API data is invalid/unrealistic - ignore it and let fallback estimation handle progress
-              console.log(`Ignoring invalid API progress data: total=${total} bytes, loaded=${loaded} bytes`);
+              // API data doesn't match expected format - log and let fallback estimation handle it
+              console.log(`Unexpected progress data format: total=${total}, loaded=${loaded} - using fallback estimation`);
             }
           }
         };// Show immediate progress and start fallback estimation
