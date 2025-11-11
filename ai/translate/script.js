@@ -73,6 +73,9 @@ class TranslationAPIDemo {
     // Language swap button
     document.getElementById('swapLanguages').addEventListener('click', () => this.swapLanguages());
 
+    // Copy button
+    document.getElementById('copyTranslated').addEventListener('click', () => this.copyTranslatedText());
+
     // Language selector changes
     document.getElementById('sourceLanguage').addEventListener('change', () => this.resetTranslator());
     document.getElementById('targetLanguage').addEventListener('change', () => this.resetTranslator());
@@ -179,11 +182,15 @@ class TranslationAPIDemo {
       const totalCharacters = inputText.length;
 
       console.log(`✅ Translation complete: ${translationTime}ms (${totalCharacters}→${translatedText.length} chars, ${charactersPerSecond} chars/sec)`);
+      console.log('📝 Raw output:', JSON.stringify(translatedText)); // Log exact output with escaped characters
 
       // Update results
       const outputElement = document.getElementById('translatedText');
       outputElement.textContent = translatedText;
       outputElement.classList.remove('streaming'); // Remove streaming class if it was there
+
+      // Show copy button
+      document.getElementById('copyTranslated').style.display = 'inline-flex';
 
       // Update performance metrics
       document.getElementById('singleChars').textContent = totalCharacters;
@@ -258,6 +265,9 @@ class TranslationAPIDemo {
           // Accumulate chunks (each chunk is a sentence)
           accumulatedTranslation += chunk;
 
+          // Log each chunk with escaped characters for debugging
+          console.log(`📦 Chunk ${chunkCount}:`, JSON.stringify(chunk), `(${chunk.length} chars)`);
+
           // Update the display with accumulated translation
           outputElement.textContent = accumulatedTranslation;
           previousLength = accumulatedTranslation.length;
@@ -282,10 +292,15 @@ class TranslationAPIDemo {
         } else {
           console.log(`✅ Streaming complete: ${chunkCount} chunks in ${translationTime}ms (${inputText.length}→${accumulatedTranslation.length} chars, ${throughput} chars/sec, ${chunksPerSecond} chunks/sec)`);
         }
+        console.log('📝 Raw output:', JSON.stringify(accumulatedTranslation)); // Log exact output with escaped characters
+
         document.getElementById('singleTime').textContent = translationTime;
         document.getElementById('streamingChunks').textContent = chunkCount;
         document.getElementById('singleThroughput').textContent = `${throughput} chars/sec`;
         document.getElementById('chunksPerSec').textContent = chunksPerSecond;
+
+        // Show copy button
+        document.getElementById('copyTranslated').style.display = 'inline-flex';
 
         // Re-enable buttons and remove streaming class
         streamButton.disabled = false;
@@ -608,6 +623,9 @@ class TranslationAPIDemo {
     document.getElementById('runBatchTest').disabled = true;
     // Clear results
     document.getElementById('initResult').innerHTML = '';
+    document.getElementById('translatedText').textContent = '';
+    // Hide copy button
+    document.getElementById('copyTranslated').style.display = 'none';
   }
 
   logResult(elementId, message, type = 'info') {
@@ -644,6 +662,8 @@ class TranslationAPIDemo {
       inputTextElement.value = translatedText;
       // Clear the translated text display
       translatedTextElement.textContent = '';
+      // Hide copy button
+      document.getElementById('copyTranslated').style.display = 'none';
     }
 
     // Swap the values
@@ -652,6 +672,38 @@ class TranslationAPIDemo {
 
     // Reset translator since language pair changed
     this.resetTranslator();
+  }
+
+  async copyTranslatedText() {
+    const translatedTextElement = document.getElementById('translatedText');
+    const copyButton = document.getElementById('copyTranslated');
+    // Get exact text without trimming to preserve model output exactly
+    const text = translatedTextElement.textContent;
+
+    if (!text) {
+      return;
+    }
+
+    try {
+      // Copy exact text without any modifications
+      await navigator.clipboard.writeText(text);
+      
+      // Update button to show success
+      const originalText = copyButton.querySelector('.copy-text').textContent;
+      copyButton.classList.add('copied');
+      copyButton.querySelector('.copy-text').textContent = '✓ Copied!';
+      
+      // Reset button after 2 seconds
+      setTimeout(() => {
+        copyButton.classList.remove('copied');
+        copyButton.querySelector('.copy-text').textContent = originalText;
+      }, 2000);
+      
+      console.log('✓ Translated text copied to clipboard (exact output preserved)');
+    } catch (error) {
+      console.error('Failed to copy text:', error);
+      alert('Failed to copy text to clipboard');
+    }
   }
 }
 

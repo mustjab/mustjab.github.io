@@ -105,7 +105,16 @@
 
         <div class="translation-results">
           <div class="result-item">
-            <label>Translated Text:</label>
+            <div class="result-header">
+              <label>Translated Text:</label>
+              <button id="copyTranslated" class="btn-copy" title="Copy to clipboard" style="display: none;">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5.5 4.5H3.5C3.23478 4.5 2.98043 4.60536 2.79289 4.79289C2.60536 4.98043 2.5 5.23478 2.5 5.5V12.5C2.5 12.7652 2.60536 13.0196 2.79289 13.2071C2.98043 13.3946 3.23478 13.5 3.5 13.5H10.5C10.7652 13.5 11.0196 13.3946 11.2071 13.2071C11.3946 13.0196 11.5 12.7652 11.5 12.5V10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M13.5 2.5H6.5C6.23478 2.5 5.98043 2.60536 5.79289 2.79289C5.60536 2.98043 5.5 3.23478 5.5 3.5V10.5C5.5 10.7652 5.60536 11.0196 5.79289 11.2071C5.98043 11.3946 6.23478 11.5 6.5 11.5H13.5C13.7652 11.5 14.0196 11.3946 14.2071 11.2071C14.3946 11.0196 14.5 10.7652 14.5 10.5V3.5C14.5 3.23478 14.3946 2.98043 14.2071 2.79289C14.0196 2.60536 13.7652 2.5 13.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="copy-text">Copy</span>
+              </button>
+            </div>
             <div id="translatedText" class="text-output"></div>
           </div>
         </div>

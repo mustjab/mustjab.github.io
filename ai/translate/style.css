@@ -266,11 +266,60 @@ textarea:focus {
   border: 1px solid #e9ecef;
 }
 
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
 .result-item label {
   font-weight: 600;
   color: #667eea;
   display: block;
-  margin-bottom: 4px;
+  margin: 0;
+}
+
+.btn-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #667eea;
+  border-radius: 6px;
+  color: #667eea;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-copy:hover {
+  background: #667eea;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-copy:active {
+  transform: translateY(0);
+}
+
+.btn-copy svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-copy.copied {
+  background: #28a745;
+  border-color: #28a745;
+  color: white;
+}
+
+.btn-copy.copied svg {
+  display: none;
 }
 
 .text-output {
@@ -280,6 +329,8 @@ textarea:focus {
   border-radius: 4px;
   border: 1px solid #e1e5e9;
   min-height: 18px;
+  white-space: pre-wrap; /* Preserve whitespace and line breaks exactly as from the model */
+  word-break: break-word; /* Prevent overflow for long words */
 }
 
 .text-output.streaming {
