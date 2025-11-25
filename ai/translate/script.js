@@ -891,10 +891,10 @@ class SearchableLanguageSelect {
     const latinSlavicCodes = ['pl', 'cs', 'sk', 'hr', 'sl', 'bs', 'dsb', 'hsb', 'sr-latn']; // Slavic languages using Latin script
     const cyrillicCodes = ['ru', 'bg', 'uk', 'be', 'mk', 'sr-cyrl', 'kk', 'ky', 'tg', 'tt', 'mn-cyrl', 'ba', 'ce', 'cv']; // Languages using Cyrillic script
     const eastAsianCodes = ['zh-hans', 'zh-hant', 'ja', 'ko', 'lzh', 'yue']; // East Asian languages
-    const southAsianCodes = ['hi', 'bn', 'gu', 'kn', 'ml', 'mr', 'ta', 'te', 'ur', 'as', 'or', 'pa', 'ne', 'si', 'my', 'dv', 'awa', 'bho', 'brx', 'doi', 'kok', 'hne', 'kha', 'lus', 'mag', 'mai', 'mni', 'sat']; // South Asian languages
+    const southAsianCodes = ['hi', 'bn', 'gu', 'kn', 'ml', 'mr', 'ta', 'te', 'ur', 'as', 'or', 'pa', 'ne', 'si', 'my', 'dv', 'awa', 'bho', 'brx', 'doi', 'gom', 'kok', 'hne', 'kha', 'lus', 'mag', 'mai', 'mni', 'sat']; // South Asian languages
     const southeastAsianCodes = ['th', 'vi', 'id', 'ms', 'km', 'lo', 'jv', 'su', 'ceb', 'fil', 'mi', 'fj', 'haw', 'sm', 'to', 'ty', 'tet']; // Southeast Asian and Pacific
     const arabicScriptCodes = ['ar', 'fa', 'he', 'ps', 'prs', 'ku', 'ks', 'sd', 'ug']; // Arabic script languages
-    const africanCodes = ['ha', 'ig', 'yo', 'zu', 'xh', 'sw', 'sn', 'st', 'tn', 'nso', 'run', 'rw', 'ln', 'mg', 'so', 'am', 'ti', 'nya']; // African languages
+    const africanCodes = ['ha', 'ig', 'yo', 'zu', 'xh', 'sw', 'sn', 'st', 'tn', 'nso', 'run', 'rw', 'ln', 'lg', 'mg', 'so', 'am', 'ti', 'nya']; // African languages
     const otherEuropeanCodes = ['fi', 'hu', 'et', 'lv', 'lt', 'el', 'mt', 'eu', 'cy', 'ga', 'sq', 'hy', 'ka', 'tr', 'az', 'uz', 'tk', 'kk', 'ky']; // Other European languages
 
     languages.forEach(lang => {
@@ -1016,7 +1016,8 @@ const LANGUAGE_NAMES = {
   'fr': 'French',
   'fr-ca': 'French (Canada)',
   'gl': 'Galician',
-  'kok': 'Konkani',
+  'gom': 'Konkani',
+  'kok': 'Konkani (Goan)',
   'gu': 'Gujarati',
   'ht': 'Haitian Creole',
   'ha': 'Hausa',
