@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Language Detection API Demo</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="../../icon.png">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Browser Language Detection API Demo</h1>
+            <p class="subtitle">Testing browser's built-in on-device language detection capabilities</p>
+            <div class="api-status" id="apiStatus">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">Checking API availability...</span>
+            </div>
+        </header>
+
+        <main>
+            <!-- Detector Initialization Section -->
+            <section class="card">
+                <h2>Language Detector Initialization</h2>
+                <p class="section-description">Initialize the language detector to identify languages in text samples.
+                </p>
+                <button id="initializeDetector" class="btn btn-primary" disabled>Initialize Detector</button>
+                <div class="progress-container" id="downloadProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">0%</div>
+                </div>
+                <div id="initResult" class="result-box"></div>
+            </section>
+
+            <!-- Language Detection Test Section -->
+            <section class="card">
+                <h2>Language Detection Test</h2>
+                <div class="info-banner">
+                    <h3>🔍 How Language Detection Works</h3>
+                    <p>The Language Detection API uses machine learning to rank languages by confidence. Very short
+                        phrases and single words may have low accuracy.</p>
+                </div>
+                <div class="form-group">
+                    <label for="inputText">Text to Detect:</label>
+                    <textarea id="inputText" rows="6"
+                        placeholder="Enter text in any language...">Artificial intelligence and machine learning technologies are revolutionizing how we approach language translation and natural language processing.</textarea>
+                </div>
+                <button id="detectLanguage" class="btn btn-primary" disabled>Detect Language</button>
+
+                <!-- Detection Results -->
+                <div id="detectionResults" class="detection-results" style="display: none;">
+                    <h3>Detection Results</h3>
+                    <div class="primary-result">
+                        <div class="result-label">Detected Language:</div>
+                        <div id="primaryLanguage" class="primary-language"></div>
+                        <div class="confidence-bar-container">
+                            <div class="confidence-bar" id="primaryConfidenceBar"></div>
+                        </div>
+                        <div id="primaryConfidence" class="confidence-value"></div>
+                    </div>
+
+                    <div class="all-results">
+                        <h4>All Candidates (Ranked by Confidence)</h4>
+                        <div id="allCandidates" class="candidates-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sample Texts Section -->
+            <section class="card">
+                <h2>Try Sample Texts</h2>
+                <p class="section-description">Click any sample below to test language detection with different
+                    languages.</p>
+                <div class="samples-grid" id="samplesGrid">
+                    <!-- Samples will be populated by JavaScript -->
+                </div>
+            </section>
+
+            <!-- Batch Detection Section -->
+            <section class="card">
+                <h2>Batch Language Detection Test</h2>
+                <p class="section-description">Test detection accuracy across multiple language samples automatically.
+                </p>
+                <div class="form-group">
+                    <label for="batchInput">Enter texts (one per line):</label>
+                    <textarea id="batchInput" rows="8" placeholder="Enter multiple texts, one per line..."></textarea>
+                </div>
+                <div class="button-group">
+                    <button id="runBatchTest" class="btn btn-primary" disabled>Run Batch Test</button>
+                    <button id="exportBatchResults" class="btn btn-secondary" disabled>Export Results</button>
+                    <button id="clearBatchResults" class="btn btn-secondary" disabled>Clear Results</button>
+                </div>
+
+                <!-- Batch Results -->
+                <div id="batchResults" class="batch-results" style="display: none;">
+                    <div class="batch-stats">
+                        <div class="stat-item">
+                            <label>Total Tests:</label>
+                            <div id="batchTotal">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <label>Avg Time (ms):</label>
+                            <div id="batchAvgTime">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <label>Avg Confidence:</label>
+                            <div id="batchAvgConfidence">0%</div>
+                        </div>
+                    </div>
+                    <div id="batchResultsList" class="batch-results-list"></div>
+                </div>
+            </section>
+
+            <!-- API Information Section -->
+            <section class="card info-section">
+                <h2>About the Language Detection API</h2>
+                <div class="info-content">
+                    <h3>Key Features</h3>
+                    <ul>
+                        <li><strong>Client-side Processing:</strong> All detection happens locally, protecting user
+                            privacy</li>
+                        <li><strong>Ranking Model:</strong> Returns multiple language candidates ranked by confidence
+                        </li>
+                        <li><strong>On-demand Download:</strong> The small detection model downloads automatically when
+                            needed</li>
+                        <li><strong>Wide Language Support:</strong> Supports detection of numerous languages</li>
+                    </ul>
+
+                    <h3>Use Cases</h3>
+                    <ul>
+                        <li>Determine language before translation</li>
+                        <li>Load language-specific models for tasks like toxicity detection</li>
+                        <li>Label content correctly in social networking sites</li>
+                        <li>Adjust app interface based on user's language</li>
+                    </ul>
+
+                    <h3>Best Practices</h3>
+                    <ul>
+                        <li>Avoid very short phrases or single words for better accuracy</li>
+                        <li>Use confidence thresholds to filter unreliable detections</li>
+                        <li>Consider showing multiple candidates for ambiguous text</li>
+                        <li>Test with your priority languages and set appropriate confidence levels</li>
+                    </ul>
+
+                    <h3>Browser Support</h3>
+                    <p>This API is currently available in Chrome 138+ with the built-in AI feature enabled.</p>
+
+                    <div class="links">
+                        <a href="https://developer.chrome.com/docs/ai/language-detection" target="_blank"
+                            rel="noopener">
+                            📚 Full Documentation
+                        </a>
+                        <a href="https://chrome.dev/web-ai-demos/translation-language-detection-api-playground/"
+                            target="_blank" rel="noopener">
+                            🎮 Official Playground
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Built with Chrome's Language Detection API | <a href="../">Back to AI Demos</a></p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
