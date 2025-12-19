@@ -150,7 +150,6 @@ class LanguageDetectionDemo {
 
     async init() {
         this.setupEventListeners();
-        this.populateSamples();
         await this.checkAPIAvailability();
     }
 
@@ -162,30 +161,9 @@ class LanguageDetectionDemo {
         document.getElementById('detectLanguage').addEventListener('click', () => this.detectLanguage());
 
         // Batch Detection
-        document.getElementById('runBatchTest').addEventListener('click', () => this.runBatchTest());
+        document.getElementById('runSampleBatch').addEventListener('click', () => this.runSampleBatch());
         document.getElementById('exportBatchResults').addEventListener('click', () => this.exportBatchResults());
         document.getElementById('clearBatchResults').addEventListener('click', () => this.clearBatchResults());
-    }
-
-    populateSamples() {
-        const samplesGrid = document.getElementById('samplesGrid');
-        samplesGrid.innerHTML = '';
-
-        SAMPLE_TEXTS.forEach((sample, index) => {
-            const sampleCard = document.createElement('div');
-            sampleCard.className = 'sample-card';
-            sampleCard.innerHTML = `
-        <div class="sample-language">${sample.language}</div>
-        <div class="sample-text">"${sample.text}"</div>
-      `;
-            sampleCard.addEventListener('click', () => {
-                document.getElementById('inputText').value = sample.text;
-                if (this.isDetectorReady) {
-                    this.detectLanguage();
-                }
-            });
-            samplesGrid.appendChild(sampleCard);
-        });
     }
 
     async checkAPIAvailability() {
@@ -233,6 +211,16 @@ class LanguageDetectionDemo {
         progressContainer.style.display = 'none';
 
         try {
+            // Destroy existing detector if any
+            if (this.detector) {
+                try {
+                    await this.detector.destroy();
+                } catch (e) {
+                    console.warn('Error destroying previous detector:', e);
+                }
+                this.detector = null;
+            }
+
             this.showMessage('initResult', 'Checking language detector availability...', 'info');
 
             // Check availability
@@ -247,8 +235,8 @@ class LanguageDetectionDemo {
             if (availability === 'after-download') {
                 this.showMessage('initResult', 'Downloading language detection model...', 'info');
                 progressContainer.style.display = 'block';
-            } else if (availability === 'readily') {
-                this.showMessage('initResult', 'Language detection model is already available. Initializing...', 'info');
+            } else if (availability === 'readily' || availability === 'available') {
+                this.showMessage('initResult', 'Language detection model is available. Initializing...', 'info');
             }
 
             // Create detector with download progress monitoring
@@ -270,12 +258,26 @@ class LanguageDetectionDemo {
 
             // Enable detection buttons
             document.getElementById('detectLanguage').disabled = false;
-            document.getElementById('runBatchTest').disabled = false;
+            document.getElementById('runSampleBatch').disabled = false;
 
         } catch (error) {
             progressContainer.style.display = 'none';
-            this.showMessage('initResult', `Error initializing detector: ${error.message}`, 'error');
+
+            // Provide more helpful error messages
+            let errorMessage = error.message || 'Unknown error';
+            let helpText = '';
+
+            if (errorMessage.includes('Flatbuffer') || errorMessage.includes('buffer')) {
+                helpText = ' The language detection model may be corrupted or incomplete. Try: 1) Restart your browser, 2) Clear browser cache, or 3) Use chrome://components to check "Optimization Guide On Device Model" status.';
+            }
+
+            this.showMessage('initResult', `Error initializing detector: ${errorMessage}${helpText}`, 'error');
             console.error('Detector initialization error:', error);
+            console.error('Error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
         } finally {
             initBtn.disabled = false;
         }
@@ -364,29 +366,17 @@ class LanguageDetectionDemo {
         });
     }
 
-    async runBatchTest() {
+    async runSampleBatch() {
         if (!this.detector) {
             alert('Please initialize the language detector first.');
             return;
         }
 
-        const batchInput = document.getElementById('batchInput').value.trim();
-        let texts = [];
+        // Use all sample texts
+        const texts = SAMPLE_TEXTS.map(s => s.text);
+        const expectedLanguages = SAMPLE_TEXTS.map(s => ({ expected: s.expectedLang, name: s.language }));
 
-        if (batchInput) {
-            // Use user-provided texts
-            texts = batchInput.split('\n').filter(line => line.trim());
-        } else {
-            // Use sample texts
-            texts = SAMPLE_TEXTS.map(s => s.text);
-        }
-
-        if (texts.length === 0) {
-            alert('Please enter texts to test (one per line) or use the default samples.');
-            return;
-        }
-
-        const runBtn = document.getElementById('runBatchTest');
+        const runBtn = document.getElementById('runSampleBatch');
         const resultsDiv = document.getElementById('batchResults');
         const resultsList = document.getElementById('batchResultsList');
 
@@ -398,6 +388,7 @@ class LanguageDetectionDemo {
         this.batchResults = [];
         let totalTime = 0;
         let totalConfidence = 0;
+        let correctDetections = 0;
 
         try {
             for (let i = 0; i < texts.length; i++) {
@@ -408,12 +399,20 @@ class LanguageDetectionDemo {
                 const detectionTime = Math.round(endTime - startTime);
 
                 const topResult = results[0];
+                const isCorrect = topResult.detectedLanguage === expectedLanguages[i].expected ||
+                    topResult.detectedLanguage.startsWith(expectedLanguages[i].expected);
+
+                if (isCorrect) correctDetections++;
+
                 const batchResult = {
                     index: i + 1,
                     text: text,
+                    expectedLanguage: expectedLanguages[i].expected,
+                    expectedLanguageName: expectedLanguages[i].name,
                     detectedLanguage: topResult.detectedLanguage,
                     confidence: topResult.confidence,
                     detectionTime: detectionTime,
+                    isCorrect: isCorrect,
                     allResults: results
                 };
 
@@ -428,6 +427,7 @@ class LanguageDetectionDemo {
             // Update stats
             const avgTime = Math.round(totalTime / texts.length);
             const avgConfidence = ((totalConfidence / texts.length) * 100).toFixed(2);
+            const accuracy = ((correctDetections / texts.length) * 100).toFixed(1);
 
             document.getElementById('batchTotal').textContent = texts.length;
             document.getElementById('batchAvgTime').textContent = avgTime;
@@ -442,7 +442,7 @@ class LanguageDetectionDemo {
             console.error('Batch test error:', error);
         } finally {
             runBtn.disabled = false;
-            runBtn.textContent = 'Run Batch Test';
+            runBtn.textContent = 'Run All Sample Languages';
         }
     }
 
@@ -453,17 +453,22 @@ class LanguageDetectionDemo {
         this.batchResults.forEach((result) => {
             const languageName = this.getLanguageName(result.detectedLanguage);
             const confidence = (result.confidence * 100).toFixed(2);
+            const matchIcon = result.isCorrect ? '✅' : '❌';
+            const matchClass = result.isCorrect ? 'correct' : 'incorrect';
 
             const resultCard = document.createElement('div');
-            resultCard.className = 'batch-result-card';
+            resultCard.className = `batch-result-card ${matchClass}`;
             resultCard.innerHTML = `
         <div class="batch-result-header">
-          <span class="batch-result-number">#${result.index}</span>
+          <span class="batch-result-number">${matchIcon} #${result.index}</span>
           <span class="batch-result-time">${result.detectionTime}ms</span>
         </div>
         <div class="batch-result-text">"${this.truncateText(result.text, 100)}"</div>
         <div class="batch-result-detection">
-          <strong>${languageName}</strong> (${result.detectedLanguage})
+          <div>
+            <div class="expected-language">Expected: <strong>${result.expectedLanguageName}</strong> (${result.expectedLanguage})</div>
+            <div class="detected-language">Detected: <strong>${languageName}</strong> (${result.detectedLanguage})</div>
+          </div>
           <span class="batch-confidence">${confidence}% confidence</span>
         </div>
       `;
@@ -483,10 +488,13 @@ class LanguageDetectionDemo {
             results: this.batchResults.map(r => ({
                 index: r.index,
                 text: r.text,
+                expectedLanguage: r.expectedLanguage,
+                expectedLanguageName: r.expectedLanguageName,
                 detectedLanguage: r.detectedLanguage,
                 languageName: this.getLanguageName(r.detectedLanguage),
                 confidence: r.confidence,
                 detectionTime: r.detectionTime,
+                isCorrect: r.isCorrect,
                 topCandidates: r.allResults.slice(0, 3).map(res => ({
                     language: res.detectedLanguage,
                     confidence: res.confidence

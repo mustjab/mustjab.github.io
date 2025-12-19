@@ -34,6 +34,32 @@
                     <div class="progress-text" id="progressText">0%</div>
                 </div>
                 <div id="initResult" class="result-box"></div>
+
+                <div class="troubleshooting-box">
+                    <details>
+                        <summary><strong>⚠️ Troubleshooting: "Invalid Flatbuffer" Error</strong></summary>
+                        <div class="troubleshooting-content">
+                            <p>If you see "The model is not a valid Flatbuffer buffer" error, try these solutions:</p>
+                            <ol>
+                                <li><strong>Check Model Status:</strong> Visit <code>chrome://components</code> and look
+                                    for "Optimization Guide On Device Model". Click "Check for update" if available.
+                                </li>
+                                <li><strong>Clear Cache:</strong> The model may be corrupted. Clear your browser cache
+                                    and try again.</li>
+                                <li><strong>Restart Browser:</strong> Close all Chrome windows and restart.</li>
+                                <li><strong>Enable Flags:</strong> Make sure you have the required flags enabled at
+                                    <code>chrome://flags</code>:
+                                    <ul>
+                                        <li><code>#optimization-guide-on-device-model</code> - Enabled</li>
+                                        <li><code>#language-detection-api</code> - Enabled</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Update Chrome:</strong> Make sure you're using Chrome 138+ or a recent
+                                    Canary/Dev build.</li>
+                            </ol>
+                        </div>
+                    </details>
+                </div>
             </section>
 
             <!-- Language Detection Test Section -->
@@ -70,27 +96,13 @@
                 </div>
             </section>
 
-            <!-- Sample Texts Section -->
-            <section class="card">
-                <h2>Try Sample Texts</h2>
-                <p class="section-description">Click any sample below to test language detection with different
-                    languages.</p>
-                <div class="samples-grid" id="samplesGrid">
-                    <!-- Samples will be populated by JavaScript -->
-                </div>
-            </section>
-
             <!-- Batch Detection Section -->
             <section class="card">
                 <h2>Batch Language Detection Test</h2>
                 <p class="section-description">Test detection accuracy across multiple language samples automatically.
                 </p>
-                <div class="form-group">
-                    <label for="batchInput">Enter texts (one per line):</label>
-                    <textarea id="batchInput" rows="8" placeholder="Enter multiple texts, one per line..."></textarea>
-                </div>
                 <div class="button-group">
-                    <button id="runBatchTest" class="btn btn-primary" disabled>Run Batch Test</button>
+                    <button id="runSampleBatch" class="btn btn-primary" disabled>Run All Sample Languages</button>
                     <button id="exportBatchResults" class="btn btn-secondary" disabled>Export Results</button>
                     <button id="clearBatchResults" class="btn btn-secondary" disabled>Clear Results</button>
                 </div>
@@ -112,53 +124,6 @@
                         </div>
                     </div>
                     <div id="batchResultsList" class="batch-results-list"></div>
-                </div>
-            </section>
-
-            <!-- API Information Section -->
-            <section class="card info-section">
-                <h2>About the Language Detection API</h2>
-                <div class="info-content">
-                    <h3>Key Features</h3>
-                    <ul>
-                        <li><strong>Client-side Processing:</strong> All detection happens locally, protecting user
-                            privacy</li>
-                        <li><strong>Ranking Model:</strong> Returns multiple language candidates ranked by confidence
-                        </li>
-                        <li><strong>On-demand Download:</strong> The small detection model downloads automatically when
-                            needed</li>
-                        <li><strong>Wide Language Support:</strong> Supports detection of numerous languages</li>
-                    </ul>
-
-                    <h3>Use Cases</h3>
-                    <ul>
-                        <li>Determine language before translation</li>
-                        <li>Load language-specific models for tasks like toxicity detection</li>
-                        <li>Label content correctly in social networking sites</li>
-                        <li>Adjust app interface based on user's language</li>
-                    </ul>
-
-                    <h3>Best Practices</h3>
-                    <ul>
-                        <li>Avoid very short phrases or single words for better accuracy</li>
-                        <li>Use confidence thresholds to filter unreliable detections</li>
-                        <li>Consider showing multiple candidates for ambiguous text</li>
-                        <li>Test with your priority languages and set appropriate confidence levels</li>
-                    </ul>
-
-                    <h3>Browser Support</h3>
-                    <p>This API is currently available in Chrome 138+ with the built-in AI feature enabled.</p>
-
-                    <div class="links">
-                        <a href="https://developer.chrome.com/docs/ai/language-detection" target="_blank"
-                            rel="noopener">
-                            📚 Full Documentation
-                        </a>
-                        <a href="https://chrome.dev/web-ai-demos/translation-language-detection-api-playground/"
-                            target="_blank" rel="noopener">
-                            🎮 Official Playground
-                        </a>
-                    </div>
                 </div>
             </section>
         </main>
