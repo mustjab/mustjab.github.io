@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description"
+        content="End-to-end playground for on-device Built-in AI APIs: Prompt, Writing Assistance, Translator, Language Detection, Proofreader" />
+    <meta name="theme-color" content="#667eea" />
+    <title>Built-in AI End-to-End Playground</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" href="../favicon.ico" />
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Built-in AI End-to-End Playground</h1>
+        </header>
+
+        <div class="error-banner" id="errorBanner" role="alert" aria-live="assertive" style="display:none;">
+            <div class="error-banner__top">
+                <div class="error-banner__title" id="errorTitle">Error</div>
+                <button id="dismissError" class="btn btn-small" type="button"
+                    aria-label="Dismiss error">Dismiss</button>
+            </div>
+            <div class="error-banner__msg" id="errorMsg"></div>
+            <pre class="error-banner__details" id="errorDetails"></pre>
+        </div>
+
+        <main>
+            <section class="card">
+                <h2>Task</h2>
+
+                <div class="task-bar">
+                    <div class="tabs" role="tablist" aria-label="Task tabs">
+                        <button class="tab active" type="button" role="tab" aria-selected="true" id="tab-prompt"
+                            data-tab="prompt">Prompt</button>
+                        <button class="tab" type="button" role="tab" aria-selected="false" id="tab-summarizer"
+                            data-tab="summarizer">Summarizer</button>
+                        <button class="tab" type="button" role="tab" aria-selected="false" id="tab-writer"
+                            data-tab="writer">Writer</button>
+                        <button class="tab" type="button" role="tab" aria-selected="false" id="tab-rewriter"
+                            data-tab="rewriter">Rewriter</button>
+                        <button class="tab" type="button" role="tab" aria-selected="false" id="tab-proofreader"
+                            data-tab="proofreader">Proofreader</button>
+                    </div>
+                </div>
+
+                <div class="options-row prompt-settings" id="optionsPrompt">
+                    <div class="option">
+                        <label for="optTemperature">Temperature</label>
+                        <input id="optTemperature" type="number" min="0" max="2" step="0.1" value="1" />
+                    </div>
+                    <div class="option">
+                        <label for="optTopK">Top-K</label>
+                        <input id="optTopK" type="number" min="1" max="100" step="1" value="3" />
+                    </div>
+                    <div class="option">
+                        <label for="optMaxTokens">Max tokens</label>
+                        <input id="optMaxTokens" type="number" min="64" max="8192" step="64" value="2048" />
+                    </div>
+                    <div class="hint support-hint" id="supportPrompt">Support: Checking…</div>
+                </div>
+
+                <div class="stack">
+                    <div class="form-group">
+                        <label for="systemPrompt">System prompt / instructions</label>
+                        <textarea id="systemPrompt" rows="2"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="inputText">Input</label>
+                        <textarea id="inputText" rows="7"></textarea>
+                        <div class="hint" id="inputHint"></div>
+                    </div>
+                </div>
+
+                <div class="options" id="optionsArea">
+                    <div class="options-row" id="optionsSummarizer" style="display:none;">
+                        <div class="option">
+                            <label for="sumType">Type</label>
+                            <select id="sumType">
+                                <option value="tl;dr">tl;dr</option>
+                                <option value="key-points" selected>key-points</option>
+                                <option value="teaser">teaser</option>
+                                <option value="headline">headline</option>
+                            </select>
+                        </div>
+                        <div class="option">
+                            <label for="sumLength">Length</label>
+                            <select id="sumLength">
+                                <option value="short">short</option>
+                                <option value="medium" selected>medium</option>
+                                <option value="long">long</option>
+                            </select>
+                        </div>
+                        <div class="option">
+                            <label for="sumFormat">Format</label>
+                            <select id="sumFormat">
+                                <option value="plain-text" selected>plain-text</option>
+                                <option value="markdown">markdown</option>
+                            </select>
+                        </div>
+                        <div class="hint support-hint" id="supportSummarizer">Support: Checking…</div>
+                    </div>
+
+                    <div class="options-row" id="optionsWriter" style="display:none;">
+                        <div class="option">
+                            <label for="writerTone">Tone</label>
+                            <select id="writerTone">
+                                <option value="formal">formal</option>
+                                <option value="neutral" selected>neutral</option>
+                                <option value="casual">casual</option>
+                            </select>
+                        </div>
+                        <div class="option">
+                            <label for="writerLength">Length</label>
+                            <select id="writerLength">
+                                <option value="short">short</option>
+                                <option value="medium" selected>medium</option>
+                                <option value="long">long</option>
+                            </select>
+                        </div>
+                        <div class="option">
+                            <label for="writerFormat">Format</label>
+                            <select id="writerFormat">
+                                <option value="plain-text" selected>plain-text</option>
+                                <option value="markdown">markdown</option>
+                            </select>
+                        </div>
+                        <div class="hint support-hint" id="supportWriter">Support: Checking…</div>
+                    </div>
+
+                    <div class="options-row" id="optionsRewriter" style="display:none;">
+                        <div class="option">
+                            <label for="rewriterTone">Tone</label>
+                            <select id="rewriterTone">
+                                <option value="as-is" selected>as-is</option>
+                                <option value="more-formal">more-formal</option>
+                                <option value="more-casual">more-casual</option>
+                            </select>
+                        </div>
+                        <div class="option">
+                            <label for="rewriterLength">Length</label>
+                            <select id="rewriterLength">
+                                <option value="as-is" selected>as-is</option>
+                                <option value="shorter">shorter</option>
+                                <option value="longer">longer</option>
+                            </select>
+                        </div>
+                        <div class="option">
+                            <label for="rewriterFormat">Format</label>
+                            <select id="rewriterFormat">
+                                <option value="as-is" selected>as-is</option>
+                                <option value="plain-text">plain-text</option>
+                                <option value="markdown">markdown</option>
+                            </select>
+                        </div>
+                        <div class="hint support-hint" id="supportRewriter">Support: Checking…</div>
+                    </div>
+
+                    <div class="options-row" id="optionsProofreader" style="display:none;">
+                        <div class="option" style="grid-column: 1 / -1;">
+                            <label for="proofExpectedLangs">Expected input languages (optional, comma-separated)</label>
+                            <input id="proofExpectedLangs" type="text" value=""
+                                placeholder="Leave blank to auto-detect" />
+                            <div class="hint">Leave blank to auto-detect via Language Detector (when available). Manual
+                                values override auto-detect.</div>
+                        </div>
+                        <div class="hint support-hint" id="supportProofreader">Support: Checking…</div>
+                    </div>
+
+                    <div class="options-row" id="optionsCommon">
+                        <!-- Streaming is always enabled when supported. -->
+                    </div>
+                </div>
+
+                <div class="button-row">
+                    <button id="runBtn" class="btn btn-primary" type="button">Run</button>
+                    <button id="stopBtn" class="btn btn-secondary" type="button" disabled>Stop</button>
+                    <button id="clearBtn" class="btn btn-secondary" type="button">Clear</button>
+                </div>
+
+                <div class="progress-container" id="downloadProgress" style="display:none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">0%</div>
+                </div>
+
+                <div class="result-meta">
+                    <div class="stat"><span class="k">Chars:</span> <span id="statChars">0</span></div>
+                    <div class="stat"><span class="k">Time:</span> <span id="statTime">0</span> ms</div>
+                    <div class="stat"><span class="k">Chunks:</span> <span id="statChunks">0</span></div>
+                    <div class="stat"><span class="k">Throughput:</span> <span id="statThroughput">0</span> chars/sec
+                    </div>
+                </div>
+
+                <div class="output">
+                    <div class="output-header">
+                        <h3>Model output</h3>
+                        <button id="copyOutput" class="btn btn-small" type="button" disabled>Copy</button>
+                    </div>
+                    <pre id="modelOutput" class="text-output" aria-live="polite"></pre>
+                    <div id="proofDetails" class="proof-details" style="display:none;"></div>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Translate output</h2>
+
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label for="sourceLanguageSearch">Source language</label>
+                        <div class="searchable-select-container">
+                            <input type="text" id="sourceLanguageSearch" class="searchable-select-input"
+                                placeholder="Type to search languages..." autocomplete="off">
+                            <div class="searchable-select-dropdown" id="sourceLanguageDropdown" style="display: none;">
+                            </div>
+                            <input type="hidden" id="sourceLanguage" value="en">
+                        </div>
+                        <div class="hint">Choose <strong>Auto detect</strong> to detect from output text.</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="targetLanguageSearch">Target language</label>
+                        <div class="searchable-select-container">
+                            <input type="text" id="targetLanguageSearch" class="searchable-select-input"
+                                placeholder="Type to search languages..." autocomplete="off">
+                            <div class="searchable-select-dropdown" id="targetLanguageDropdown" style="display: none;">
+                            </div>
+                            <input type="hidden" id="targetLanguage" value="es">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="translateMode">Mode</label>
+                        <select id="translateMode">
+                            <option value="whole" selected>Whole (translate)</option>
+                            <option value="stream">Streaming (translateStreaming)</option>
+                            <option value="segmented">Segmented sequential</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid-3" id="segmentOptions" style="display:none;">
+                    <div class="form-group">
+                        <label for="segmentBy">Segment by</label>
+                        <select id="segmentBy">
+                            <option value="sentence" selected>Sentence</option>
+                            <option value="paragraph">Paragraph</option>
+                            <option value="chars">Fixed chars</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="segmentChars">Chars per segment</label>
+                        <input id="segmentChars" type="number" min="50" max="5000" step="50" value="500" />
+                    </div>
+                    <div class="form-group">
+                        <label for="segmentJoin">Join with</label>
+                        <select id="segmentJoin">
+                            <option value="space" selected>Space</option>
+                            <option value="newline">Newline</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="button-row">
+                    <button id="detectLangBtn" class="btn btn-secondary" type="button">Detect language</button>
+                    <button id="translateBtn" class="btn btn-primary" type="button">Translate output</button>
+                    <button id="stopTranslateBtn" class="btn btn-secondary" type="button" disabled>Stop</button>
+                </div>
+
+                <div class="hint" id="supportTranslator">Translator support: Checking…</div>
+                <div class="hint" id="supportLID">Language Detector support: Checking…</div>
+
+                <div class="result-meta">
+                    <div class="stat"><span class="k">Detected:</span> <span id="detectedLang">-</span></div>
+                    <div class="stat"><span class="k">Segments:</span> <span id="translateSegments">-</span></div>
+                    <div class="stat"><span class="k">Time:</span> <span id="translateTime">0</span> ms</div>
+                    <div class="stat"><span class="k">Throughput:</span> <span id="translateThroughput">0</span>
+                        chars/sec</div>
+                </div>
+
+                <div class="output">
+                    <div class="output-header">
+                        <h3>Translated output</h3>
+                        <button id="copyTranslated" class="btn btn-small" type="button" disabled>Copy</button>
+                    </div>
+                    <pre id="translatedOutput" class="text-output" aria-live="polite"></pre>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
