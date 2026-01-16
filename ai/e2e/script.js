@@ -1403,10 +1403,28 @@ class E2EPlayground {
         return detector;
     }
 
+    getTextForTranslateAndDetect() {
+        const outputText = (this.lastOutput || '').trim();
+        if (outputText) {
+            return {
+                source: 'output',
+                label: 'Model output',
+                text: outputText
+            };
+        }
+
+        const inputText = ($('inputText')?.value || '').trim();
+        return {
+            source: 'input',
+            label: 'Input',
+            text: inputText
+        };
+    }
+
     async detectLanguageForOutput() {
-        const text = this.lastOutput.trim();
+        const { text, label } = this.getTextForTranslateAndDetect();
         if (!text) {
-            this.showError(new Error('No model output to detect.'), 'Language detection');
+            this.showError(new Error('No text to detect. Add input text or generate model output.'), 'Language detection');
             return;
         }
 
@@ -1458,9 +1476,9 @@ class E2EPlayground {
     }
 
     async translateOutput() {
-        const text = this.lastOutput.trim();
+        const { text, label } = this.getTextForTranslateAndDetect();
         if (!text) {
-            this.showError(new Error('No model output to translate.'), 'Translate');
+            this.showError(new Error('No text to translate. Add input text or generate model output.'), 'Translate');
             return;
         }
 

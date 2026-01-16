@@ -208,7 +208,7 @@
             </section>
 
             <section class="card">
-                <h2>Translate output</h2>
+                <h2>Translate text</h2>
 
                 <div class="grid-3">
                     <div class="form-group">
@@ -266,9 +266,12 @@
 
                 <div class="button-row">
                     <button id="detectLangBtn" class="btn btn-secondary" type="button">Detect language</button>
-                    <button id="translateBtn" class="btn btn-primary" type="button">Translate output</button>
+                    <button id="translateBtn" class="btn btn-primary" type="button">Translate</button>
                     <button id="stopTranslateBtn" class="btn btn-secondary" type="button" disabled>Stop</button>
                 </div>
+
+                <div class="hint">Uses <strong>Model output</strong> if present, otherwise falls back to <strong>Input
+                        text</strong>.</div>
 
                 <div class="hint" id="supportTranslator">Translator support: Checking…</div>
                 <div class="hint" id="supportLID">Language Detector support: Checking…</div>
