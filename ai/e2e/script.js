@@ -657,19 +657,11 @@ class E2EPlayground {
             this.tabState[tab] = { system: defaults.system, input: defaults.input };
         }
 
-        // Only overwrite the visible inputs if we're switching tabs, or if forced.
         const nextSystem = this.tabState[tab].system ?? defaults.system;
         const nextInput = this.tabState[tab].input ?? defaults.input;
 
-        if (force || this.activeTab === tab) {
-            $('systemPrompt').value = nextSystem;
-            $('inputText').value = nextInput;
-        } else {
-            // When called during a tab switch, we still want to load values.
-            $('systemPrompt').value = nextSystem;
-            $('inputText').value = nextInput;
-        }
-
+        $('systemPrompt').value = nextSystem;
+        $('inputText').value = nextInput;
         $('inputHint').textContent = defaults.inputHint;
     }
 
@@ -715,6 +707,26 @@ class E2EPlayground {
         const percent = Math.max(0, Math.min(100, Math.round(loaded * 100)));
         $('progressFill').style.width = `${percent}%`;
         $('progressText').textContent = `${percent}%`;
+    }
+
+    /**
+     * When the page loads and the model is already downloading (started by a
+     * previous page/session), eagerly create a Prompt API session so the
+     * monitor callback can report byte-level progress.  If user-activation is
+     * still required the browser will throw – we catch that and let the
+     * availability text serve as the fallback indicator.
+     */
+    async monitorOngoingPromptDownload() {
+        try {
+            const sys = DEFAULTS.prompt.system || '';
+            await this.getOrCreatePromptSession(sys);
+            // Session created – monitor callback is now attached and will
+            // call setProgress() as download events arrive.
+        } catch (e) {
+            console.log('Could not attach progress monitor for ongoing download:', e.message);
+            // Fall back: progress bar stays at 0 %; availability polling will
+            // flip the label to "Available" once the download finishes.
+        }
     }
 
     formatError(err, context = '') {
@@ -810,7 +822,13 @@ class E2EPlayground {
 
             if (state === 'available' || state === 'readily') {
                 setTextIfPresent('supportPrompt', supportText('Available'));
-            } else if (state === 'downloadable' || state === 'downloading' || state === 'after-download') {
+            } else if (state === 'downloading') {
+                setTextIfPresent('supportPrompt', supportText('Downloading'));
+                // Download already in progress – show progress bar and try to
+                // attach the monitor by eagerly creating a session.
+                this.setProgress(true, 0);
+                this.monitorOngoingPromptDownload();
+            } else if (state === 'downloadable' || state === 'after-download') {
                 setTextIfPresent('supportPrompt', supportText('Downloadable'));
             } else {
                 setTextIfPresent('supportPrompt', supportText(safeText(state) || 'Unknown'));
@@ -874,12 +892,7 @@ class E2EPlayground {
             setTextIfPresent('supportTranslator', 'Translator support: Not supported');
             return;
         }
-
-        try {
-            setTextIfPresent('supportTranslator', 'Translator support: Available');
-        } catch {
-            setTextIfPresent('supportTranslator', 'Translator support: Unknown');
-        }
+        setTextIfPresent('supportTranslator', 'Translator support: Available');
     }
 
     async updateLIDAvailability() {

@@ -16,7 +16,6 @@
 let session;
 let languageModel;
 let modelReady = false;
-let modelDownloadInProgress = false;
 let success = true;
 let currentStream = null; // Track current streaming session
 let modelLoadStartTime = null; // Track when model loading starts
@@ -178,7 +177,7 @@ async function createSession() {
       modelLoadStartTime = performance.now();
     }
 
-    var initialPrompt = document.getElementById('initialPrompt').value;
+    const initialPrompt = document.getElementById('initialPrompt').value;
 
     // Check status before creating session
     let preStatus = await (languageModel.capabilities
@@ -197,16 +196,20 @@ async function createSession() {
       temperature: sliderValues.temperature,
       topK: sliderValues.topK,
       maxTokens: 4096
-    };    // Only add monitor if download is actually needed
+    };
+
+    // Only add monitor if download is actually needed
     if (needsDownload) {
       sessionConfig.monitor = function (m) {
-        console.log('Monitor function called, setting up progress handlers');        // Set up progress event handlers
+        console.log('Monitor function called, setting up progress handlers');
+
+        // Set up progress event handlers
         let progressShown = false;
-        let progressReceived = false;
-        let validApiDataReceived = false;        // Set the ondownloadprogress handler
+        let validApiDataReceived = false;
+
+        // Set the ondownloadprogress handler
         m.ondownloadprogress = function (e) {
           console.log('Download progress event received:', e);
-          progressReceived = true;
 
           if (!progressShown) {
             // Only show progress when we actually start downloading
@@ -240,7 +243,6 @@ async function createSession() {
               if (loaded >= 0.99) {
                 updateProgress(100, `Download complete`);
                 modelReady = true;
-                modelDownloadInProgress = false;
 
                 // Set the model loading latency when download completes
                 if (modelLoadStartTime && !modelLoadLatencySet) {
@@ -289,7 +291,9 @@ async function createSession() {
       if (modelLoadStartTime && !modelLoadLatencySet) {
         const loadLatency = Math.round(performance.now() - modelLoadStartTime);
         updateMetrics(0, 0, loadLatency);
-      } updateStatus('ready', 'Model Ready', 'success');
+      }
+
+      updateStatus('ready', 'Model Ready', 'success');
       showSuccess('AI model is ready! You can start chatting.');
       showProgress(false);
     }
@@ -358,10 +362,25 @@ async function checkModelAvailability() {
 }
 
 // Monitor download progress when download was started by another page/session
+let monitorAttachInProgress = false;
+
 async function monitorOngoingDownload() {
-  // Just show initial downloading state - let the session monitor handle actual progress
-  updateProgress(0, 'Download in progress...');
-  console.log('Monitoring ongoing download - delegating to session monitor for progress tracking');
+  if (monitorAttachInProgress || session) return; // Already attaching or session exists
+  monitorAttachInProgress = true;
+
+  console.log('Attempting to attach progress monitor for ongoing download...');
+  try {
+    // Try creating a session to attach the progress monitor.
+    // Since the download is already in progress, this should not require
+    // fresh user activation – we just need the monitor callback.
+    await createSession();
+  } catch (e) {
+    console.log('Could not attach progress monitor for ongoing download:', e.message);
+    // Fall back to state monitoring (already running via startModelStateMonitoring)
+    updateProgress(0, 'Download in progress (progress details will appear when ready)...');
+  } finally {
+    monitorAttachInProgress = false;
+  }
 }
 
 // Continuously monitor model state changes
@@ -381,7 +400,9 @@ async function startModelStateMonitoring() {
         ? languageModel.capabilities()
         : languageModel.availability());
 
-      console.log('Model state check:', result);      // Check if model became available
+      console.log('Model state check:', result);
+
+      // Check if model became available
       if (!modelReady && (result == 'available' || result.available == 'readily')) {
         console.log('Model became available! Updating UI...');
         modelReady = true;
@@ -395,7 +416,8 @@ async function startModelStateMonitoring() {
 
         // Stop monitoring since model is ready
         stopModelStateMonitoring();
-      }// Check if model started downloading
+      }
+      // Check if model started downloading
       else if (result == 'downloading') {
         console.log('Model is downloading...');
         updateStatus('downloading', 'Downloading...', 'info');
@@ -449,16 +471,6 @@ async function onPrompt() {
       return; // Session already created and ready
     }
 
-    // Check current status without showing progress yet
-    let preStatus = await (languageModel.capabilities
-      ? languageModel.capabilities()
-      : languageModel.availability());
-
-    // Only show progress if model actually needs to be downloaded
-    const needsDownload = preStatus == 'downloadable' ||
-      preStatus == 'downloading' ||
-      (preStatus.available && preStatus.available == 'after-download');
-
     // Create session (this will trigger download if needed and show progress automatically)
     await createSession();
 
@@ -482,8 +494,12 @@ async function onSend() {
 
     // Show stop button, hide send button
     document.getElementById('send').style.display = 'none';
-    document.getElementById('stop').style.display = 'block';    // Add user message to chat
-    addMessage(input, true);    // Clear input and reset height
+    document.getElementById('stop').style.display = 'block';
+
+    // Add user message to chat
+    addMessage(input, true);
+
+    // Clear input and reset height
     textElement.value = '';
     // Reset height with proper mobile/desktop sizing
     const isMobile = window.innerWidth <= 768;
@@ -491,10 +507,14 @@ async function onSend() {
     textElement.style.height = minHeight + 'px';
 
     // Add AI response placeholder
-    const aiResponseContent = addMessage('...', false);    // Initialize metrics tracking
+    const aiResponseContent = addMessage('...', false);
+
+    // Initialize metrics tracking
     const start = performance.now();
     let fullResponse = '';
-    let chunkCount = 0; try {
+    let chunkCount = 0;
+
+    try {
       // Start the stream - this is where the model actually begins processing
       console.log('Starting stream with session:', !!session, 'input length:', input.length);
       const stream = session.promptStreaming(input);
@@ -505,17 +525,16 @@ async function onSend() {
         if (!currentStream) break;
 
         fullResponse += chunk;
-        chunkCount++; if (chunkCount === 1) {
-          // First chunk - no need to calculate latency here anymore
-          // Latency is now set once when model loads
-        }
+        chunkCount++;
 
         // Update response display in chat
         aiResponseContent.textContent = fullResponse;
 
         // Scroll to bottom
         const chatMessages = document.getElementById('chatMessages');
-        chatMessages.scrollTop = chatMessages.scrollHeight;        // Calculate and display performance metrics
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Calculate and display performance metrics
         const elapsed = (performance.now() - start) / 1000;
         const cps = Math.round(fullResponse.length / elapsed);
         const tps = Math.round(chunkCount / elapsed);
@@ -534,8 +553,7 @@ async function onSend() {
       message: e.message,
       stack: e.stack,
       session: !!session,
-      modelReady: modelReady,
-      input: input
+      modelReady: modelReady
     });
     showError('Send error - ' + e.message);
     // Reset buttons on error
@@ -569,7 +587,8 @@ function onStop() {
 }
 
 // Initialize when page loads
-window.addEventListener('load', async () => {  // Set up UI components
+window.addEventListener('load', async () => {
+  // Set up UI components
   setupConfigToggle();
   setupTextareaAutoResize();
   setupSliders();
@@ -599,9 +618,13 @@ window.addEventListener('load', async () => {  // Set up UI components
     if (modelReady) {
       console.log('Model is ready!');
       showSuccess('AI model is ready! You can start chatting.');
-    }    // Set up event listeners for buttons
+    }
+
+    // Set up event listeners for buttons
     document.getElementById('send').addEventListener('click', onSend);
-    document.getElementById('stop').addEventListener('click', onStop); document.getElementById('downloadBtn').addEventListener('click', async () => {
+    document.getElementById('stop').addEventListener('click', onStop);
+
+    document.getElementById('downloadBtn').addEventListener('click', async () => {
       console.log('Download button clicked - attempting to start download');
       try {
         // Show immediate feedback
