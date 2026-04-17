@@ -1105,11 +1105,8 @@ class E2EPlayground {
 
         const sys = systemPrompt || '';
         const outputLanguage = 'en';
-        const temperature = Number($('optTemperature').value) || 1;
-        const topK = Number($('optTopK').value) || 3;
-        const maxTokens = Number($('optMaxTokens').value) || 2048;
 
-        const key = JSON.stringify({ sys, outputLanguage, temperature, topK, maxTokens });
+        const key = JSON.stringify({ sys, outputLanguage });
         const needsNew = !this.promptSession || this.promptSession.__key !== key;
 
         if (!needsNew) return this.promptSession;
@@ -1122,10 +1119,11 @@ class E2EPlayground {
 
         const lm = window.LanguageModel;
 
+        // temperature/topK are gated behind an origin trial on Chrome's open
+        // web Prompt API (and only available in the Extensions variant), so
+        // this demo no longer passes them. maxTokens was never part of the
+        // spec.
         const config = {
-            temperature,
-            topK,
-            maxTokens,
             // Chromium Prompt API expects language via expectedInputs/expectedOutputs.
             expectedInputs: [{ type: 'text', languages: [outputLanguage] }],
             expectedOutputs: [{ type: 'text', languages: [outputLanguage] }],

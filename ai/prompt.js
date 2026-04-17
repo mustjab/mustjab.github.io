@@ -119,18 +119,6 @@ function addMessage(content, isUser = false) {
   return messageContent; // Return content div for updating
 }
 
-function setupConfigToggle() {
-  const configToggle = document.getElementById('configToggle');
-  const configContent = document.querySelector('.config-content');
-  let isExpanded = true;
-
-  configToggle.addEventListener('click', () => {
-    isExpanded = !isExpanded;
-    configContent.style.display = isExpanded ? 'block' : 'none';
-    configToggle.textContent = isExpanded ? 'Hide' : 'Show';
-  });
-}
-
 function setupTextareaAutoResize() {
   const textarea = document.getElementById('input');
 
@@ -143,30 +131,6 @@ function setupTextareaAutoResize() {
     const newHeight = Math.max(minHeight, Math.min(this.scrollHeight, maxHeight));
     this.style.height = newHeight + 'px';
   });
-}
-
-function setupSliders() {
-  const temperatureSlider = document.getElementById('temperatureSlider');
-  const temperatureValue = document.getElementById('temperatureValue');
-  const topKSlider = document.getElementById('topKSlider');
-  const topKValue = document.getElementById('topKValue');
-
-  // Temperature slider
-  temperatureSlider.addEventListener('input', (e) => {
-    temperatureValue.textContent = parseFloat(e.target.value).toFixed(1);
-  });
-
-  // Top-K slider
-  topKSlider.addEventListener('input', (e) => {
-    topKValue.textContent = e.target.value;
-  });
-}
-
-function getSliderValues() {
-  return {
-    temperature: parseFloat(document.getElementById('temperatureSlider').value),
-    topK: parseInt(document.getElementById('topKSlider').value)
-  };
 }
 
 // Create session with proper progress monitoring
@@ -184,18 +148,19 @@ async function createSession() {
       ? languageModel.capabilities()
       : languageModel.availability());
 
-    // Get current slider values
-    const sliderValues = getSliderValues();
-
     // Only include monitor if download might be needed
     const needsDownload = preStatus == 'downloadable' ||
       preStatus == 'downloading' ||
       (preStatus.available && preStatus.available == 'after-download');
 
+    // Note: the Prompt API spec only defines initialPrompts, monitor, signal,
+    // expectedInputs, and expectedOutputs for create() on the open web.
+    // temperature/topK are gated behind an origin trial on Chrome and the
+    // Extensions variant, so this demo no longer sets them.
     const sessionConfig = {
-      temperature: sliderValues.temperature,
-      topK: sliderValues.topK,
-      maxTokens: 4096
+      // Declaring expected text output language is recommended by the latest docs
+      // and silences language-mismatch warnings in Chrome builds.
+      expectedOutputs: [{ type: 'text', languages: ['en'] }]
     };
 
     // Only add monitor if download is actually needed
@@ -207,8 +172,8 @@ async function createSession() {
         let progressShown = false;
         let validApiDataReceived = false;
 
-        // Set the ondownloadprogress handler
-        m.ondownloadprogress = function (e) {
+        // Listen for downloadprogress events (spec-compliant pattern).
+        m.addEventListener('downloadprogress', function (e) {
           console.log('Download progress event received:', e);
 
           if (!progressShown) {
@@ -258,7 +223,7 @@ async function createSession() {
               console.log(`Unexpected progress data format: total=${total}, loaded=${loaded} - using fallback estimation`);
             }
           }
-        };
+        });
 
         // Show initial progress state
         if (!progressShown) {
@@ -589,9 +554,7 @@ function onStop() {
 // Initialize when page loads
 window.addEventListener('load', async () => {
   // Set up UI components
-  setupConfigToggle();
   setupTextareaAutoResize();
-  setupSliders();
 
   // Set initial textarea height based on device
   const textarea = document.getElementById('input');

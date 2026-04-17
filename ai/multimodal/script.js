@@ -142,8 +142,21 @@ class ImageDescriptionApp {
                 throw new Error('Prompt API is not available in this browser');
             }
             
+            // Per the latest docs, pass the same options to availability() that
+            // will be used in create(). Some models/builds only support certain
+            // modalities or languages.
+            const sessionOptions = {
+                expectedInputs: [
+                    { type: 'text', languages: ['en'] },
+                    { type: 'image' }
+                ],
+                expectedOutputs: [
+                    { type: 'text', languages: ['en'] }
+                ]
+            };
+
             // Check availability FIRST before attempting to create session
-            const availability = await window.LanguageModel.availability();
+            const availability = await window.LanguageModel.availability(sessionOptions);
             console.log('LanguageModel availability:', availability);
             
             // Handle different availability states
@@ -161,6 +174,7 @@ class ImageDescriptionApp {
             
             // Now create session after confirming availability
             this.session = await window.LanguageModel.create({
+                ...sessionOptions,
                 initialPrompts: [{
                     role: "system",
                     content: `You are an expert image analyst. Provide detailed, accurate, and engaging descriptions of images. 
@@ -173,9 +187,11 @@ class ImageDescriptionApp {
                     
                     Keep descriptions informative yet accessible.`
                 }],
-                expectedInputs: [
-                    { type: "image" }
-                ]
+                monitor(m) {
+                    m.addEventListener('downloadprogress', (e) => {
+                        console.log(`Model download progress: ${Math.round((e.loaded || 0) * 100)}%`);
+                    });
+                }
             });
             
             this.hideLoading();
@@ -244,14 +260,14 @@ class ImageDescriptionApp {
                     this.descriptionText.textContent = response;
                 }
             } catch (multimodalError) {
-                console.log('Multimodal format failed, trying text-only fallback:', multimodalError);
+                console.log('Multimodal prompt failed, falling back to a text-only notice:', multimodalError);
                 
-                // Fallback to text-only description with streaming
+                // Fallback to text-only notice with streaming
                 try {
                     response = "";
                     this.descriptionText.textContent = "Generating fallback description...";
                     
-                    const fallbackStream = this.session.promptStreaming("I can see you've uploaded an image, but multimodal support isn't fully available yet in this browser implementation. This would normally analyze the uploaded image and provide a detailed description of what's visible, including objects, colors, setting, and atmosphere.");
+                    const fallbackStream = this.session.promptStreaming("Image analysis could not be completed for this image. Multimodal Prompt API input may require enabling the relevant Chrome/Edge flag and a compatible on-device model.");
                     
                     for await (const chunk of fallbackStream) {
                         response += chunk;
@@ -260,7 +276,7 @@ class ImageDescriptionApp {
                 } catch (streamError) {
                     console.log('Streaming failed, falling back to regular prompt:', streamError);
                     // Final fallback to non-streaming
-                    response = await this.session.prompt("I can see you've uploaded an image, but multimodal support isn't fully available yet in this browser implementation. This would normally analyze the uploaded image and provide a detailed description of what's visible, including objects, colors, setting, and atmosphere.");
+                    response = await this.session.prompt("Image analysis could not be completed for this image. Multimodal Prompt API input may require enabling the relevant Chrome/Edge flag and a compatible on-device model.");
                     this.descriptionText.textContent = response;
                 }
             }

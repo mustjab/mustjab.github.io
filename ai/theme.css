@@ -1,0 +1,616 @@
+/* Shared theme for /ai demo pages
+   Keep in sync with Style.css tokens on the landing page. */
+
+:root {
+  /* Brand — professional indigo with sky accent on slate neutrals */
+  --primary-color: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-subtle: rgba(79, 70, 229, 0.08);
+  --accent-color: #0ea5e9;
+
+  /* Semantic */
+  --secondary-color: #64748b;
+  --success-color: #10b981;
+  --error-color: #ef4444;
+  --warning-color: #f59e0b;
+
+  /* Surfaces */
+  --background: #fafbfc;
+  --surface: #eef2f7;
+  --surface-2: #e5eaf2;
+  --surface-elevated: rgba(250, 251, 252, 0.85);
+
+  /* Text */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+
+  /* Borders */
+  --border: #cbd5e1;
+  --border-light: #e2e8f0;
+
+  /* Shadows (soft, neutral) */
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-md: 0 4px 14px -4px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 20px 40px -12px rgb(15 23 42 / 0.14), 0 8px 16px -8px rgb(15 23 42 / 0.06);
+
+  --radius: 12px;
+  --radius-sm: 8px;
+
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-color: #818cf8;
+    --primary-hover: #6366f1;
+    --primary-subtle: rgba(129, 140, 248, 0.14);
+    --accent-color: #38bdf8;
+
+    --secondary-color: #94a3b8;
+
+    --background: #0b1220;
+    --surface: #0f172a;
+    --surface-2: #1e293b;
+    --surface-elevated: rgba(15, 23, 42, 0.78);
+
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+
+    --border: #1e293b;
+    --border-light: #111827;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 14px -4px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 20px 40px -12px rgb(0 0 0 / 0.6), 0 8px 16px -8px rgb(0 0 0 / 0.4);
+  }
+}
+
+/* Base — use !important on body background to override per-page purple gradients. */
+html,
+body {
+  font-family: var(--font-family);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background:
+    radial-gradient(1100px 500px at 15% -10%, color-mix(in oklab, var(--primary-color) 8%, transparent), transparent 60%),
+    radial-gradient(900px 500px at 110% 0%, color-mix(in oklab, var(--accent-color) 6%, transparent), transparent 55%),
+    var(--surface) !important;
+  background-attachment: fixed !important;
+  min-height: 100vh;
+}
+
+/* Shared demo navigation pills */
+.demo-nav {
+  max-width: 1200px;
+  margin: 0 auto 1rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  backdrop-filter: saturate(180%) blur(16px);
+  box-shadow: var(--shadow-sm);
+}
+
+.demo-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.demo-nav a:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  background: var(--primary-subtle);
+  border-color: color-mix(in oklab, var(--primary-color) 40%, var(--border));
+}
+
+.demo-nav a[aria-current="page"] {
+  background: color-mix(in oklab, var(--primary-color) 12%, var(--surface));
+  border-color: color-mix(in oklab, var(--primary-color) 50%, var(--border));
+  color: var(--primary-color);
+}
+
+/* Neutralize per-page white/shadowed headers — professional look */
+.container > header {
+  color: var(--text-primary) !important;
+}
+
+.container > header h1 {
+  color: var(--text-primary) !important;
+  text-shadow: none !important;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.container > header .subtitle {
+  color: var(--text-secondary) !important;
+  opacity: 1 !important;
+}
+
+.container > header .api-status {
+  background: var(--surface-elevated) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+/* ---------------------------------------------------------------
+   Cross-page overrides — make every demo match the landing page.
+   Uses !important to beat per-page stylesheets without rewriting
+   each one.
+   --------------------------------------------------------------- */
+
+/* Cards / sections */
+.card,
+section.card,
+.panel,
+.info-card {
+  background: var(--background) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-sm) !important;
+  color: var(--text-primary) !important;
+}
+
+.card h2,
+.card h3 {
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-light) !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.section-description,
+.card p,
+.card small,
+.card li {
+  color: var(--text-secondary) !important;
+}
+
+/* Form labels */
+.form-group label,
+label {
+  color: var(--text-secondary) !important;
+}
+
+/* Inputs, textareas, selects — unify */
+.card input,
+.card select,
+.card textarea,
+input[type="text"],
+input[type="search"],
+input[type="number"],
+input[type="email"],
+select,
+textarea {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease !important;
+}
+
+.card input:focus,
+.card select:focus,
+.card textarea:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+  border-color: var(--primary-color) !important;
+  background: var(--background) !important;
+  box-shadow: 0 0 0 3px var(--primary-subtle) !important;
+}
+
+::placeholder {
+  color: var(--text-muted);
+}
+
+/* Buttons — primary becomes gradient indigo; secondary becomes neutral surface */
+.btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  padding: 0.5rem 1rem !important;
+  min-height: 40px !important;
+  font-size: 0.875rem !important;
+  line-height: 1.2 !important;
+  border-radius: var(--radius-sm) !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  cursor: pointer;
+  text-decoration: none !important;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease !important;
+  border: 1px solid transparent !important;
+}
+
+.btn-small {
+  padding: 0.35rem 0.7rem !important;
+  min-height: 32px !important;
+  font-size: 0.8rem !important;
+}
+
+.btn-primary {
+  background: var(--primary-color) !important;
+  color: #fff !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md) !important;
+}
+
+.btn-secondary {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--primary-subtle) !important;
+  border-color: color-mix(in oklab, var(--primary-color) 40%, var(--border)) !important;
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* Progress bars */
+.progress-bar {
+  background: var(--surface-2) !important;
+  border-radius: 999px !important;
+}
+
+.progress-fill {
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color)) !important;
+}
+
+.progress-text {
+  color: var(--text-secondary) !important;
+}
+
+/* Pin the model-download progress to the bottom of the viewport so it stays
+   visible no matter how long the prompt/output is. Only applies when script
+   toggles display away from 'none'. */
+#downloadProgress {
+  position: fixed !important;
+  left: 50% !important;
+  bottom: 1rem !important;
+  transform: translateX(-50%) !important;
+  z-index: 1000 !important;
+  width: min(1200px, calc(100% - 3rem)) !important;
+  margin: 0 !important;
+  padding: 0.875rem 1rem !important;
+  background: var(--surface-elevated) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-lg) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  backdrop-filter: saturate(180%) blur(16px);
+  animation: downloadProgressIn 0.2s ease-out;
+}
+
+@keyframes downloadProgressIn {
+  from { transform: translate(-50%, 20px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+/* Info / result banners */
+.info-banner,
+.result-box,
+.result-box.info {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-left: 3px solid var(--primary-color) !important;
+  color: var(--text-primary) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* Hide result boxes that have no content yet */
+.result-box:empty {
+  display: none !important;
+}
+
+.info-banner h3,
+.info-banner h4,
+.result-box h3 {
+  color: var(--primary-color) !important;
+}
+
+.info-banner p,
+.info-banner code,
+.result-box p {
+  color: var(--text-secondary) !important;
+}
+
+.info-banner code {
+  background: var(--surface-2) !important;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+.result-box.success {
+  border-left-color: var(--success-color) !important;
+  background: color-mix(in oklab, var(--success-color) 8%, var(--surface)) !important;
+}
+
+.result-box.error {
+  border-left-color: var(--error-color) !important;
+  background: color-mix(in oklab, var(--error-color) 8%, var(--surface)) !important;
+}
+
+.result-box.warning,
+.info-banner.warning {
+  border-left-color: var(--warning-color) !important;
+  background: color-mix(in oklab, var(--warning-color) 10%, var(--surface)) !important;
+}
+
+.info-banner.warning h3,
+.info-banner.warning p,
+.result-box.warning {
+  color: var(--text-primary) !important;
+}
+
+/* Tabs — pill style, consistent with landing page nav */
+.tab {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 999px !important;
+  padding: 0.5rem 0.875rem !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease !important;
+}
+
+.tab:hover:not(.active) {
+  background: var(--primary-subtle) !important;
+  border-color: color-mix(in oklab, var(--primary-color) 40%, var(--border)) !important;
+}
+
+.tab.active {
+  background: var(--primary-color) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+/* Status pill (per-demo api-status) */
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.status-indicator.available {
+  background: var(--success-color) !important;
+}
+
+.status-indicator.unavailable {
+  background: var(--error-color) !important;
+}
+
+.status-indicator.checking {
+  background: var(--warning-color) !important;
+}
+
+/* Stats / metrics tiles */
+.stats-grid,
+.result-meta,
+.metrics-display {
+  color: var(--text-primary);
+}
+
+.stats-grid > *,
+.result-meta > *,
+.stat-item,
+.stat-preview,
+.single-stat-item {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-primary) !important;
+}
+
+.stat-item label,
+.stat-preview label,
+.single-stat-item label {
+  color: var(--text-secondary) !important;
+}
+
+.stat-item div,
+.stat-preview div,
+.single-stat-item div {
+  color: var(--primary-color) !important;
+}
+
+/* Tables */
+table {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+th {
+  background: var(--surface-2) !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+td {
+  border-bottom: 1px solid var(--border-light) !important;
+  color: var(--text-primary) !important;
+}
+
+tr:hover td {
+  background: var(--primary-subtle) !important;
+}
+
+/* Swap button (translate page) */
+.btn-swap {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.btn-swap:hover {
+  background: var(--primary-subtle) !important;
+  border-color: color-mix(in oklab, var(--primary-color) 50%, var(--border)) !important;
+  color: var(--primary-color) !important;
+}
+
+/* Multimodal — its .container IS the card. Reskin it and its children.
+   Scoped with :has() so other pages' wider containers stay transparent. */
+.container:has(#imageCanvas) {
+  background: var(--background) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.container:has(#imageCanvas) > h1 {
+  color: var(--text-primary) !important;
+  text-shadow: none !important;
+}
+
+.container:has(#imageCanvas) > p {
+  color: var(--text-secondary) !important;
+}
+
+.description-box {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-primary) !important;
+}
+
+.description-box h3 {
+  color: var(--text-primary) !important;
+}
+
+#descriptionText {
+  color: var(--text-primary) !important;
+}
+
+.loading {
+  background: var(--primary-subtle) !important;
+  border: 1px solid color-mix(in oklab, var(--primary-color) 30%, var(--border)) !important;
+  color: var(--primary-color) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.error {
+  background: color-mix(in oklab, var(--error-color) 10%, var(--surface)) !important;
+  border: 1px solid color-mix(in oklab, var(--error-color) 30%, var(--border)) !important;
+  color: var(--error-color) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+#imageCanvas {
+  background: var(--surface-2) !important;
+  border-color: var(--border) !important;
+}
+
+/* E2E playground — text output & proof details */
+.text-output,
+.proof-details,
+.result-item {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.result-item label {
+  color: var(--primary-color) !important;
+}
+
+/* Copy button in result cards */
+.btn-copy {
+  background: var(--surface) !important;
+  color: var(--primary-color) !important;
+  border: 1px solid color-mix(in oklab, var(--primary-color) 40%, var(--border)) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.btn-copy:hover {
+  background: var(--primary-color) !important;
+  color: #fff !important;
+  border-color: var(--primary-color) !important;
+}
+
+.btn-copy.copied {
+  background: var(--success-color) !important;
+  border-color: var(--success-color) !important;
+  color: #fff !important;
+}
+
+/* Searchable language select (translate + e2e) */
+.searchable-select-dropdown {
+  background: var(--background) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.searchable-select-option {
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-light) !important;
+}
+
+.searchable-select-option:hover,
+.searchable-select-option.highlighted {
+  background: var(--primary-subtle) !important;
+  color: var(--text-primary) !important;
+}
+
+.searchable-select-option .language-code {
+  color: var(--text-muted) !important;
+}
+
+.searchable-select-category {
+  background: var(--surface-2) !important;
+  color: var(--text-secondary) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.searchable-select-no-results {
+  color: var(--text-muted) !important;
+}

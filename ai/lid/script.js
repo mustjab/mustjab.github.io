@@ -223,19 +223,22 @@ class LanguageDetectionDemo {
 
             this.showMessage('initResult', 'Checking language detector availability...', 'info');
 
-            // Check availability
+            // Check availability. The current spec uses:
+            //   'unavailable' | 'downloadable' | 'downloading' | 'available'
+            // We also accept the older strings ('no' | 'after-download' | 'readily')
+            // for backward compatibility with earlier Chrome/Edge builds.
             const availability = await LanguageDetector.availability();
             console.log('Language Detector availability:', availability);
 
-            if (availability === 'no') {
+            if (availability === 'unavailable' || availability === 'no') {
                 this.showMessage('initResult', 'Language Detection is not available on this device.', 'error');
                 return;
             }
 
-            if (availability === 'after-download') {
+            if (availability === 'downloadable' || availability === 'downloading' || availability === 'after-download') {
                 this.showMessage('initResult', 'Downloading language detection model...', 'info');
                 progressContainer.style.display = 'block';
-            } else if (availability === 'readily' || availability === 'available') {
+            } else if (availability === 'available' || availability === 'readily') {
                 this.showMessage('initResult', 'Language detection model is available. Initializing...', 'info');
             }
 

@@ -4,13 +4,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4f46e5">
     <title>Browser Language Detection API Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../theme.css">
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="../../icon.png">
 </head>
 
 <body>
     <div class="container">
+        <nav class="demo-nav" aria-label="AI demos navigation">
+            <a href="../">← Home</a>
+            <a href="../e2e/">End-to-End Playground</a>
+            <a href="../translate/">Translator API</a>
+            <a href="../lid/" aria-current="page">Language Detection API</a>
+            <a href="../multimodal/">Multimodal Prompt</a>
+        </nav>
         <header>
             <h1>Browser Language Detection API Demo</h1>
             <p class="subtitle">Testing browser's built-in on-device language detection capabilities</p>
@@ -34,32 +46,6 @@
                     <div class="progress-text" id="progressText">0%</div>
                 </div>
                 <div id="initResult" class="result-box"></div>
-
-                <div class="troubleshooting-box">
-                    <details>
-                        <summary><strong>⚠️ Troubleshooting: "Invalid Flatbuffer" Error</strong></summary>
-                        <div class="troubleshooting-content">
-                            <p>If you see "The model is not a valid Flatbuffer buffer" error, try these solutions:</p>
-                            <ol>
-                                <li><strong>Check Model Status:</strong> Visit <code>chrome://components</code> and look
-                                    for "Optimization Guide On Device Model". Click "Check for update" if available.
-                                </li>
-                                <li><strong>Clear Cache:</strong> The model may be corrupted. Clear your browser cache
-                                    and try again.</li>
-                                <li><strong>Restart Browser:</strong> Close all Chrome windows and restart.</li>
-                                <li><strong>Enable Flags:</strong> Make sure you have the required flags enabled at
-                                    <code>chrome://flags</code>:
-                                    <ul>
-                                        <li><code>#optimization-guide-on-device-model</code> - Enabled</li>
-                                        <li><code>#language-detection-api</code> - Enabled</li>
-                                    </ul>
-                                </li>
-                                <li><strong>Update Chrome:</strong> Make sure you're using Chrome 138+ or a recent
-                                    Canary/Dev build.</li>
-                            </ol>
-                        </div>
-                    </details>
-                </div>
             </section>
 
             <!-- Language Detection Test Section -->

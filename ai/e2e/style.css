@@ -9,7 +9,7 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     line-height: 1.6;
     color: #111827;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
     min-height: 100vh;
 }
 
@@ -96,7 +96,7 @@ header h1 {
     margin-bottom: 12px;
     font-size: 1.25rem;
     padding-bottom: 8px;
-    border-bottom: 2px solid #667eea;
+    border-bottom: 2px solid var(--primary-color);
 }
 
 .tabs {
@@ -132,7 +132,7 @@ header h1 {
 }
 
 .tab.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
     border-color: transparent;
     color: #fff;
 }
@@ -204,7 +204,7 @@ input:focus,
 select:focus,
 textarea:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
 }
 
@@ -227,7 +227,7 @@ textarea:focus {
 
 .searchable-select-input:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
     cursor: text;
 }
@@ -243,7 +243,7 @@ textarea:focus {
     left: 0;
     right: 0;
     background: white;
-    border: 2px solid #667eea;
+    border: 2px solid var(--primary-color);
     border-top: none;
     border-radius: 0 0 12px 12px;
     max-height: 300px;
@@ -265,7 +265,7 @@ textarea:focus {
 }
 
 .searchable-select-option.highlighted {
-    background-color: #667eea;
+    background-color: var(--primary-color);
     color: white;
 }
 
@@ -295,7 +295,7 @@ textarea:focus {
     background-color: #f8fafc;
     font-weight: 800;
     font-size: 12px;
-    color: #667eea;
+    color: var(--primary-color);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border-bottom: 1px solid #e5e7eb;
@@ -357,7 +357,7 @@ textarea:focus {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
     color: #fff;
 }
 
@@ -403,7 +403,7 @@ textarea:focus {
 .progress-fill {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
     transition: width 0.2s ease;
 }
 
