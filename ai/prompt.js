@@ -90,6 +90,24 @@ function updateProgress(percentage, message = '', speed = '') {
   if (speed) downloadSpeed.textContent = speed;
 }
 
+function keepChatInputVisible() {
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInputContainer = document.querySelector('.chat-input-container');
+
+  if (chatMessages) {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  if (chatInputContainer) {
+    requestAnimationFrame(() => {
+      chatInputContainer.scrollIntoView({
+        behavior: 'smooth',
+        block: 'end'
+      });
+    });
+  }
+}
+
 function addMessage(content, isUser = false) {
   const chatMessages = document.getElementById('chatMessages');
 
@@ -114,7 +132,7 @@ function addMessage(content, isUser = false) {
   messageDiv.appendChild(messageContent);
 
   chatMessages.appendChild(messageDiv);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  keepChatInputVisible();
 
   return messageContent; // Return content div for updating
 }
@@ -495,9 +513,7 @@ async function onSend() {
         // Update response display in chat
         aiResponseContent.textContent = fullResponse;
 
-        // Scroll to bottom
-        const chatMessages = document.getElementById('chatMessages');
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        keepChatInputVisible();
 
         // Calculate and display performance metrics
         const elapsed = (performance.now() - start) / 1000;
