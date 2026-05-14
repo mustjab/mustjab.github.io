@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Translation Speed Benchmark</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../theme.css">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../../../icon.png">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation">
+      <a href="../../">← Home</a>
+      <a href="../../e2e/">End-to-End Playground</a>
+      <a href="../../translate/">Translator API</a>
+      <a href="../../lid/">Language Detection API</a>
+      <!-- <a href="../../multimodal/">Multimodal Prompt</a> -->
+      <a href="./" aria-current="page">Translation Speed</a>
+      <a href="../quality/">Translation Quality</a>
+    </nav>
+    <header>
+      <h1>Translation Speed Benchmark</h1>
+      <p class="subtitle">Measure translation throughput across language packs and pairs</p>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Checking API availability...</span>
+      </div>
+    </header>
+
+    <main>
+      <!-- Language Pair Selection -->
+      <section class="card">
+        <h2>Language Pair Configuration</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="sourceLanguage">Source Language:</label>
+            <div class="searchable-select-container">
+              <input type="text" id="sourceLanguageSearch" class="searchable-select-input"
+                placeholder="Type to search languages..." autocomplete="off">
+              <div class="searchable-select-dropdown" id="sourceLanguageDropdown" style="display: none;"></div>
+              <input type="hidden" id="sourceLanguage" value="en">
+            </div>
+          </div>
+          <div class="swap-container">
+            <button type="button" id="swapLanguages" class="btn-swap" title="Swap source and target languages">
+              ⇄
+            </button>
+          </div>
+          <div class="form-group">
+            <label for="targetLanguage">Target Language:</label>
+            <div class="searchable-select-container">
+              <input type="text" id="targetLanguageSearch" class="searchable-select-input"
+                placeholder="Type to search languages..." autocomplete="off">
+              <div class="searchable-select-dropdown" id="targetLanguageDropdown" style="display: none;"></div>
+              <input type="hidden" id="targetLanguage" value="es">
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-container" id="downloadProgress" style="display: none;">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-text" id="progressText">0%</div>
+        </div>
+        <div id="initResult" class="result-box" style="display: none;"></div>
+      </section>
+
+      <!-- Speed Benchmark Tests -->
+      <section class="card">
+        <h2>Speed Benchmark</h2>
+        <div class="info-banner">
+          <h3>⚡ Translation Throughput Measurement</h3>
+          <p>Measures initialization time, single-text translation speed, and sustained throughput across multiple
+            runs. Results can be copied as tab-separated values for spreadsheet comparison.</p>
+        </div>
+
+        <div class="bench-controls">
+          <button id="runAll" class="btn btn-primary" disabled>Measure All</button>
+          <button id="saveResults" class="btn btn-secondary" disabled title="Copy results to clipboard">📋 Copy
+            Results</button>
+        </div>
+
+        <!-- Test: Initialization Time -->
+        <div class="bench-section">
+          <table class="bench-table">
+            <tr>
+              <td class="bench-label">
+                <h3>Translator Initialization</h3>
+                <p>Time to create a Translator instance for the selected language pair. On first use this includes
+                  model download time. On warm start this is session creation time.</p>
+              </td>
+              <td class="bench-value">
+                <span id="initTime" class="metric-value">0</span> <span class="metric-unit">ms</span>
+              </td>
+            </tr>
+
+            <!-- Test: Single Translation -->
+            <tr>
+              <td class="bench-label">
+                <h3>Single Translation Latency
+                  <span class="replay-btn" id="replaySingle" title="Re-run this test">↻</span>
+                </h3>
+                <p>Translates a ~240 character paragraph. Measures end-to-end latency for a single translate()
+                  call.</p>
+              </td>
+              <td class="bench-value">
+                <span id="singleLatency" class="metric-value">0</span> <span class="metric-unit">ms</span>
+              </td>
+            </tr>
+
+            <!-- Test: Throughput (chars/sec) -->
+            <tr>
+              <td class="bench-label">
+                <h3>Translation Throughput
+                  <span class="replay-btn" id="replayThroughput" title="Re-run this test">↻</span>
+                </h3>
+                <p>Translates 5 texts of increasing length (~200 to ~2000 chars) and measures characters per second.
+                  Higher is better.</p>
+                <table class="inner-table">
+                  <tr>
+                    <th>Run</th>
+                    <td>1</td>
+                    <td>2</td>
+                    <td>3</td>
+                    <td>4</td>
+                    <td>5</td>
+                  </tr>
+                  <tr>
+                    <th>chars/sec</th>
+                    <td id="tp1">0</td>
+                    <td id="tp2">0</td>
+                    <td id="tp3">0</td>
+                    <td id="tp4">0</td>
+                    <td id="tp5">0</td>
+                  </tr>
+                  <tr>
+                    <th>ms</th>
+                    <td id="ms1">0</td>
+                    <td id="ms2">0</td>
+                    <td id="ms3">0</td>
+                    <td id="ms4">0</td>
+                    <td id="ms5">0</td>
+                  </tr>
+                </table>
+                <div class="scratch-area" id="scratchArea">&nbsp;</div>
+              </td>
+              <td class="bench-value">
+                <span id="avgThroughput" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
+              </td>
+            </tr>
+
+            <!-- Test: Batch Throughput -->
+            <tr>
+              <td class="bench-label">
+                <h3>Batch Translation (15 texts)
+                  <span class="replay-btn" id="replayBatch" title="Re-run this test">↻</span>
+                </h3>
+                <p>Translates 15 standardized benchmark texts (~300-500 chars each, ~5500 total) sequentially.
+                  Measures sustained throughput and total time.</p>
+              </td>
+              <td class="bench-value">
+                <div>
+                  <span id="batchThroughput" class="metric-value">0</span> <span
+                    class="metric-unit">chars/sec</span>
+                </div>
+                <div class="metric-sub">
+                  <span id="batchTotalTime">0</span> ms total
+                </div>
+              </td>
+            </tr>
+
+            <!-- Test: Streaming vs Non-Streaming -->
+            <tr>
+              <td class="bench-label">
+                <h3>Streaming Comparison
+                  <span class="replay-btn" id="replayStreaming" title="Re-run this test">↻</span>
+                </h3>
+                <p>Compares translate() vs translateStreaming() on a ~9000 character multi-paragraph text
+                  to measure streaming overhead and chunk behavior.</p>
+                <table class="inner-table">
+                  <tr>
+                    <th>Method</th>
+                    <th>Time (ms)</th>
+                    <th>1st Chunk (ms)</th>
+                    <th>Chars/Sec</th>
+                    <th>Chunks</th>
+                  </tr>
+                  <tr>
+                    <td>translate()</td>
+                    <td id="cmpSyncTime">0</td>
+                    <td>-</td>
+                    <td id="cmpSyncCps">0</td>
+                    <td>-</td>
+                  </tr>
+                  <tr>
+                    <td>translateStreaming()</td>
+                    <td id="cmpStreamTime">0</td>
+                    <td id="cmpFirstChunk">0</td>
+                    <td id="cmpStreamCps">0</td>
+                    <td id="cmpStreamChunks">0</td>
+                  </tr>
+                </table>
+              </td>
+              <td class="bench-value">
+                <span id="streamingOverhead" class="metric-value">-</span> <span class="metric-unit"></span>
+                <div class="metric-highlight" id="firstContentHighlight" style="display: none;">
+                  <span class="highlight-label">Time to first content</span>
+                  <span class="highlight-compare">
+                    <span id="highlightStreaming">0</span> ms vs <span id="highlightSync">0</span> ms
+                  </span>
+                  <span class="highlight-speedup" id="highlightSpeedup"></span>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </section>
+
+      <!-- Page Simulation Test -->
+      <section class="card">
+        <h2>Page Translation Simulation</h2>
+        <div class="info-banner">
+          <h3>🌐 Real-World Page Translation Latency</h3>
+          <p>Simulates translating a real web page with ~300 text segments (nav items, headings, buttons, labels,
+            paragraphs). The on-device API translates each string individually — no batch inference.
+            This test quantifies the per-call overhead that makes page translation slower than cloud.</p>
+        </div>
+        <button id="runPageSim" class="btn btn-primary" disabled>Run Page Simulation</button>
+
+        <div class="page-sim-results" id="pageSimResults" style="display: none;">
+          <div class="score-grid">
+            <div class="score-item">
+              <div class="score-value" id="simTotalTime">0</div>
+              <div class="score-label">Total Time (ms)</div>
+            </div>
+            <div class="score-item">
+              <div class="score-value" id="simSegments">0</div>
+              <div class="score-label">Segments</div>
+            </div>
+            <div class="score-item">
+              <div class="score-value" id="simAvgPerCall">0</div>
+              <div class="score-label">Avg per Call (ms)</div>
+            </div>
+            <div class="score-item">
+              <div class="score-value" id="simTotalChars">0</div>
+              <div class="score-label">Total Characters</div>
+            </div>
+          </div>
+
+          <!-- Per-segment timing breakdown -->
+          <div class="sim-breakdown">
+            <h3>Segment Timing Breakdown</h3>
+            <table class="inner-table">
+              <tr>
+                <th>Segment Type</th>
+                <th>Count</th>
+                <th>Avg Length</th>
+                <th>Avg Time (ms)</th>
+                <th>Total Time (ms)</th>
+              </tr>
+              <tr>
+                <td>Navigation / Buttons</td>
+                <td id="simNavCount">0</td>
+                <td id="simNavAvgLen">0</td>
+                <td id="simNavAvgTime">0</td>
+                <td id="simNavTotal">0</td>
+              </tr>
+              <tr>
+                <td>Headings</td>
+                <td id="simHeadCount">0</td>
+                <td id="simHeadAvgLen">0</td>
+                <td id="simHeadAvgTime">0</td>
+                <td id="simHeadTotal">0</td>
+              </tr>
+              <tr>
+                <td>Short Text / Labels</td>
+                <td id="simShortCount">0</td>
+                <td id="simShortAvgLen">0</td>
+                <td id="simShortAvgTime">0</td>
+                <td id="simShortTotal">0</td>
+              </tr>
+              <tr>
+                <td>Paragraphs</td>
+                <td id="simParaCount">0</td>
+                <td id="simParaAvgLen">0</td>
+                <td id="simParaAvgTime">0</td>
+                <td id="simParaTotal">0</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Progress during run -->
+          <div class="quality-progress" id="simProgress" style="display: none;">
+            <div class="quality-progress-bar">
+              <div class="quality-progress-fill" id="simProgressFill"></div>
+            </div>
+            <span class="quality-progress-text" id="simProgressText">0 / 0</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Benchmark Status -->
+      <div class="bench-footer">
+        <span>Status: <span id="benchStatus" class="status-ready">Ready</span></span>
+        <div class="bench-progress-bar" id="benchProgress" style="display: none;">
+          <div class="bench-progress-fill" id="benchProgressFill"></div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p>Built with browser's Translation API | <a href="https://developer.chrome.com/docs/ai/translator-api"
+          target="_blank">API Documentation</a></p>
+    </footer>
+  </div>
+
+  <script src="speed.js"></script>
+</body>
+
+</html>

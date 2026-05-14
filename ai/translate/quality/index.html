@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Translation Quality Benchmark</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../theme.css">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../../../icon.png">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation">
+      <a href="../../">← Home</a>
+      <a href="../../e2e/">End-to-End Playground</a>
+      <a href="../../translate/">Translator API</a>
+      <a href="../../lid/">Language Detection API</a>
+      <!-- <a href="../../multimodal/">Multimodal Prompt</a> -->
+      <a href="../speed/">Translation Speed</a>
+      <a href="./" aria-current="page">Translation Quality</a>
+    </nav>
+    <header>
+      <h1>Translation Quality Benchmark</h1>
+      <p class="subtitle">Measure translation accuracy using reference translations and round-trip fidelity</p>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Checking API availability...</span>
+      </div>
+    </header>
+
+    <main>
+      <!-- Language Pair Selection -->
+      <section class="card">
+        <h2>Language Pair Configuration</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="sourceLanguage">Source Language:</label>
+            <div class="searchable-select-container">
+              <input type="text" id="sourceLanguageSearch" class="searchable-select-input"
+                placeholder="Type to search languages..." autocomplete="off">
+              <div class="searchable-select-dropdown" id="sourceLanguageDropdown" style="display: none;"></div>
+              <input type="hidden" id="sourceLanguage" value="en">
+            </div>
+          </div>
+          <div class="swap-container">
+            <button type="button" id="swapLanguages" class="btn-swap" title="Swap source and target languages">
+              ⇄
+            </button>
+          </div>
+          <div class="form-group">
+            <label for="targetLanguage">Target Language:</label>
+            <div class="searchable-select-container">
+              <input type="text" id="targetLanguageSearch" class="searchable-select-input"
+                placeholder="Type to search languages..." autocomplete="off">
+              <div class="searchable-select-dropdown" id="targetLanguageDropdown" style="display: none;"></div>
+              <input type="hidden" id="targetLanguage" value="es">
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-container" id="downloadProgress" style="display: none;">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-text" id="progressText">0%</div>
+        </div>
+        <div id="initResult" class="result-box" style="display: none;"></div>
+      </section>
+
+      <!-- Quality Tests -->
+      <section class="card">
+        <h2>Quality Benchmark</h2>
+        <div class="info-banner">
+          <h3>📊 Translation Quality Assessment</h3>
+          <p>For language pairs with reference translations, scores are computed using n-gram similarity (BLEU-like).
+            For other pairs, round-trip translation measures how well meaning is preserved through a translate → reverse
+            translate cycle.</p>
+        </div>
+
+        <div class="test-mode-info" id="testModeInfo">
+          <span class="mode-badge" id="modeBadge">--</span>
+          <span id="modeDescription">Select languages to see test mode</span>
+        </div>
+
+        <div class="bench-controls">
+          <button id="startTest" class="btn btn-primary" disabled>Start Test</button>
+          <button id="stopTest" class="btn btn-secondary" disabled>Stop Test</button>
+          <button id="clearResults" class="btn btn-secondary">Clear Results</button>
+          <button id="copyResults" class="btn btn-secondary" disabled>📋 Copy Results</button>
+        </div>
+
+        <!-- Score Summary -->
+        <div class="score-grid">
+          <div class="score-item">
+            <div class="score-value" id="overallScore">0</div>
+            <div class="score-label">Overall Score (%)</div>
+          </div>
+          <div class="score-item">
+            <div class="score-value" id="completedCount">0</div>
+            <div class="score-label">Completed</div>
+          </div>
+          <div class="score-item">
+            <div class="score-value" id="totalCount">0</div>
+            <div class="score-label">Total Questions</div>
+          </div>
+          <div class="score-item">
+            <div class="score-value" id="avgTime">0</div>
+            <div class="score-label">Avg Time (ms)</div>
+          </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="quality-progress">
+          <div class="quality-progress-bar">
+            <div class="quality-progress-fill" id="testProgressFill"></div>
+          </div>
+          <span class="quality-progress-text" id="testProgressText">0 / 0</span>
+        </div>
+
+        <!-- Test Log -->
+        <div class="test-log-container">
+          <h3>Test Log</h3>
+          <div class="test-log" id="testLog"></div>
+        </div>
+      </section>
+
+      <!-- Known Issues Report -->
+      <section class="card">
+        <h2>Known Translation Issues</h2>
+        <div class="info-banner">
+          <h3>🐛 Issues Identified by Edge Full Page Translation Team</h3>
+          <p>13 categories of known translation defects across zh-CN, ja, and es language pairs.
+            These are tracked for fixes. Click a category to expand examples.</p>
+        </div>
+        <div class="issues-summary" id="issuesSummary"></div>
+        <div class="issues-list" id="issuesList"></div>
+      </section>
+
+      <!-- Evaluation Summary -->
+      <section class="card">
+        <h2>Evaluation Summary</h2>
+        <div class="info-banner">
+          <h3>📋 Cross-Language Evaluation Results</h3>
+          <p>Evaluation of the top 3 language pairs by Edge Translate traffic (67% coverage).
+            Adjusted accuracy measures the quality gap from cloud API — not absolute accuracy.
+            Segments where cloud also produces an error are discounted.</p>
+        </div>
+        <div id="evalSummaryContent"></div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Built with browser's Translation API | <a href="https://developer.chrome.com/docs/ai/translator-api"
+          target="_blank">API Documentation</a></p>
+    </footer>
+  </div>
+
+  <script src="quality.js"></script>
+</body>
+
+</html>

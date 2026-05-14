@@ -237,9 +237,7 @@ class TranslationAPIDemo {
 
       const startTime = performance.now();
       let chunkCount = 0;
-      let previousLength = 0;
-      let previousContent = '';
-      let accumulatedTranslation = ''; // Accumulate all chunks
+      let accumulatedTranslation = '';
 
       console.log(`🔄 Starting streaming translation (${inputText.length} chars)`);
 
@@ -262,15 +260,15 @@ class TranslationAPIDemo {
           }
           chunkCount++;
 
-          // Accumulate chunks (each chunk is a sentence)
-          accumulatedTranslation += chunk;
+          // Each chunk is cumulative (full translation so far), not incremental
+          const newContent = chunk.substring(accumulatedTranslation.length);
+          accumulatedTranslation = chunk;
 
           // Log each chunk with escaped characters for debugging
-          console.log(`📦 Chunk ${chunkCount}:`, JSON.stringify(chunk), `(${chunk.length} chars)`);
+          console.log(`📦 Chunk ${chunkCount}: cumulative ${chunk.length} chars, new "${newContent.substring(0, 60)}..."`);
 
-          // Update the display with accumulated translation
+          // Update the display with the cumulative translation
           outputElement.textContent = accumulatedTranslation;
-          previousLength = accumulatedTranslation.length;
 
           // Update metrics in real-time
           const currentTime = performance.now();
@@ -288,7 +286,6 @@ class TranslationAPIDemo {
 
         if (chunkCount === 1) {
           console.log(`✅ Streaming complete: 1 chunk in ${translationTime}ms (${inputText.length}→${accumulatedTranslation.length} chars, ${throughput} chars/sec)`);
-          console.log('💡 Tip: Enable sentence-by-sentence streaming with --enable-features=TranslateStreamingBySentence');
         } else {
           console.log(`✅ Streaming complete: ${chunkCount} chunks in ${translationTime}ms (${inputText.length}→${accumulatedTranslation.length} chars, ${throughput} chars/sec, ${chunksPerSecond} chunks/sec)`);
         }

@@ -1,0 +1,324 @@
+/* Speed benchmark specific styles */
+
+.bench-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.bench-section {
+  margin-top: 10px;
+}
+
+.bench-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface-elevated, white);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.08));
+}
+
+.bench-table > tr,
+.bench-table > tbody > tr {
+  border-bottom: 1px solid var(--border-light, #e9ecef);
+  animation: none;
+}
+
+.bench-table > tr:last-child,
+.bench-table > tbody > tr:last-child {
+  border-bottom: none;
+}
+
+.bench-table > tr:hover,
+.bench-table > tbody > tr:hover {
+  background-color: var(--surface, #fafbfc);
+}
+
+.bench-label {
+  padding: 16px;
+  vertical-align: top;
+}
+
+.bench-label h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bench-label p {
+  color: var(--text-secondary, #666);
+  font-size: 13px;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.bench-value {
+  padding: 16px;
+  text-align: right;
+  vertical-align: middle;
+  white-space: nowrap;
+  min-width: 140px;
+}
+
+.metric-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  color: var(--primary-color);
+}
+
+.metric-unit {
+  color: var(--text-muted, #888);
+  font-size: 0.85rem;
+}
+
+.metric-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+  margin-top: 4px;
+}
+
+/* Time to first content highlight */
+.metric-highlight {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--primary-subtle, rgba(79, 70, 229, 0.08));
+  border-radius: 6px;
+  border: 1px solid var(--primary-color);
+  text-align: center;
+  white-space: normal;
+}
+
+.highlight-label {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #888);
+  margin-bottom: 4px;
+}
+
+.highlight-compare {
+  display: block;
+  font-size: 13px;
+  color: var(--text-primary, #333);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+.highlight-speedup {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--success-color, #10b981);
+  margin-top: 2px;
+}
+
+/* Inner results table (runs) */
+.inner-table {
+  width: auto;
+  margin-top: 8px;
+  font-size: 12px;
+  background: var(--surface, #f8f9fa);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.inner-table th,
+.inner-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-light, #e9ecef);
+  text-align: center;
+}
+
+.inner-table th {
+  background: var(--surface-2, #e9ecef);
+  color: var(--text-secondary, #555);
+  font-weight: 600;
+  text-transform: none;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.inner-table tr:hover {
+  background-color: transparent;
+}
+
+/* Replay button */
+.replay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--primary-color);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.replay-btn:hover {
+  background: var(--primary-color);
+  color: white;
+  transform: rotate(180deg);
+}
+
+/* Scratch area for showing live translation */
+.scratch-area {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--surface, #f0f2f5);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  min-height: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Footer status bar */
+.bench-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-top: 15px;
+  background: var(--surface-elevated, rgba(255, 255, 255, 0.15));
+  border: 1px solid var(--border-light, transparent);
+  border-radius: 8px;
+  color: var(--text-primary, white);
+  font-size: 13px;
+  backdrop-filter: blur(10px);
+}
+
+.status-ready {
+  color: #a5f3fc;
+}
+
+.status-running {
+  color: #fde68a;
+  animation: pulse 1.5s infinite;
+}
+
+.bench-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.bench-progress-fill {
+  height: 100%;
+  background: #4ade80;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .bench-table > tr,
+  .bench-table > tbody > tr {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .bench-value {
+    text-align: left;
+    padding-top: 0;
+  }
+
+  .bench-controls {
+    flex-direction: column;
+  }
+
+  .score-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Page Simulation */
+.page-sim-results {
+  margin-top: 15px;
+}
+
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.score-item {
+  background: var(--surface, #f8f9fa);
+  padding: 14px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid var(--border-light, #e9ecef);
+}
+
+.score-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  color: var(--primary-color);
+}
+
+.score-label {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.sim-breakdown {
+  margin-top: 10px;
+}
+
+.sim-breakdown h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  margin-bottom: 8px;
+}
+
+.quality-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.quality-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--surface-2, #e5eaf2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.quality-progress-fill {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.quality-progress-text {
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
