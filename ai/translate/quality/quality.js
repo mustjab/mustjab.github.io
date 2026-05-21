@@ -1729,11 +1729,27 @@ const MAGNITUDE_PATTERNS = [
   [/(\d+(?:\.\d+)?)\s*thousands?/gi, '$1K'],
 ];
 
+// Currency-word substitutions that map a trailing currency word back to
+// the leading symbol form. Lets us treat "3.8M de dólares" as equivalent
+// to "$3.8M" when the model drops the symbol and uses the word instead.
+// Applied AFTER MAGNITUDE_PATTERNS so suffixes are already collapsed.
+const CURRENCY_PATTERNS = [
+  // USD: "3.8M de dólares" / "3.8M dólares" / "3.8M dollars" / "3.8M USD"
+  [/(\d+(?:\.\d+)?[KMB]?)\s+(?:de\s+)?(?:d[óo]lares?|dollars?|USD|US\$)/gi, '$$$1'],
+  // EUR
+  [/(\d+(?:\.\d+)?[KMB]?)\s+(?:de\s+)?(?:euros?|EUR)/gi, '€$1'],
+  // GBP
+  [/(\d+(?:\.\d+)?[KMB]?)\s+(?:de\s+)?(?:pounds?|libras?|GBP)/gi, '£$1'],
+  // JPY
+  [/(\d+(?:\.\d+)?[KMB]?)\s+(?:de\s+)?(?:yen|円|JPY)/gi, '¥$1'],
+];
+
 // Normalises numeric / currency strings so locale-equivalent renderings
 // compare as equal. Used only as a fallback after a literal substring
 // check fails — we still flag genuine corruption, just not these:
-//   "179.5"  ↔ "179,5"        (decimal separator localised)
-//   "$3.8M"  ↔ "$ 3.8 millones" (currency space + magnitude expanded)
+//   "179.5"  ↔ "179,5"                  (decimal separator localised)
+//   "$3.8M"  ↔ "$ 3.8 millones"         (currency space + magnitude expanded)
+//   "$3.8M"  ↔ "3,8 millones de dólares" (symbol replaced by word + decimal localised)
 function normalizeNumeric(s, lang) {
   if (!s) return s;
   let t = s;
@@ -1745,6 +1761,10 @@ function normalizeNumeric(s, lang) {
   }
   // Magnitude words -> abbreviated suffix.
   for (const [re, repl] of MAGNITUDE_PATTERNS) {
+    t = t.replace(re, repl);
+  }
+  // Trailing currency word -> leading currency symbol.
+  for (const [re, repl] of CURRENCY_PATTERNS) {
     t = t.replace(re, repl);
   }
   return t;
