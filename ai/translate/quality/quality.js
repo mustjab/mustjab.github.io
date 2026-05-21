@@ -612,6 +612,7 @@ class TranslationQualityBenchmark {
     this.results = [];
     this.defectTesting = false;
     this.defectResults = [];
+    this.runningAll = false;
     this.init();
   }
 
@@ -636,19 +637,16 @@ class TranslationQualityBenchmark {
   }
 
   setupEventListeners() {
-    document.getElementById('startTest').addEventListener('click', () => this.runTests());
-    document.getElementById('stopTest').addEventListener('click', () => this.stopTests());
-    document.getElementById('clearResults').addEventListener('click', () => this.clearResults());
-    document.getElementById('copyResults').addEventListener('click', () => this.copyResults());
     document.getElementById('swapLanguages').addEventListener('click', () => this.swapLanguages());
     document.getElementById('sourceLanguage').addEventListener('change', () => this.onLanguageChange());
     document.getElementById('targetLanguage').addEventListener('change', () => this.onLanguageChange());
-    document.getElementById('runDefectTests').addEventListener('click', () => this.runDefectTests());
-    document.getElementById('stopDefectTests').addEventListener('click', () => this.stopDefectTests());
-    document.getElementById('copyDefectResults').addEventListener('click', () => this.copyDefectResults());
     document.getElementById('saveSnapshot').addEventListener('click', () => this.saveSnapshot());
     document.getElementById('compareSnapshot').addEventListener('click', () => this.compareSnapshot());
     document.getElementById('clearSnapshot').addEventListener('click', () => this.clearSnapshot());
+    document.getElementById('runAllTests').addEventListener('click', () => this.runAllTests());
+    document.getElementById('stopAllTests').addEventListener('click', () => this.stopAllTests());
+    document.getElementById('clearAllResults').addEventListener('click', () => this.clearAllResults());
+    document.getElementById('copyAllResults').addEventListener('click', () => this.copyAllResults());
   }
 
   async checkAPI() {
@@ -659,8 +657,7 @@ class TranslationQualityBenchmark {
     if ('Translator' in self) {
       indicator.className = 'status-indicator available';
       text.textContent = 'Translation API is available';
-      document.getElementById('startTest').disabled = false;
-      document.getElementById('runDefectTests').disabled = false;
+      document.getElementById('runAllTests').disabled = false;
     } else {
       indicator.className = 'status-indicator unavailable';
       text.textContent = 'Translation API is not available';
@@ -790,17 +787,8 @@ class TranslationQualityBenchmark {
     this.testing = true;
     this.results = [];
 
-    document.getElementById('startTest').disabled = true;
-    document.getElementById('stopTest').disabled = false;
-    document.getElementById('copyResults').disabled = true;
-
-    const logEl = document.getElementById('testLog');
-    logEl.innerHTML = '';
-
     if (!(await this.ensureTranslators())) {
       this.testing = false;
-      document.getElementById('startTest').disabled = false;
-      document.getElementById('stopTest').disabled = true;
       return;
     }
 
@@ -890,39 +878,20 @@ class TranslationQualityBenchmark {
       document.getElementById('completedCount').textContent = completed;
       document.getElementById('overallScore').textContent = (totalScore / completed).toFixed(1);
       document.getElementById('avgTime').textContent = Math.round(totalTime / completed);
+      const total = this._allTestsTotal || testData.length;
       document.getElementById('testProgressFill').style.width =
-        ((completed / testData.length) * 100) + '%';
+        ((completed / total) * 100) + '%';
       document.getElementById('testProgressText').textContent =
-        `${completed} / ${testData.length}`;
+        `${completed} / ${total}`;
     }
 
     // Final
     if (this.results.length > 0) {
       const avgScore = (totalScore / this.results.length).toFixed(1);
-      this.log(`\nTest complete! Overall score: ${avgScore}% (${this.results.length} sentences)`, 'info');
-      document.getElementById('copyResults').disabled = false;
+      this.log(`\nQuality phase complete: avg score ${avgScore}% (${this.results.length} sentences).`, 'info');
     }
 
     this.testing = false;
-    document.getElementById('startTest').disabled = false;
-    document.getElementById('stopTest').disabled = true;
-  }
-
-  stopTests() {
-    this.testing = false;
-    document.getElementById('stopTest').disabled = true;
-  }
-
-  clearResults() {
-    this.results = [];
-    document.getElementById('testLog').innerHTML = '';
-    document.getElementById('overallScore').textContent = '0';
-    document.getElementById('completedCount').textContent = '0';
-    document.getElementById('avgTime').textContent = '0';
-    document.getElementById('testProgressFill').style.width = '0%';
-    document.getElementById('testProgressText').textContent = '0 / 0';
-    document.getElementById('copyResults').disabled = true;
-    this.updateTestMode();
   }
 
   // ── Logging ──────────────────────────────────────────────────────
@@ -945,9 +914,7 @@ class TranslationQualityBenchmark {
 
   // ── Copy Results ─────────────────────────────────────────────────
 
-  copyResults() {
-    if (this.results.length === 0) return;
-
+  _formatQualityResults() {
     const source = document.getElementById('sourceLanguage').value;
     const target = document.getElementById('targetLanguage').value;
     const sourceName = LANGUAGE_NAMES[source] || source;
@@ -994,7 +961,18 @@ class TranslationQualityBenchmark {
       '═'.repeat(50),
     ];
 
-    // TSV
+    return lines.join('\n');
+  }
+
+  _formatQualityTsv() {
+    const source = document.getElementById('sourceLanguage').value;
+    const target = document.getElementById('targetLanguage').value;
+    const sourceName = LANGUAGE_NAMES[source] || source;
+    const targetName = LANGUAGE_NAMES[target] || target;
+    const mode = this.getTestMode();
+    const browserInfo = this.getBrowserInfo();
+    const avgScore = (this.results.reduce((s, r) => s + r.score, 0) / this.results.length).toFixed(1);
+    const avgTime = Math.round(this.results.reduce((s, r) => s + r.time, 0) / this.results.length);
     const tsvHeader = ['Date', 'Browser', 'Language Pair', 'Mode', 'Overall Score (%)',
       'Tests', 'Avg Time (ms)'].join('\t');
     const tsvRow = [
@@ -1002,16 +980,7 @@ class TranslationQualityBenchmark {
       `${sourceName} → ${targetName}`, mode, avgScore,
       this.results.length, avgTime
     ].join('\t');
-
-    const clipboardData = lines.join('\n') + '\n\n' + tsvHeader + '\n' + tsvRow;
-
-    navigator.clipboard.writeText(clipboardData).then(() => {
-      const btn = document.getElementById('copyResults');
-      btn.textContent = '✓ Copied!';
-      setTimeout(() => { btn.textContent = '📋 Copy Results'; }, 2000);
-    }).catch(() => {
-      alert('Failed to copy results to clipboard');
-    });
+    return tsvHeader + '\n' + tsvRow;
   }
 
   getBrowserInfo() {
@@ -1025,54 +994,33 @@ class TranslationQualityBenchmark {
 
   // ── Defect tests ─────────────────────────────────────────────────
 
-  defectLog(message, type = 'info') {
-    const logEl = document.getElementById('defectLog');
-    if (!logEl) return;
-    const entry = document.createElement('div');
-    entry.className = `log-entry log-${type}`;
-    const timestamp = new Date().toLocaleTimeString();
-    entry.innerHTML = `<span class="log-time">[${timestamp}]</span> ${message}`;
-    logEl.appendChild(entry);
-    logEl.scrollTop = logEl.scrollHeight;
-  }
-
   async runDefectTests() {
     if (this.defectTesting) return;
     const target = document.getElementById('targetLanguage').value;
     const cases = DEFECT_TEST_DATA.filter(c => c.lang === target);
     if (cases.length === 0) {
-      this.defectLog(`No defect cases defined for ${LANGUAGE_NAMES[target] || target}. Try es, ja, or zh-hans.`, 'warning');
+      this.log(`No defect cases defined for ${LANGUAGE_NAMES[target] || target}. Try es, ja, or zh-hans.`, 'warning');
       return;
     }
 
     this.defectTesting = true;
     this.defectResults = [];
-
-    document.getElementById('runDefectTests').disabled = true;
-    document.getElementById('stopDefectTests').disabled = false;
-    document.getElementById('copyDefectResults').disabled = true;
     document.getElementById('saveSnapshot').disabled = true;
-    document.getElementById('defectLog').innerHTML = '';
     document.getElementById('defectResults').innerHTML = '';
 
     if (!(await this.ensureTranslators())) {
       this.defectTesting = false;
-      document.getElementById('runDefectTests').disabled = false;
-      document.getElementById('stopDefectTests').disabled = true;
       return;
     }
 
-    this.defectLog(
+    this.log(
       `Running ${cases.length} defect cases against ${LANGUAGE_NAMES[target] || target}\u2026`,
       'info'
     );
 
-    const progressFill = document.getElementById('defectProgressFill');
-    const progressText = document.getElementById('defectProgressText');
-
     for (let i = 0; i < cases.length; i++) {
       if (!this.defectTesting) {
-        this.defectLog('Defect tests paused by user.', 'warning');
+        this.log('Defect tests paused by user.', 'warning');
         break;
       }
       const testCase = cases[i];
@@ -1102,7 +1050,7 @@ class TranslationQualityBenchmark {
         }
         const reasonHtml = reasons.length > 0
           ? `<br><span class="log-out">Why fail:</span> ${reasons.join('; ')}` : '';
-        this.defectLog(
+        this.log(
           `<span class="log-q">[${testCase.id}]</span> ${this.escapeHtml(testCase.source)}`
           + `<br><span class="log-out">Output:</span> ${this.escapeHtml(output)}`
           + `<br><span class="log-score ${evalResult.pass ? 'good' : 'poor'}">${evalResult.pass ? 'PASS' : 'FAIL'}</span>`
@@ -1121,33 +1069,29 @@ class TranslationQualityBenchmark {
           sentenceShortfall: 0,
           error: error.message,
         });
-        this.defectLog(`[${testCase.id}] Error \u2014 ${this.escapeHtml(error.message)}`, 'error');
+        this.log(`[${testCase.id}] Error \u2014 ${this.escapeHtml(error.message)}`, 'error');
       }
 
       const completed = this.defectResults.length;
-      progressFill.style.width = ((completed / cases.length) * 100) + '%';
-      progressText.textContent = `${completed} / ${cases.length}`;
+      const allDone = this.results.length + completed;
+      const allTotal = this._allTestsTotal || (this.results.length + cases.length);
+      document.getElementById('testProgressFill').style.width =
+        ((allDone / allTotal) * 100) + '%';
+      document.getElementById('testProgressText').textContent =
+        `${allDone} / ${allTotal}`;
       this.renderDefectResults();
     }
 
     if (this.defectResults.length > 0) {
       const passed = this.defectResults.filter(r => r.pass).length;
       const total = this.defectResults.length;
-      this.defectLog(
-        `Defect tests complete: ${passed}/${total} passed (${(100 * passed / total).toFixed(1)}%).`,
+      this.log(
+        `Defect phase complete: ${passed}/${total} passed (${(100 * passed / total).toFixed(1)}%).`,
         'info'
       );
-      document.getElementById('copyDefectResults').disabled = false;
       document.getElementById('saveSnapshot').disabled = false;
     }
     this.defectTesting = false;
-    document.getElementById('runDefectTests').disabled = false;
-    document.getElementById('stopDefectTests').disabled = true;
-  }
-
-  stopDefectTests() {
-    this.defectTesting = false;
-    document.getElementById('stopDefectTests').disabled = true;
   }
 
   // Renders per-category pass-rate table. `compareTo` (optional) is a
@@ -1248,12 +1192,12 @@ class TranslationQualityBenchmark {
     };
     try {
       localStorage.setItem(this.snapshotKey(), JSON.stringify(snapshot));
-      this.defectLog(
+      this.log(
         `Snapshot saved for ${LANGUAGE_NAMES[target] || target} (${snapshot.browser}, ${this.defectResults.length} cases).`,
         'success'
       );
     } catch (e) {
-      this.defectLog(`Failed to save snapshot: ${e.message}`, 'error');
+      this.log(`Failed to save snapshot: ${e.message}`, 'error');
     }
   }
 
@@ -1261,37 +1205,36 @@ class TranslationQualityBenchmark {
     const target = document.getElementById('targetLanguage').value;
     const raw = localStorage.getItem(this.snapshotKey());
     if (!raw) {
-      this.defectLog(
+      this.log(
         `No saved snapshot for ${LANGUAGE_NAMES[target] || target}. Run defect tests, then click \u201cSave Snapshot\u201d to create one.`,
         'warning'
       );
       return;
     }
     if (this.defectResults.length === 0) {
-      this.defectLog('Run defect tests first \u2014 nothing to compare against.', 'warning');
+      this.log('Run defect tests first \u2014 nothing to compare against.', 'warning');
       return;
     }
     try {
       const snap = JSON.parse(raw);
-      this.defectLog(
+      this.log(
         `Comparing current run against snapshot from ${snap.timestamp} (${snap.browser}, ${snap.results.length} cases).`,
         'info'
       );
       this.renderDefectResults(snap.results);
     } catch (e) {
-      this.defectLog(`Failed to read snapshot: ${e.message}`, 'error');
+      this.log(`Failed to read snapshot: ${e.message}`, 'error');
     }
   }
 
   clearSnapshot() {
     const target = document.getElementById('targetLanguage').value;
     localStorage.removeItem(this.snapshotKey());
-    this.defectLog(`Snapshot cleared for ${LANGUAGE_NAMES[target] || target}.`, 'info');
+    this.log(`Snapshot cleared for ${LANGUAGE_NAMES[target] || target}.`, 'info');
     this.renderDefectResults();
   }
 
-  copyDefectResults() {
-    if (this.defectResults.length === 0) return;
+  _formatDefectResults() {
     const target = document.getElementById('targetLanguage').value;
     const targetName = LANGUAGE_NAMES[target] || target;
     const browserInfo = this.getBrowserInfo();
@@ -1337,13 +1280,90 @@ class TranslationQualityBenchmark {
       '='.repeat(50),
     ];
 
-    navigator.clipboard.writeText(lines.join('\n')).then(() => {
-      const btn = document.getElementById('copyDefectResults');
+    return lines.join('\n');
+  }
+
+  // ── Snapshots (localStorage, scoped by target language) ──────────────
+
+  async runAllTests() {
+    if (this.runningAll) return;
+    this.runningAll = true;
+
+    // Precompute combined total for the unified progress bar.
+    const target = document.getElementById('targetLanguage').value;
+    const mode = this.getTestMode();
+    const qualityCount = mode === 'reference'
+      ? QUALITY_TEST_DATA.filter(d => d.refs[target]).length
+      : QUALITY_TEST_DATA.length;
+    const defectCount = DEFECT_TEST_DATA.filter(c => c.lang === target).length;
+    this._allTestsTotal = qualityCount + defectCount;
+
+    // Reset display before kicking off both phases.
+    this.results = [];
+    this.defectResults = [];
+    document.getElementById('testLog').innerHTML = '';
+    document.getElementById('defectResults').innerHTML = '';
+    document.getElementById('overallScore').textContent = '0';
+    document.getElementById('completedCount').textContent = '0';
+    document.getElementById('avgTime').textContent = '0';
+    document.getElementById('totalCount').textContent = qualityCount;
+    document.getElementById('testProgressFill').style.width = '0%';
+    document.getElementById('testProgressText').textContent = `0 / ${this._allTestsTotal}`;
+
+    document.getElementById('runAllTests').disabled = true;
+    document.getElementById('stopAllTests').disabled = false;
+    document.getElementById('copyAllResults').disabled = true;
+
+    await this.runTests();
+    if (this.runningAll) {
+      await this.runDefectTests();
+    }
+
+    this.runningAll = false;
+    this._allTestsTotal = 0;
+    document.getElementById('runAllTests').disabled = false;
+    document.getElementById('stopAllTests').disabled = true;
+    if (this.results.length > 0 || this.defectResults.length > 0) {
+      document.getElementById('copyAllResults').disabled = false;
+    }
+  }
+
+  stopAllTests() {
+    this.runningAll = false;
+    this.testing = false;
+    this.defectTesting = false;
+    document.getElementById('stopAllTests').disabled = true;
+  }
+
+  copyAllResults() {
+    const parts = [];
+    if (this.results.length > 0) parts.push(this._formatQualityResults());
+    if (this.defectResults.length > 0) parts.push(this._formatDefectResults());
+    if (parts.length === 0) return;
+    const tsv = this.results.length > 0 ? this._formatQualityTsv() : null;
+    const text = parts.join('\n\n') + (tsv ? '\n\n' + tsv : '');
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copyAllResults');
       btn.textContent = '\u2713 Copied!';
       setTimeout(() => { btn.textContent = '\ud83d\udccb Copy Results'; }, 2000);
     }).catch(() => {
-      alert('Failed to copy defect results to clipboard');
+      alert('Failed to copy results to clipboard');
     });
+  }
+
+  clearAllResults() {
+    this.results = [];
+    this.defectResults = [];
+    document.getElementById('testLog').innerHTML = '';
+    document.getElementById('defectResults').innerHTML = '';
+    document.getElementById('overallScore').textContent = '0';
+    document.getElementById('completedCount').textContent = '0';
+    document.getElementById('avgTime').textContent = '0';
+    document.getElementById('testProgressFill').style.width = '0%';
+    document.getElementById('testProgressText').textContent = '0 / 0';
+    document.getElementById('saveSnapshot').disabled = true;
+    document.getElementById('copyAllResults').disabled = true;
+    this.updateTestMode();
   }
 }
 
