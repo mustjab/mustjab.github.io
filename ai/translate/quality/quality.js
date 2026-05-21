@@ -1609,6 +1609,32 @@ const DEFECT_TEST_DATA = [
   { id: 'number_changed', lang: 'zh-hans', source: 'Upgrade to version 7.0 for Windows 11 to handle the budget of $3.8M this year.',
     mustPreserve: ['7.0', 'Windows 11'], mustNotContain: ['Windows 7.0', '3.8万'] },
 
+  // number_changed (reverse-order experiment): same numbers, opposite
+  // source word order. If the noun↔number binding still inverts in
+  // zh-hans, the failure is an order-invariant attachment bias in the
+  // decoder cross-attention. If it now binds correctly, the original
+  // failure was positional. es/ja are controls — should bind correctly.
+  { id: 'number_changed', lang: 'es',      source: 'Upgrade to Windows 11 from version 7.0 to handle the budget of $3.8M this year.',
+    mustPreserve: ['Windows 11', '7.0', '$3.8M'], mustNotContain: ['Windows 7.0', 'version 11'] },
+  { id: 'number_changed', lang: 'ja',      source: 'Upgrade to Windows 11 from version 7.0 to handle the budget of $3.8M this year.',
+    mustPreserve: ['Windows 11', '7.0'], mustNotContain: ['Windows 7.0', 'version 11'] },
+  { id: 'number_changed', lang: 'zh-hans', source: 'Upgrade to Windows 11 from version 7.0 to handle the budget of $3.8M this year.',
+    mustPreserve: ['Windows 11', '7.0'], mustNotContain: ['Windows 7.0'] },
+
+  // number_changed (letter-substituted control): Roman numerals replace
+  // digits in the same syntactic slots. Numbers tokenize as per-digit
+  // BPE pieces (`[1][1]`, `[7][.][0]`) with weak positional signal;
+  // Roman numerals are single-token-like identifiers. If zh-hans binds
+  // these correctly but swaps the digit version, numeric tokenization
+  // fragmentation is contributing. If it still swaps, the binding bug
+  // is purely in the model and tokenization is not a factor.
+  { id: 'number_changed', lang: 'es',      source: 'Upgrade to version VII for Windows XI to handle the budget of MXM this year.',
+    mustPreserve: ['VII', 'Windows XI', 'MXM'], mustNotContain: ['Windows VII'] },
+  { id: 'number_changed', lang: 'ja',      source: 'Upgrade to version VII for Windows XI to handle the budget of MXM this year.',
+    mustPreserve: ['VII', 'Windows XI', 'MXM'], mustNotContain: ['Windows VII'] },
+  { id: 'number_changed', lang: 'zh-hans', source: 'Upgrade to version VII for Windows XI to handle the budget of MXM this year.',
+    mustPreserve: ['VII', 'Windows XI', 'MXM'], mustNotContain: ['Windows VII'] },
+
   // url_translated: URL parts / email addresses translated.
   { id: 'url_translated', lang: 'es',      source: 'Visit https://academic.oup.com or email someone@example.com to learn more.',
     mustPreserve: ['https://academic.oup.com', 'someone@example.com'],
