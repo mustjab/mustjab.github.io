@@ -253,6 +253,81 @@ const QUALITY_TEST_DATA = [
       'ja': 'コーヒーを買ってきて、それからサーバーの何が問題だったのか調べます。',
     }
   },
+  // ── Defect-trigger sentences: added so BLEU also moves when on-device fixes land.
+  // Each contains tokens that on-device translation is known to corrupt
+  // (brands, acronyms, mixed-case product names, URLs, version numbers).
+  {
+    id: 21,
+    category: 'Tech Products',
+    source: 'I bought a new iPhone running iOS and installed Discord and Steam on it.',
+    refs: {
+      'es': 'Compré un nuevo iPhone con iOS e instalé Discord y Steam en él.',
+      'fr': 'J\'ai acheté un nouvel iPhone sous iOS et j\'ai installé Discord et Steam dessus.',
+      'de': 'Ich habe ein neues iPhone mit iOS gekauft und Discord und Steam darauf installiert.',
+      'zh-hans': '我买了一部运行iOS的新iPhone，并在上面安装了Discord和Steam。',
+      'ja': 'iOSが動作する新しいiPhoneを購入し、DiscordとSteamをインストールしました。',
+    }
+  },
+  {
+    id: 22,
+    category: 'Tech Acronyms',
+    source: 'The API returned 179.5 MB of data via HTTP in JSON format.',
+    refs: {
+      'es': 'La API devolvió 179.5 MB de datos a través de HTTP en formato JSON.',
+      'fr': 'L\'API a renvoyé 179,5 Mo de données via HTTP au format JSON.',
+      'de': 'Die API gab 179,5 MB Daten über HTTP im JSON-Format zurück.',
+      'zh-hans': 'API通过HTTP以JSON格式返回了179.5 MB的数据。',
+      'ja': 'APIはHTTP経由で179.5 MBのデータをJSON形式で返しました。',
+    }
+  },
+  {
+    id: 23,
+    category: 'Tech Products',
+    source: 'Watch YouTube videos through PowerShell while using ChatGPT, MySQL, and WhatsApp.',
+    refs: {
+      'es': 'Mira videos de YouTube a través de PowerShell mientras usas ChatGPT, MySQL y WhatsApp.',
+      'fr': 'Regardez des vidéos YouTube via PowerShell tout en utilisant ChatGPT, MySQL et WhatsApp.',
+      'de': 'Schauen Sie YouTube-Videos über PowerShell, während Sie ChatGPT, MySQL und WhatsApp verwenden.',
+      'zh-hans': '在使用ChatGPT、MySQL和WhatsApp的同时，通过PowerShell观看YouTube视频。',
+      'ja': 'ChatGPT、MySQL、WhatsAppを使いながら、PowerShellでYouTubeの動画を見ます。',
+    }
+  },
+  {
+    id: 24,
+    category: 'Tech Acronyms',
+    source: 'Install the MSI package to enable RSS feeds with OCR and SDK support.',
+    refs: {
+      'es': 'Instala el paquete MSI para habilitar los feeds RSS con soporte de OCR y SDK.',
+      'fr': 'Installez le paquet MSI pour activer les flux RSS avec prise en charge OCR et SDK.',
+      'de': 'Installieren Sie das MSI-Paket, um RSS-Feeds mit OCR- und SDK-Unterstützung zu aktivieren.',
+      'zh-hans': '安装MSI软件包以启用支持OCR和SDK的RSS订阅源。',
+      'ja': 'MSIパッケージをインストールして、OCRとSDKをサポートするRSSフィードを有効にします。',
+    }
+  },
+  {
+    id: 25,
+    category: 'Proper Nouns',
+    source: 'Albert Einstein worked at MIT and later collaborated with DeepMind in London.',
+    refs: {
+      'es': 'Albert Einstein trabajó en MIT y más tarde colaboró con DeepMind en Londres.',
+      'fr': 'Albert Einstein a travaillé au MIT et a ensuite collaboré avec DeepMind à Londres.',
+      'de': 'Albert Einstein arbeitete am MIT und kollaborierte später mit DeepMind in London.',
+      'zh-hans': '阿尔伯特·爱因斯坦曾在MIT工作，后来在伦敦与DeepMind合作。',
+      'ja': 'アルベルト・アインシュタインはMITで働き、後にロンドンのDeepMindと協力しました。',
+    }
+  },
+  {
+    id: 26,
+    category: 'Numbers & Dates',
+    source: 'Upgrade to version 7.0 for Windows 11 to handle the budget of $3.8M this year.',
+    refs: {
+      'es': 'Actualiza a la versión 7.0 para Windows 11 para gestionar el presupuesto de $3.8M este año.',
+      'fr': 'Mettez à niveau vers la version 7.0 pour Windows 11 pour gérer le budget de 3,8 M$ cette année.',
+      'de': 'Aktualisieren Sie auf Version 7.0 für Windows 11, um das Budget von 3,8 Mio. $ in diesem Jahr zu verwalten.',
+      'zh-hans': '升级到适用于Windows 11的7.0版本以处理今年380万美元的预算。',
+      'ja': 'Windows 11用のバージョン7.0にアップグレードして、今年の380万ドルの予算に対応します。',
+    }
+  },
 ];
 
 // ─── Language names (shared) ────────────────────────────────────────
@@ -535,6 +610,8 @@ class TranslationQualityBenchmark {
     this.targetSelect = null;
     this.testing = false;
     this.results = [];
+    this.defectTesting = false;
+    this.defectResults = [];
     this.init();
   }
 
@@ -566,6 +643,12 @@ class TranslationQualityBenchmark {
     document.getElementById('swapLanguages').addEventListener('click', () => this.swapLanguages());
     document.getElementById('sourceLanguage').addEventListener('change', () => this.onLanguageChange());
     document.getElementById('targetLanguage').addEventListener('change', () => this.onLanguageChange());
+    document.getElementById('runDefectTests').addEventListener('click', () => this.runDefectTests());
+    document.getElementById('stopDefectTests').addEventListener('click', () => this.stopDefectTests());
+    document.getElementById('copyDefectResults').addEventListener('click', () => this.copyDefectResults());
+    document.getElementById('saveSnapshot').addEventListener('click', () => this.saveSnapshot());
+    document.getElementById('compareSnapshot').addEventListener('click', () => this.compareSnapshot());
+    document.getElementById('clearSnapshot').addEventListener('click', () => this.clearSnapshot());
   }
 
   async checkAPI() {
@@ -577,6 +660,7 @@ class TranslationQualityBenchmark {
       indicator.className = 'status-indicator available';
       text.textContent = 'Translation API is available';
       document.getElementById('startTest').disabled = false;
+      document.getElementById('runDefectTests').disabled = false;
     } else {
       indicator.className = 'status-indicator unavailable';
       text.textContent = 'Translation API is not available';
@@ -614,6 +698,23 @@ class TranslationQualityBenchmark {
     }
 
     document.getElementById('totalCount').textContent = QUALITY_TEST_DATA.length;
+
+    // Defect-test panel: count cases that match current target.
+    const defectInfo = document.getElementById('defectInfoText');
+    if (defectInfo) {
+      const target = document.getElementById('targetLanguage').value;
+      const cases = DEFECT_TEST_DATA.filter(c => c.lang === target);
+      if (cases.length > 0) {
+        const byId = {};
+        cases.forEach(c => { byId[c.id] = (byId[c.id] || 0) + 1; });
+        const catCount = Object.keys(byId).length;
+        defectInfo.textContent =
+          `${cases.length} defect cases across ${catCount} categories will run for ${targetName}.`;
+      } else {
+        defectInfo.textContent =
+          `No defect cases defined for ${targetName} yet. Defect tests target es, ja, and zh-hans.`;
+      }
+    }
   }
 
   onLanguageChange() {
@@ -921,10 +1022,332 @@ class TranslationQualityBenchmark {
     if (ua.includes('Safari')) return 'Safari ' + (ua.match(/Version\/([0-9.]+)/) || ['', '?'])[1];
     return 'Unknown';
   }
+
+  // ── Defect tests ─────────────────────────────────────────────────
+
+  defectLog(message, type = 'info') {
+    const logEl = document.getElementById('defectLog');
+    if (!logEl) return;
+    const entry = document.createElement('div');
+    entry.className = `log-entry log-${type}`;
+    const timestamp = new Date().toLocaleTimeString();
+    entry.innerHTML = `<span class="log-time">[${timestamp}]</span> ${message}`;
+    logEl.appendChild(entry);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  async runDefectTests() {
+    if (this.defectTesting) return;
+    const target = document.getElementById('targetLanguage').value;
+    const cases = DEFECT_TEST_DATA.filter(c => c.lang === target);
+    if (cases.length === 0) {
+      this.defectLog(`No defect cases defined for ${LANGUAGE_NAMES[target] || target}. Try es, ja, or zh-hans.`, 'warning');
+      return;
+    }
+
+    this.defectTesting = true;
+    this.defectResults = [];
+
+    document.getElementById('runDefectTests').disabled = true;
+    document.getElementById('stopDefectTests').disabled = false;
+    document.getElementById('copyDefectResults').disabled = true;
+    document.getElementById('saveSnapshot').disabled = true;
+    document.getElementById('defectLog').innerHTML = '';
+    document.getElementById('defectResults').innerHTML = '';
+
+    if (!(await this.ensureTranslators())) {
+      this.defectTesting = false;
+      document.getElementById('runDefectTests').disabled = false;
+      document.getElementById('stopDefectTests').disabled = true;
+      return;
+    }
+
+    this.defectLog(
+      `Running ${cases.length} defect cases against ${LANGUAGE_NAMES[target] || target}\u2026`,
+      'info'
+    );
+
+    const progressFill = document.getElementById('defectProgressFill');
+    const progressText = document.getElementById('defectProgressText');
+
+    for (let i = 0; i < cases.length; i++) {
+      if (!this.defectTesting) {
+        this.defectLog('Defect tests paused by user.', 'warning');
+        break;
+      }
+      const testCase = cases[i];
+      const startTime = performance.now();
+      try {
+        const output = await this.translator.translate(testCase.source);
+        const evalResult = evaluateDefectCase(testCase, output);
+        const elapsed = performance.now() - startTime;
+        this.defectResults.push({
+          id: testCase.id,
+          source: testCase.source,
+          output,
+          lang: testCase.lang,
+          time: elapsed,
+          ...evalResult,
+        });
+        const status = evalResult.pass ? 'success' : 'error';
+        const reasons = [];
+        if (evalResult.missing.length > 0) {
+          reasons.push(`missing: ${evalResult.missing.map(s => `<code>${this.escapeHtml(s)}</code>`).join(', ')}`);
+        }
+        if (evalResult.forbidden.length > 0) {
+          reasons.push(`found forbidden: ${evalResult.forbidden.map(s => `<code>${this.escapeHtml(s)}</code>`).join(', ')}`);
+        }
+        if (evalResult.sentenceShortfall > 0) {
+          reasons.push(`missing ${evalResult.sentenceShortfall} sentence-final punctuation mark(s)`);
+        }
+        const reasonHtml = reasons.length > 0
+          ? `<br><span class="log-out">Why fail:</span> ${reasons.join('; ')}` : '';
+        this.defectLog(
+          `<span class="log-q">[${testCase.id}]</span> ${this.escapeHtml(testCase.source)}`
+          + `<br><span class="log-out">Output:</span> ${this.escapeHtml(output)}`
+          + `<br><span class="log-score ${evalResult.pass ? 'good' : 'poor'}">${evalResult.pass ? 'PASS' : 'FAIL'}</span>`
+          + reasonHtml,
+          status
+        );
+      } catch (error) {
+        this.defectResults.push({
+          id: testCase.id,
+          source: testCase.source,
+          lang: testCase.lang,
+          time: 0,
+          pass: false,
+          missing: [],
+          forbidden: [],
+          sentenceShortfall: 0,
+          error: error.message,
+        });
+        this.defectLog(`[${testCase.id}] Error \u2014 ${this.escapeHtml(error.message)}`, 'error');
+      }
+
+      const completed = this.defectResults.length;
+      progressFill.style.width = ((completed / cases.length) * 100) + '%';
+      progressText.textContent = `${completed} / ${cases.length}`;
+      this.renderDefectResults();
+    }
+
+    if (this.defectResults.length > 0) {
+      const passed = this.defectResults.filter(r => r.pass).length;
+      const total = this.defectResults.length;
+      this.defectLog(
+        `Defect tests complete: ${passed}/${total} passed (${(100 * passed / total).toFixed(1)}%).`,
+        'info'
+      );
+      document.getElementById('copyDefectResults').disabled = false;
+      document.getElementById('saveSnapshot').disabled = false;
+    }
+    this.defectTesting = false;
+    document.getElementById('runDefectTests').disabled = false;
+    document.getElementById('stopDefectTests').disabled = true;
+  }
+
+  stopDefectTests() {
+    this.defectTesting = false;
+    document.getElementById('stopDefectTests').disabled = true;
+  }
+
+  // Renders per-category pass-rate table. `compareTo` (optional) is a
+  // saved snapshot's defect-results array; when supplied, a delta column
+  // is shown.
+  renderDefectResults(compareTo = null) {
+    const container = document.getElementById('defectResults');
+    if (!container) return;
+    if (this.defectResults.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    const byCat = {};
+    this.defectResults.forEach(r => {
+      if (!byCat[r.id]) byCat[r.id] = { pass: 0, total: 0 };
+      byCat[r.id].total++;
+      if (r.pass) byCat[r.id].pass++;
+    });
+
+    let priorByCat = null;
+    if (compareTo) {
+      priorByCat = {};
+      compareTo.forEach(r => {
+        if (!priorByCat[r.id]) priorByCat[r.id] = { pass: 0, total: 0 };
+        priorByCat[r.id].total++;
+        if (r.pass) priorByCat[r.id].pass++;
+      });
+    }
+
+    const totalPass = this.defectResults.filter(r => r.pass).length;
+    const totalAll = this.defectResults.length;
+    const overall = ((totalPass / totalAll) * 100).toFixed(1);
+
+    const rows = Object.entries(byCat).map(([id, c]) => {
+      const rate = ((c.pass / c.total) * 100).toFixed(1);
+      const cellClass = c.pass === c.total ? 'good' : c.pass === 0 ? 'poor' : 'ok';
+      let deltaCell = '';
+      if (priorByCat) {
+        const prior = priorByCat[id];
+        if (prior) {
+          const priorRate = (prior.pass / prior.total) * 100;
+          const currRate = (c.pass / c.total) * 100;
+          const delta = currRate - priorRate;
+          const sign = delta > 0 ? '+' : '';
+          const deltaClass = delta > 0 ? 'good' : delta < 0 ? 'poor' : '';
+          deltaCell = `<td class="${deltaClass}">${sign}${delta.toFixed(1)} pp</td>`;
+        } else {
+          deltaCell = '<td>—</td>';
+        }
+      }
+      return `<tr>
+        <td><code>${id}</code></td>
+        <td class="${cellClass}">${c.pass} / ${c.total}</td>
+        <td class="${cellClass}">${rate}%</td>
+        ${deltaCell}
+      </tr>`;
+    }).join('');
+
+    const target = document.getElementById('targetLanguage').value;
+    const targetName = LANGUAGE_NAMES[target] || target;
+    const compareHeader = priorByCat ? '<th>Δ vs snapshot</th>' : '';
+
+    container.innerHTML = `
+      <div class="defect-summary">
+        <strong>Overall:</strong> ${totalPass} / ${totalAll} cases passed
+        (<span class="${overall >= 80 ? 'good' : overall >= 50 ? 'ok' : 'poor'}">${overall}%</span>)
+        for ${targetName}.
+      </div>
+      <table class="inner-table defect-table">
+        <thead>
+          <tr><th>Category</th><th>Passed</th><th>Pass rate</th>${compareHeader}</tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
+  // ── Snapshots (localStorage, scoped by target language) ──────────
+
+  snapshotKey() {
+    const target = document.getElementById('targetLanguage').value;
+    return `quality-defect-snapshot-${target}`;
+  }
+
+  saveSnapshot() {
+    if (this.defectResults.length === 0) return;
+    const target = document.getElementById('targetLanguage').value;
+    const snapshot = {
+      target,
+      browser: this.getBrowserInfo(),
+      timestamp: new Date().toISOString(),
+      results: this.defectResults.map(r => ({
+        id: r.id, pass: r.pass, source: r.source, output: r.output,
+        missing: r.missing, forbidden: r.forbidden,
+        sentenceShortfall: r.sentenceShortfall,
+      })),
+    };
+    try {
+      localStorage.setItem(this.snapshotKey(), JSON.stringify(snapshot));
+      this.defectLog(
+        `Snapshot saved for ${LANGUAGE_NAMES[target] || target} (${snapshot.browser}, ${this.defectResults.length} cases).`,
+        'success'
+      );
+    } catch (e) {
+      this.defectLog(`Failed to save snapshot: ${e.message}`, 'error');
+    }
+  }
+
+  compareSnapshot() {
+    const target = document.getElementById('targetLanguage').value;
+    const raw = localStorage.getItem(this.snapshotKey());
+    if (!raw) {
+      this.defectLog(
+        `No saved snapshot for ${LANGUAGE_NAMES[target] || target}. Run defect tests, then click \u201cSave Snapshot\u201d to create one.`,
+        'warning'
+      );
+      return;
+    }
+    if (this.defectResults.length === 0) {
+      this.defectLog('Run defect tests first \u2014 nothing to compare against.', 'warning');
+      return;
+    }
+    try {
+      const snap = JSON.parse(raw);
+      this.defectLog(
+        `Comparing current run against snapshot from ${snap.timestamp} (${snap.browser}, ${snap.results.length} cases).`,
+        'info'
+      );
+      this.renderDefectResults(snap.results);
+    } catch (e) {
+      this.defectLog(`Failed to read snapshot: ${e.message}`, 'error');
+    }
+  }
+
+  clearSnapshot() {
+    const target = document.getElementById('targetLanguage').value;
+    localStorage.removeItem(this.snapshotKey());
+    this.defectLog(`Snapshot cleared for ${LANGUAGE_NAMES[target] || target}.`, 'info');
+    this.renderDefectResults();
+  }
+
+  copyDefectResults() {
+    if (this.defectResults.length === 0) return;
+    const target = document.getElementById('targetLanguage').value;
+    const targetName = LANGUAGE_NAMES[target] || target;
+    const browserInfo = this.getBrowserInfo();
+
+    const byCat = {};
+    this.defectResults.forEach(r => {
+      if (!byCat[r.id]) byCat[r.id] = { pass: 0, total: 0 };
+      byCat[r.id].total++;
+      if (r.pass) byCat[r.id].pass++;
+    });
+    const passed = this.defectResults.filter(r => r.pass).length;
+    const total = this.defectResults.length;
+    const overall = ((passed / total) * 100).toFixed(1);
+
+    const catLines = Object.entries(byCat).map(([id, c]) => {
+      const rate = ((c.pass / c.total) * 100).toFixed(1);
+      return `  ${id.padEnd(20)} ${String(c.pass).padStart(2)} / ${String(c.total).padEnd(2)}  (${rate}%)`;
+    });
+
+    const failures = this.defectResults.filter(r => !r.pass).map(r => {
+      const reasons = [];
+      if (r.missing && r.missing.length > 0) reasons.push(`missing: ${r.missing.join(', ')}`);
+      if (r.forbidden && r.forbidden.length > 0) reasons.push(`forbidden: ${r.forbidden.join(', ')}`);
+      if (r.sentenceShortfall) reasons.push(`-${r.sentenceShortfall} sentence(s)`);
+      if (r.error) reasons.push(`error: ${r.error}`);
+      return `  [${r.id}] ${r.source}\n    -> ${r.output || '(error)'}\n    ${reasons.join('; ')}`;
+    });
+
+    const lines = [
+      'Translation Defect Tests',
+      '='.repeat(50),
+      `Date:           ${new Date().toLocaleString()}`,
+      `Browser:        ${browserInfo}`,
+      `Target:         ${targetName} (${target})`,
+      '',
+      `Overall:        ${passed} / ${total} passed (${overall}%)`,
+      '',
+      'By Category:',
+      ...catLines,
+      '',
+      'Failures:',
+      ...(failures.length > 0 ? failures : ['  (none)']),
+      '='.repeat(50),
+    ];
+
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      const btn = document.getElementById('copyDefectResults');
+      btn.textContent = '\u2713 Copied!';
+      setTimeout(() => { btn.textContent = '\ud83d\udccb Copy Results'; }, 2000);
+    }).catch(() => {
+      alert('Failed to copy defect results to clipboard');
+    });
+  }
 }
 
 // ─── Known Issues Data ─────────────────────────────────────────────
-// From Edge Full Page Translation team evaluation
 
 const KNOWN_ISSUES = [
   {
@@ -950,7 +1373,7 @@ const KNOWN_ISSUES = [
       { lang: 'ja', source: 'HTML5ゲームポータルサイト', output: 'HTMLL5ゲームポータルサイト', explanation: 'Spurious L inserted: HTML5 → HTMLL5' },
       { lang: 'ja', source: 'nginx', output: 'NGinxLの', explanation: 'Case changed, spurious L and の appended' },
       { lang: 'es', source: 'FAVORITE - Holy Quran', output: 'FAVORITo - Sagrado Corán', explanation: 'Last letter of FAVORITE lowered' },
-      { lang: 'ja', source: 'FC2PPV-4830550.mp4', output: 'FCL2PPv-4830550.mp4', explanation: 'Spurious L after FC, plus V → v' },
+      { lang: 'es', source: 'API documentation', output: 'APIL documentación', explanation: 'Spurious L appended to all-caps token' },
     ]
   },
   {
@@ -990,7 +1413,7 @@ const KNOWN_ISSUES = [
       { lang: 'zh-CN', source: 'forks', output: '叉子', explanation: 'Code forks → eating forks' },
       { lang: 'zh-CN', source: 'game jams', output: '游戏果酱', explanation: 'Game jams (hackathons) → game jam/jelly' },
       { lang: 'ja', source: 'Play', output: '遊ぶ', explanation: 'Video player "Play" → 遊ぶ (have fun) instead of 再生 (playback)' },
-      { lang: 'es', source: 'Future (rapper name)', output: 'futuro', explanation: 'Artist name → Spanish word for "future"' },
+      { lang: 'es', source: 'Future', output: 'futuro', explanation: 'Artist/brand name treated as common noun → Spanish word for "future"' },
     ]
   },
   {
@@ -1023,10 +1446,10 @@ const KNOWN_ISSUES = [
     severity: 'high',
     pattern: 'The model cannot reliably distinguish proper nouns from translatable content. GitHub usernames, YouTube channel names, rapper names, and product names are all at risk.',
     examples: [
-      { lang: 'zh-CN', source: 'HKUDS (GitHub username)', output: '香港统计学硕士', explanation: 'Username → "HK statistics master"' },
-      { lang: 'zh-CN', source: 'DeepTutor', output: '深度导师', explanation: 'Product → "deep tutor" literally' },
-      { lang: 'ja', source: 'noizy (channel name)', output: '騒々しい', explanation: 'Channel name → "noisy" (dictionary meaning)' },
-      { lang: 'es', source: 'Moon Knight (producer)', output: 'Caballero de la Luna', explanation: 'Producer name → "Knight of the Moon"' },
+      { lang: 'zh-CN', source: 'HKUDS', output: '香港统计学硕士', explanation: 'All-caps identifier wrongly expanded → "HK statistics master"' },
+      { lang: 'zh-CN', source: 'DeepTutor', output: '深度导师', explanation: 'Product name → "deep tutor" literally' },
+      { lang: 'ja', source: 'noizy', output: '騒々しい', explanation: 'Channel/handle treated as common word → "noisy" (dictionary meaning)' },
+      { lang: 'es', source: 'Moon Knight', output: 'Caballero de la Luna', explanation: 'Multi-word proper noun literally translated → "Knight of the Moon"' },
     ]
   },
   {
@@ -1090,33 +1513,163 @@ const KNOWN_ISSUES = [
   },
 ];
 
-// Evaluation summary data from Edge Full Page Translation team
-const EVAL_SUMMARY = {
-  methodology: 'Multi-stage pipeline: extract & compare → find mismatches → LLM evaluation → discount trivial/shared errors → calculate adjusted error rate. Cloud translation is baseline.',
-  randomSample: {
-    'en→zh-CN': { segments: 19048, exactMatch: '32.3%', accuracy: '90.3%', realErrors: '9.7%' },
-    'en→ja':    { segments: 41026, exactMatch: '34.2%', accuracy: '89.8%', realErrors: '10.2%' },
-    'en→es':    { segments: 58261, exactMatch: '40.7%', accuracy: '86.6%', realErrors: '13.4%' },
-  },
-  top1000: {
-    'en→zh-CN': { segments: 23997, exactMatch: '36.2%', accuracy: '87.7%', realErrors: '12.3%' },
-    'en→ja':    { segments: 41036, exactMatch: '30.7%', accuracy: '86.4%', realErrors: '13.6%' },
-    'en→es':    { segments: 50811, exactMatch: '41.2%', accuracy: '84.9%', realErrors: '15.1%' },
-  },
-  errorBreakdown: {
-    'en→zh-CN': { char_corruption: '22.7%', spurious_content: '20.0%', semantic_error: '14.6%', brand_translated: '9.5%', proper_noun: '10.7%', acronym: '2.2%', code_translated: '2.6%' },
-    'en→ja':    { char_corruption: '17.7%', spurious_content: '24.2%', semantic_error: '10.9%', brand_translated: '4.1%', proper_noun: '2.3%', acronym: '3.8%', code_translated: '6.1%' },
-    'en→es':    { char_corruption: '36.3%', spurious_content: '7.2%', semantic_error: '6.7%', brand_translated: '10.9%', proper_noun: '5.0%', acronym: '6.5%', code_translated: '2.6%' },
-  },
-  priorities: [
-    { fix: 'Fix char insertion (spurious L/T/U)', impact: '3-5% improvement', langs: 'All' },
-    { fix: 'Brand name keep-list', impact: '1-2% improvement', langs: 'All (esp. es)' },
-    { fix: 'Acronym casing post-processing', impact: '1-2% improvement', langs: 'All' },
-    { fix: 'Context-aware on-device API', impact: '1-2% improvement', langs: 'All' },
-  ]
-};
+// ─── Defect-Targeted Test Data ─────────────────────────────────────
+// Per-category pass/fail tests. Each case lists substrings the output
+// MUST contain verbatim and substrings it MUST NOT contain. A single
+// broken token causes a clean fail (no BLEU averaging).
+// `minSentences`: minimum sentence-final punctuation count (any of
+// . ! ? 。 ！ ？) required in the output. Used for "missing_content".
 
-// ─── Render Known Issues & Evaluation Summary ──────────────────────
+const DEFECT_TEST_DATA = [
+  // case_change: model lowercases the last letter of all-caps tokens.
+  { id: 'case_change', lang: 'es',      source: 'Install the MSI package to enable RSS feeds with OCR support and SDK access.',
+    mustPreserve: ['MSI', 'RSS', 'OCR', 'SDK'], mustNotContain: ['MSi', 'RSs', 'OCr', 'SDk'] },
+  { id: 'case_change', lang: 'ja',      source: 'Install the MSI package to enable RSS feeds with OCR support and SDK access.',
+    mustPreserve: ['MSI', 'RSS', 'OCR', 'SDK'], mustNotContain: ['MSi', 'RSs', 'OCr', 'SDk'] },
+  { id: 'case_change', lang: 'zh-hans', source: 'Install the MSI package to enable RSS feeds with OCR support and SDK access.',
+    mustPreserve: ['MSI', 'RSS', 'OCR', 'SDK'], mustNotContain: ['MSi', 'RSs', 'OCr', 'SDk'] },
+  { id: 'case_change', lang: 'ja',      source: 'The GPU and CPU together handle GPGPU workloads via CUDA.',
+    mustPreserve: ['GPU', 'CPU', 'GPGPU', 'CUDA'], mustNotContain: ['GPu', 'CPu', 'GPGPu', 'CUDa'] },
+  { id: 'case_change', lang: 'zh-hans', source: 'The GPU and CPU together handle GPGPU workloads via CUDA.',
+    mustPreserve: ['GPU', 'CPU', 'GPGPU', 'CUDA'], mustNotContain: ['GPu', 'CPu', 'GPGPu', 'CUDa'] },
+
+  // char_insertion: spurious L/T/U letters appear in/after mixed-case tokens.
+  { id: 'char_insertion', lang: 'es',      source: 'The iPhone runs iOS, the iPad runs iPadOS, and macOS runs on Mac.',
+    mustPreserve: ['iPhone', 'iOS', 'iPad', 'iPadOS', 'macOS'], mustNotContain: ['iTphone', 'iUos', 'iTpad', 'macUos'] },
+  { id: 'char_insertion', lang: 'ja',      source: 'The iPhone runs iOS, the iPad runs iPadOS, and macOS runs on Mac.',
+    mustPreserve: ['iPhone', 'iOS', 'iPad', 'iPadOS', 'macOS'], mustNotContain: ['iTphone', 'iUos', 'iTpad', 'macUos'] },
+  { id: 'char_insertion', lang: 'zh-hans', source: 'The iPhone runs iOS, the iPad runs iPadOS, and macOS runs on Mac.',
+    mustPreserve: ['iPhone', 'iOS', 'iPad', 'iPadOS', 'macOS'], mustNotContain: ['iTphone', 'iUos', 'iTpad', 'macUos'] },
+  { id: 'char_insertion', lang: 'es',      source: 'Open API documentation and the HTML5 reference manual.',
+    mustPreserve: ['API', 'HTML5'], mustNotContain: ['APIL', 'HTMLL5'] },
+  { id: 'char_insertion', lang: 'ja',      source: 'Open API documentation and the HTML5 reference manual.',
+    mustPreserve: ['API', 'HTML5'], mustNotContain: ['APIL', 'HTMLL5'] },
+
+  // char_corruption: internal letters doubled or letters swapped.
+  { id: 'char_corruption', lang: 'es',      source: 'Watch YouTube videos through PowerShell while using ChatGPT, MySQL, and WhatsApp.',
+    mustPreserve: ['YouTube', 'PowerShell', 'ChatGPT', 'MySQL', 'WhatsApp'],
+    mustNotContain: ['YouTtube', 'PowerTshell', 'ChatUgpt', 'MyUsql', 'WhatsTapp'] },
+  { id: 'char_corruption', lang: 'ja',      source: 'Watch YouTube videos through PowerShell while using ChatGPT, MySQL, and WhatsApp.',
+    mustPreserve: ['YouTube', 'PowerShell', 'ChatGPT', 'MySQL', 'WhatsApp'],
+    mustNotContain: ['YouTtube', 'PowerTshell', 'ChatUgpt', 'MyUsql', 'WhatsTapp'] },
+  { id: 'char_corruption', lang: 'zh-hans', source: 'Watch YouTube videos through PowerShell while using ChatGPT, MySQL, and WhatsApp.',
+    mustPreserve: ['YouTube', 'PowerShell', 'ChatGPT', 'MySQL', 'WhatsApp'],
+    mustNotContain: ['YouTtube', 'PowerTshell', 'ChatUgpt', 'MyUsql', 'WhatsTapp'] },
+
+  // brand_translated: brand names rendered as dictionary translations.
+  { id: 'brand_translated', lang: 'es', source: 'Open Discord and Steam, then download Blender and start Copilot.',
+    mustPreserve: ['Discord', 'Steam', 'Blender', 'Copilot'],
+    mustNotContain: ['Discordia', 'Vapor', 'Licuadora', 'Copiloto'] },
+  { id: 'brand_translated', lang: 'es', source: 'I bought a Tesla and ordered an Amazon Kindle for the trip.',
+    mustPreserve: ['Tesla', 'Amazon', 'Kindle'], mustNotContain: ['Amazonas'] },
+  { id: 'brand_translated', lang: 'es', source: 'Use Apple, Twitter, Facebook, and Instagram every day.',
+    mustPreserve: ['Apple', 'Twitter', 'Facebook', 'Instagram'], mustNotContain: ['Manzana', 'Pajarito'] },
+  { id: 'brand_translated', lang: 'ja', source: 'Open Discord and Steam, then download Blender and start Copilot.',
+    mustPreserve: ['Discord', 'Steam', 'Blender', 'Copilot'], mustNotContain: [] },
+
+  // semantic_error: wrong sense chosen for polysemous tokens.
+  { id: 'semantic_error', lang: 'zh-hans', source: 'The LLM agents collaborated on the code forks during the game jam.',
+    mustPreserve: ['LLM'], mustNotContain: ['法学硕士', '游戏果酱', '叉子', '游戏堵塞'] },
+  { id: 'semantic_error', lang: 'ja',      source: 'Click Play to start the video.',
+    mustPreserve: [], mustNotContain: ['遊ぶ', '遊んで'] },
+  { id: 'semantic_error', lang: 'zh-hans', source: 'Two thousand twenty-six is already the year of personal agents.',
+    mustPreserve: [], mustNotContain: ['个人经纪人', '房产经纪'] },
+
+  // code_translated: identifiers, hashtags, and URLs treated as text.
+  { id: 'code_translated', lang: 'es',      source: 'The test_cookie and CookieConsent identifiers are documented at https://example.com/cookies.',
+    mustPreserve: ['test_cookie', 'CookieConsent', 'https://example.com/cookies'],
+    mustNotContain: ['cookie_prueba', 'consentimiento_de_cookies'] },
+  { id: 'code_translated', lang: 'ja',      source: 'The test_cookie and CookieConsent identifiers are documented at https://example.com/cookies.',
+    mustPreserve: ['test_cookie', 'CookieConsent', 'https://example.com/cookies'], mustNotContain: [] },
+  { id: 'code_translated', lang: 'zh-hans', source: 'Use #example and @user when posting on social media.',
+    mustPreserve: ['#example', '@user'], mustNotContain: [] },
+
+  // acronym_error: acronyms expanded into a word, or wrongly translated.
+  { id: 'acronym_error', lang: 'es',      source: 'The API returned 179.5 MB of data via HTTP in JSON format.',
+    mustPreserve: ['API', 'MB', 'HTTP', 'JSON', '179.5'], mustNotContain: [] },
+  { id: 'acronym_error', lang: 'ja',      source: 'The API returned 179.5 MB of data via HTTP in JSON format.',
+    mustPreserve: ['API', 'MB', 'HTTP', 'JSON', '179.5'],
+    mustNotContain: ['エディファイ', 'メガバイト'] },
+  { id: 'acronym_error', lang: 'zh-hans', source: 'The API returned 179.5 MB of data via HTTP in JSON format.',
+    mustPreserve: ['API', 'MB', 'HTTP', 'JSON', '179.5'], mustNotContain: ['欧洲'] },
+
+  // proper_noun_error: people, places, products mistranslated.
+  { id: 'proper_noun_error', lang: 'es',      source: 'Albert Einstein worked at MIT before joining DeepMind in London.',
+    mustPreserve: ['Albert Einstein', 'MIT', 'DeepMind'], mustNotContain: [] },
+  { id: 'proper_noun_error', lang: 'zh-hans', source: 'Albert Einstein worked at MIT before joining DeepMind in London.',
+    mustPreserve: ['Albert Einstein', 'MIT', 'DeepMind'], mustNotContain: ['深度导师', '深度教师', '麻省理工学院'] },
+  { id: 'proper_noun_error', lang: 'zh-hans', source: 'The HKUST and HKUDS research teams collaborate on AI projects.',
+    mustPreserve: ['HKUST', 'HKUDS'], mustNotContain: ['香港统计学硕士'] },
+
+  // number_changed: digits / versions swapped, magnitude misread.
+  { id: 'number_changed', lang: 'es',      source: 'Upgrade to version 7.0 for Windows 11 to handle the budget of $3.8M this year.',
+    mustPreserve: ['7.0', 'Windows 11', '$3.8M'], mustNotContain: ['Windows 7.0'] },
+  { id: 'number_changed', lang: 'ja',      source: 'Upgrade to version 7.0 for Windows 11 to handle the budget of $3.8M this year.',
+    mustPreserve: ['7.0', 'Windows 11'], mustNotContain: ['Windows 7.0'] },
+  { id: 'number_changed', lang: 'zh-hans', source: 'Upgrade to version 7.0 for Windows 11 to handle the budget of $3.8M this year.',
+    mustPreserve: ['7.0', 'Windows 11'], mustNotContain: ['Windows 7.0', '3.8万'] },
+
+  // url_translated: URL parts / email addresses translated.
+  { id: 'url_translated', lang: 'es',      source: 'Visit https://academic.oup.com or email someone@example.com to learn more.',
+    mustPreserve: ['https://academic.oup.com', 'someone@example.com'],
+    mustNotContain: ['académico.oup.com', 'alguien@ejemplo.com'] },
+  { id: 'url_translated', lang: 'ja',      source: 'Visit https://academic.oup.com or email someone@example.com to learn more.',
+    mustPreserve: ['https://academic.oup.com', 'someone@example.com'], mustNotContain: [] },
+  { id: 'url_translated', lang: 'zh-hans', source: 'Browse /automation/cron-jobs#troubleshooting in the docs.',
+    mustPreserve: ['/automation/cron-jobs#troubleshooting'], mustNotContain: ['#故障排除', '#疑难解答'] },
+
+  // spurious_content: model adds extra words to short inputs.
+  { id: 'spurious_content', lang: 'zh-hans', source: 'The .com and .co.uk extensions are popular.',
+    mustPreserve: ['.com', '.co.uk'], mustNotContain: ['.com 域名', '.co.uk 域名'] },
+  { id: 'spurious_content', lang: 'ja',      source: 'New',
+    mustPreserve: [], mustNotContain: ['新機能', '新しい機能'] },
+  { id: 'spurious_content', lang: 'es',      source: 'See item 676 below.',
+    mustPreserve: ['676'], mustNotContain: ['Artículo 676'] },
+
+  // tag_corruption: HTML tags reordered or duplicated.
+  { id: 'tag_corruption', lang: 'es',      source: 'Read <b>the rules</b> and <i>the policies</i> before continuing.',
+    mustPreserve: ['<b>', '</b>', '<i>', '</i>'], mustNotContain: [] },
+  { id: 'tag_corruption', lang: 'ja',      source: 'Read <b>the rules</b> and <i>the policies</i> before continuing.',
+    mustPreserve: ['<b>', '</b>', '<i>', '</i>'], mustNotContain: [] },
+  { id: 'tag_corruption', lang: 'zh-hans', source: 'Read <b>the rules</b> and <i>the policies</i> before continuing.',
+    mustPreserve: ['<b>', '</b>', '<i>', '</i>'], mustNotContain: [] },
+
+  // missing_content: short trailing content dropped.
+  { id: 'missing_content', lang: 'es',      source: 'Works everywhere. Installs everything. You are welcome.',
+    mustPreserve: [], mustNotContain: [], minSentences: 3 },
+  { id: 'missing_content', lang: 'ja',      source: 'Works everywhere. Installs everything. You are welcome.',
+    mustPreserve: [], mustNotContain: [], minSentences: 3 },
+  { id: 'missing_content', lang: 'zh-hans', source: 'Works everywhere. Installs everything. You are welcome.',
+    mustPreserve: [], mustNotContain: [], minSentences: 3 },
+];
+
+// Counts sentence-final punctuation across scripts. Used by
+// "missing_content" tests to detect dropped trailing sentences.
+function countSentences(text) {
+  const m = text.match(/[.!?。！？]/g);
+  return m ? m.length : 0;
+}
+
+// Evaluates one defect case against the on-device translation output.
+function evaluateDefectCase(testCase, output) {
+  const missing = (testCase.mustPreserve || []).filter(s => !output.includes(s));
+  const forbidden = (testCase.mustNotContain || []).filter(s => output.includes(s));
+  let sentenceShortfall = 0;
+  if (typeof testCase.minSentences === 'number') {
+    const actual = countSentences(output);
+    if (actual < testCase.minSentences) {
+      sentenceShortfall = testCase.minSentences - actual;
+    }
+  }
+  return {
+    pass: missing.length === 0 && forbidden.length === 0 && sentenceShortfall === 0,
+    missing,
+    forbidden,
+    sentenceShortfall,
+  };
+}
+
+// ─── Render Known Issues ─────────────────────────────────────
 
 function renderKnownIssues() {
   const container = document.getElementById('issuesList');
@@ -1162,74 +1715,6 @@ function renderKnownIssues() {
   `).join('');
 }
 
-function renderEvalSummary() {
-  const container = document.getElementById('evalSummaryContent');
-  if (!container) return;
-
-  let html = '<div class="eval-tables">';
-
-  // Accuracy table
-  html += `<h3>Adjusted Accuracy (vs Cloud Baseline)</h3>
-    <p class="eval-note">${escapeHtmlStatic(EVAL_SUMMARY.methodology)}</p>
-    <table class="inner-table eval-table">
-      <tr><th>Metric</th><th>en→zh-CN</th><th>en→ja</th><th>en→es</th></tr>`;
-
-  // Random sample
-  html += '<tr><td colspan="4" class="eval-section-header">Random Sample (~1000 URLs)</td></tr>';
-  for (const [pair, data] of Object.entries(EVAL_SUMMARY.randomSample)) {
-    if (pair === 'en→zh-CN') {
-      html += `<tr><td>Segments</td><td>${data.segments.toLocaleString()}</td><td>${EVAL_SUMMARY.randomSample['en→ja'].segments.toLocaleString()}</td><td>${EVAL_SUMMARY.randomSample['en→es'].segments.toLocaleString()}</td></tr>`;
-      html += `<tr><td>Exact Match</td><td>${data.exactMatch}</td><td>${EVAL_SUMMARY.randomSample['en→ja'].exactMatch}</td><td>${EVAL_SUMMARY.randomSample['en→es'].exactMatch}</td></tr>`;
-      html += `<tr><td>Adjusted Accuracy</td><td><strong>${data.accuracy}</strong></td><td><strong>${EVAL_SUMMARY.randomSample['en→ja'].accuracy}</strong></td><td><strong>${EVAL_SUMMARY.randomSample['en→es'].accuracy}</strong></td></tr>`;
-      html += `<tr><td>Real Errors</td><td>${data.realErrors}</td><td>${EVAL_SUMMARY.randomSample['en→ja'].realErrors}</td><td>${EVAL_SUMMARY.randomSample['en→es'].realErrors}</td></tr>`;
-    }
-    break;
-  }
-
-  // Top-1000
-  html += '<tr><td colspan="4" class="eval-section-header">Top-1000 URLs (by traffic)</td></tr>';
-  for (const [pair, data] of Object.entries(EVAL_SUMMARY.top1000)) {
-    if (pair === 'en→zh-CN') {
-      html += `<tr><td>Segments</td><td>${data.segments.toLocaleString()}</td><td>${EVAL_SUMMARY.top1000['en→ja'].segments.toLocaleString()}</td><td>${EVAL_SUMMARY.top1000['en→es'].segments.toLocaleString()}</td></tr>`;
-      html += `<tr><td>Adjusted Accuracy</td><td><strong>${data.accuracy}</strong></td><td><strong>${EVAL_SUMMARY.top1000['en→ja'].accuracy}</strong></td><td><strong>${EVAL_SUMMARY.top1000['en→es'].accuracy}</strong></td></tr>`;
-      html += `<tr><td>Real Errors</td><td>${data.realErrors}</td><td>${EVAL_SUMMARY.top1000['en→ja'].realErrors}</td><td>${EVAL_SUMMARY.top1000['en→es'].realErrors}</td></tr>`;
-    }
-    break;
-  }
-  html += '</table>';
-
-  // Error breakdown
-  html += `<h3>Error Type Breakdown (After Discounting)</h3>
-    <table class="inner-table eval-table">
-      <tr><th>Error Type</th><th>en→zh-CN</th><th>en→ja</th><th>en→es</th></tr>`;
-  const breakdown = EVAL_SUMMARY.errorBreakdown;
-  const types = [
-    ['char_corruption', 'Character Corruption/Insertion'],
-    ['spurious_content', 'Spurious Content'],
-    ['semantic_error', 'Semantic Error'],
-    ['brand_translated', 'Brand Translated'],
-    ['proper_noun', 'Proper Noun Error'],
-    ['acronym', 'Acronym Error'],
-    ['code_translated', 'Code Translated'],
-  ];
-  for (const [key, label] of types) {
-    html += `<tr><td>${label}</td><td>${breakdown['en→zh-CN'][key]}</td><td>${breakdown['en→ja'][key]}</td><td>${breakdown['en→es'][key]}</td></tr>`;
-  }
-  html += '</table>';
-
-  // Priorities
-  html += `<h3>Recommended Fix Priorities</h3>
-    <table class="inner-table eval-table">
-      <tr><th>#</th><th>Fix</th><th>Est. Impact</th><th>Languages</th></tr>`;
-  EVAL_SUMMARY.priorities.forEach((p, i) => {
-    html += `<tr><td>${i + 1}</td><td>${escapeHtmlStatic(p.fix)}</td><td>${p.impact}</td><td>${p.langs}</td></tr>`;
-  });
-  html += '</table>';
-
-  html += '</div>';
-  container.innerHTML = html;
-}
-
 function escapeHtmlStatic(text) {
   const div = document.createElement('div');
   div.textContent = text;
@@ -1238,7 +1723,8 @@ function escapeHtmlStatic(text) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  new TranslationQualityBenchmark();
+  const benchmark = new TranslationQualityBenchmark();
   renderKnownIssues();
-  renderEvalSummary();
+  // Defect tests UI is wired up in the constructor.
+  window.__qualityBenchmark = benchmark;
 });

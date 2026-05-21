@@ -131,28 +131,57 @@
         </div>
       </section>
 
+      <!-- Defect-Targeted Tests -->
+      <section class="card">
+        <h2>Defect-Targeted Tests</h2>
+        <div class="info-banner">
+          <h3>🎯 Per-category pass-rate tests</h3>
+          <p>Targeted tests for each defect category below. Each test checks whether required
+            substrings (e.g. brand names, acronyms, URLs) were preserved verbatim and whether
+            forbidden substrings (e.g. translated brand names, lowercased acronyms) appeared in
+            the output. Unlike BLEU, a single corrupted token causes a clean fail — so one fix
+            moves the visible number.</p>
+        </div>
+
+        <div class="bench-controls">
+          <button id="runDefectTests" class="btn btn-primary" disabled>Run Defect Tests</button>
+          <button id="stopDefectTests" class="btn btn-secondary" disabled>Stop</button>
+          <button id="copyDefectResults" class="btn btn-secondary" disabled>📋 Copy Results</button>
+          <button id="saveSnapshot" class="btn btn-secondary" disabled>💾 Save Snapshot</button>
+          <button id="compareSnapshot" class="btn btn-secondary">📊 Compare to Snapshot</button>
+          <button id="clearSnapshot" class="btn btn-secondary">🗑 Clear Snapshot</button>
+        </div>
+
+        <div class="defect-info" id="defectInfo">
+          <span id="defectInfoText">Select a target language to see how many cases will run.</span>
+        </div>
+
+        <div class="quality-progress">
+          <div class="quality-progress-bar">
+            <div class="quality-progress-fill" id="defectProgressFill"></div>
+          </div>
+          <span class="quality-progress-text" id="defectProgressText">0 / 0</span>
+        </div>
+
+        <div id="defectResults" class="defect-results"></div>
+
+        <div class="test-log-container">
+          <h3>Defect Test Log</h3>
+          <div class="test-log" id="defectLog"></div>
+        </div>
+      </section>
+
       <!-- Known Issues Report -->
       <section class="card">
-        <h2>Known Translation Issues</h2>
+        <h2>Known Translation Defects</h2>
         <div class="info-banner">
-          <h3>🐛 Issues Identified by Edge Full Page Translation Team</h3>
-          <p>13 categories of known translation defects across zh-CN, ja, and es language pairs.
-            These are tracked for fixes. Click a category to expand examples.</p>
+          <h3>🐛 Known On-Device Translation Defects</h3>
+          <p>13 categories of recurring translation defects observed in the on-device model. Click
+            a category to expand examples. Each category has matching tests in the Defect-Targeted
+            Tests section above.</p>
         </div>
         <div class="issues-summary" id="issuesSummary"></div>
         <div class="issues-list" id="issuesList"></div>
-      </section>
-
-      <!-- Evaluation Summary -->
-      <section class="card">
-        <h2>Evaluation Summary</h2>
-        <div class="info-banner">
-          <h3>📋 Cross-Language Evaluation Results</h3>
-          <p>Evaluation of the top 3 language pairs by Edge Translate traffic (67% coverage).
-            Adjusted accuracy measures the quality gap from cloud API — not absolute accuracy.
-            Segments where cloud also produces an error are discounted.</p>
-        </div>
-        <div id="evalSummaryContent"></div>
       </section>
     </main>
 

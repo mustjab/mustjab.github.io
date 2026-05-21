@@ -338,55 +338,6 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* ─── Evaluation Summary ───────────────────────────────────── */
-
-.eval-tables {
-  margin-top: 10px;
-}
-
-.eval-tables h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary, #333);
-  margin: 20px 0 8px;
-}
-
-.eval-tables h3:first-child {
-  margin-top: 0;
-}
-
-.eval-note {
-  font-size: 12px;
-  color: var(--text-muted, #888);
-  margin-bottom: 10px;
-  line-height: 1.5;
-  font-style: italic;
-}
-
-.eval-table {
-  width: 100%;
-  margin-bottom: 10px;
-}
-
-.eval-table td,
-.eval-table th {
-  text-align: center;
-}
-
-.eval-table td:first-child,
-.eval-table th:first-child {
-  text-align: left;
-}
-
-.eval-section-header {
-  background: var(--primary-subtle, rgba(79, 70, 229, 0.08)) !important;
-  color: var(--primary-color) !important;
-  font-weight: 700 !important;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .score-grid {
@@ -402,3 +353,52 @@
     flex-direction: column;
   }
 }
+
+/* Defect-targeted tests panel */
+.defect-info {
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+  margin: 10px 0 14px 0;
+}
+
+.defect-results {
+  margin: 16px 0;
+}
+
+.defect-summary {
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.defect-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.defect-table th,
+.defect-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-light, #e9ecef);
+  text-align: left;
+}
+
+.defect-table th {
+  background: var(--surface, #f8f9fa);
+  font-weight: 600;
+}
+
+.defect-table td.good { color: var(--success-color, #10b981); font-weight: 600; }
+.defect-table td.ok   { color: #b45309; font-weight: 600; }
+.defect-table td.poor { color: var(--error-color, #ef4444); font-weight: 600; }
+
+.defect-table code {
+  background: var(--surface, #f8f9fa);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.defect-summary .good { color: var(--success-color, #10b981); font-weight: 700; }
+.defect-summary .ok   { color: #b45309; font-weight: 700; }
+.defect-summary .poor { color: var(--error-color, #ef4444); font-weight: 700; }
