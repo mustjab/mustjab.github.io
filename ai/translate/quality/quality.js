@@ -1696,9 +1696,70 @@ function countSentences(text) {
   return m ? m.length : 0;
 }
 
+// Locales that use comma as the decimal separator. Used to treat "179,5"
+// as equivalent to "179.5" when checking numeric preservation.
+const COMMA_DECIMAL_LANGS = new Set([
+  'es', 'es-419', 'fr', 'de', 'it', 'pt', 'pt-br', 'nl', 'pl', 'ru',
+  'tr', 'sv', 'no', 'da', 'fi', 'cs', 'el', 'hu', 'ro', 'bg', 'uk',
+]);
+
+// Magnitude-word substitutions that map locale-specific expansions back
+// to abbreviated suffixes (M / B / K). Lets us treat "3.8 millones" as
+// equivalent to "3.8M" when the model expands magnitude suffixes.
+const MAGNITUDE_PATTERNS = [
+  // Spanish
+  [/(\d+(?:\.\d+)?)\s*mil\s+millones?/gi, '$1B'],
+  [/(\d+(?:\.\d+)?)\s*millones?\b/gi, '$1M'],
+  [/(\d+(?:\.\d+)?)\s*mil\b/gi, '$1K'],
+  // French
+  [/(\d+(?:\.\d+)?)\s*milliards?/gi, '$1B'],
+  // German
+  [/(\d+(?:\.\d+)?)\s*Milliarden?/gi, '$1B'],
+  [/(\d+(?:\.\d+)?)\s*Millionen?/gi, '$1M'],
+  [/(\d+(?:\.\d+)?)\s*Tausend/gi, '$1K'],
+  // Italian
+  [/(\d+(?:\.\d+)?)\s*miliardi?/gi, '$1B'],
+  [/(\d+(?:\.\d+)?)\s*milioni?/gi, '$1M'],
+  // Portuguese
+  [/(\d+(?:\.\d+)?)\s*bilhões?/gi, '$1B'],
+  [/(\d+(?:\.\d+)?)\s*milhões?/gi, '$1M'],
+  // Generic / English (covers French "millions" too)
+  [/(\d+(?:\.\d+)?)\s*billions?/gi, '$1B'],
+  [/(\d+(?:\.\d+)?)\s*millions?/gi, '$1M'],
+  [/(\d+(?:\.\d+)?)\s*thousands?/gi, '$1K'],
+];
+
+// Normalises numeric / currency strings so locale-equivalent renderings
+// compare as equal. Used only as a fallback after a literal substring
+// check fails — we still flag genuine corruption, just not these:
+//   "179.5"  ↔ "179,5"        (decimal separator localised)
+//   "$3.8M"  ↔ "$ 3.8 millones" (currency space + magnitude expanded)
+function normalizeNumeric(s, lang) {
+  if (!s) return s;
+  let t = s;
+  // Collapse whitespace after currency symbol: "$ 3.8" -> "$3.8".
+  t = t.replace(/([$€£¥¢])\s+/g, '$1');
+  // Decimal separator: "," between digits -> "." in comma-decimal locales.
+  if (COMMA_DECIMAL_LANGS.has(lang)) {
+    t = t.replace(/(\d),(\d)/g, '$1.$2');
+  }
+  // Magnitude words -> abbreviated suffix.
+  for (const [re, repl] of MAGNITUDE_PATTERNS) {
+    t = t.replace(re, repl);
+  }
+  return t;
+}
+
 // Evaluates one defect case against the on-device translation output.
 function evaluateDefectCase(testCase, output) {
-  const missing = (testCase.mustPreserve || []).filter(s => !output.includes(s));
+  let normOutput = null;
+  const missing = (testCase.mustPreserve || []).filter(s => {
+    if (output.includes(s)) return false;
+    // Fall back to locale-aware numeric normalisation before flagging.
+    if (normOutput === null) normOutput = normalizeNumeric(output, testCase.lang);
+    const normToken = normalizeNumeric(s, testCase.lang);
+    return !normOutput.includes(normToken);
+  });
   const forbidden = (testCase.mustNotContain || []).filter(s => output.includes(s));
   let sentenceShortfall = 0;
   if (typeof testCase.minSentences === 'number') {
