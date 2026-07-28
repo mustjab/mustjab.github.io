@@ -298,6 +298,42 @@
             </table>
           </div>
 
+          <!-- Protected-span cost, cuts across all segment types -->
+          <div class="sim-breakdown">
+            <h3>Numbers, URLs and Emails</h3>
+            <p>Numbers, URLs and emails are swapped for placeholder markup before the model sees them, and that
+              markup costs one token per character on both the input and the generated output. These segments are
+              spread across every type above, so their cost is invisible in that breakdown. Normalizing by length
+              shows the real penalty.</p>
+            <table class="inner-table">
+              <tr>
+                <th>Segment Class</th>
+                <th>Count</th>
+                <th>Avg Length</th>
+                <th>Avg Time (ms)</th>
+                <th>ms / 100 chars</th>
+              </tr>
+              <tr>
+                <td>Contains numbers / URLs</td>
+                <td id="simSpanCount">0</td>
+                <td id="simSpanAvgLen">0</td>
+                <td id="simSpanAvgTime">0</td>
+                <td id="simSpanPer100">0</td>
+              </tr>
+              <tr>
+                <td>Plain prose</td>
+                <td id="simNoSpanCount">0</td>
+                <td id="simNoSpanAvgLen">0</td>
+                <td id="simNoSpanAvgTime">0</td>
+                <td id="simNoSpanPer100">0</td>
+              </tr>
+            </table>
+            <div class="score-item">
+              <div class="score-value" id="simSpanTax">-</div>
+              <div class="score-label">Protected-span tax (cost per character vs plain prose)</div>
+            </div>
+          </div>
+
           <!-- Progress during run -->
           <div class="quality-progress" id="simProgress" style="display: none;">
             <div class="quality-progress-bar">
@@ -305,6 +341,65 @@
             </div>
             <span class="quality-progress-text" id="simProgressText">0 / 0</span>
           </div>
+        </div>
+      </section>
+
+      <!-- Concurrency Test -->
+      <section class="card">
+        <h2>Concurrency Scaling</h2>
+        <div class="info-banner">
+          <h3>🔀 Can Overlapping Calls Recover the Per-Call Cost?</h3>
+          <p>Every translate() call pays a fixed dispatch cost that does not scale with input length, so short
+            segments are dominated by overhead. This test replays the page corpus through 1, 2, 4 and 8 overlapping
+            calls. A speedup above 1x means that cost is partly recoverable today without batched inference. A flat
+            1x means the API serializes translate() and only true batching will help.</p>
+        </div>
+        <button id="runConcurrency" class="btn btn-primary" disabled>Run Concurrency Test</button>
+
+        <div class="page-sim-results" id="concurrencyResults" style="display: none;">
+          <table class="inner-table">
+            <tr>
+              <th>Parallel Calls</th>
+              <th>Total Time (ms)</th>
+              <th>Chars/Sec</th>
+              <th>Speedup</th>
+            </tr>
+            <tr>
+              <td>1 (sequential)</td>
+              <td id="conc1Time">0</td>
+              <td id="conc1Cps">0</td>
+              <td id="conc1Speedup">-</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td id="conc2Time">0</td>
+              <td id="conc2Cps">0</td>
+              <td id="conc2Speedup">-</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td id="conc4Time">0</td>
+              <td id="conc4Cps">0</td>
+              <td id="conc4Speedup">-</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td id="conc8Time">0</td>
+              <td id="conc8Cps">0</td>
+              <td id="conc8Speedup">-</td>
+            </tr>
+          </table>
+          <div class="score-grid">
+            <div class="score-item">
+              <div class="score-value" id="concBestSpeedup">-</div>
+              <div class="score-label">Best Speedup</div>
+            </div>
+            <div class="score-item">
+              <div class="score-value" id="concSegments">0</div>
+              <div class="score-label">Segments</div>
+            </div>
+          </div>
+          <p id="concVerdict" class="metric-sub"></p>
         </div>
       </section>
 

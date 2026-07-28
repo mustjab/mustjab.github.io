@@ -98,6 +98,11 @@ const LANGUAGE_NAMES = {
 // Simulates a real web page with ~300 text segments of varying types and lengths.
 // Modeled after typical content-heavy pages (news, docs, e-commerce).
 
+// Numbers, URLs and emails are replaced with placeholder markup before the
+// model sees them, and that markup is tokenized one token per character, so
+// these segments cost far more than their length suggests.
+const PROTECTED_SPAN_RE = /\b\d+(?:[.,]\d+)*|https?:\/\/\S+|\bwww\.\S+|\S+@\S+\.\w+/;
+
 const PAGE_SIM_SEGMENTS = {
   nav: [
     'Home', 'About', 'Products', 'Services', 'Contact', 'Blog', 'Pricing',
@@ -395,6 +400,7 @@ class TranslationSpeedBenchmark {
     document.getElementById('replayBatch').addEventListener('click', () => this.measureBatch());
     document.getElementById('replayStreaming').addEventListener('click', () => this.measureStreamingComparison());
     document.getElementById('runPageSim').addEventListener('click', () => this.measurePageSimulation());
+    document.getElementById('runConcurrency').addEventListener('click', () => this.measureConcurrency());
 
     document.getElementById('sourceLanguage').addEventListener('change', () => this.resetTranslator());
     document.getElementById('targetLanguage').addEventListener('change', () => this.resetTranslator());
@@ -411,6 +417,7 @@ class TranslationSpeedBenchmark {
       text.textContent = 'Translation API is available';
       document.getElementById('runAll').disabled = false;
       document.getElementById('runPageSim').disabled = false;
+      document.getElementById('runConcurrency').disabled = false;
     } else {
       indicator.className = 'status-indicator unavailable';
       text.textContent = 'Translation API is not available';
@@ -659,6 +666,13 @@ class TranslationSpeedBenchmark {
       paragraph: { count: 0, totalLen: 0, totalTime: 0 },
     };
 
+    // Cross-cutting split: segments carrying protected spans are spread across
+    // every type, so their cost is invisible in the per-type breakdown.
+    const bySpan = {
+      withSpans: { count: 0, totalLen: 0, totalTime: 0 },
+      noSpans: { count: 0, totalLen: 0, totalTime: 0 },
+    };
+
     this.showStatus('Running page simulation...', true);
     const overallStart = performance.now();
 
@@ -671,6 +685,11 @@ class TranslationSpeedBenchmark {
       byType[seg.type].count++;
       byType[seg.type].totalLen += seg.text.length;
       byType[seg.type].totalTime += elapsed;
+
+      const spanBucket = PROTECTED_SPAN_RE.test(seg.text) ? bySpan.withSpans : bySpan.noSpans;
+      spanBucket.count++;
+      spanBucket.totalLen += seg.text.length;
+      spanBucket.totalTime += elapsed;
 
       // Update progress
       const pct = Math.round(((i + 1) / segments.length) * 100);
@@ -703,10 +722,99 @@ class TranslationSpeedBenchmark {
     // Store for copy
     this.pageSimResult = { totalTime, segments: segments.length, totalChars, avgPerCall: totalTime / segments.length, byType };
 
+    // Protected-span split, normalized per 100 chars so the comparison is not
+    // just a restatement of segment length.
+    const spanMap = { withSpans: 'simSpan', noSpans: 'simNoSpan' };
+    for (const [key, prefix] of Object.entries(spanMap)) {
+      const d = bySpan[key];
+      const avgLen = d.count > 0 ? d.totalLen / d.count : 0;
+      const avgTime = d.count > 0 ? d.totalTime / d.count : 0;
+      document.getElementById(prefix + 'Count').textContent = d.count;
+      document.getElementById(prefix + 'AvgLen').textContent = Math.round(avgLen);
+      document.getElementById(prefix + 'AvgTime').textContent = avgTime.toFixed(1);
+      document.getElementById(prefix + 'Per100').textContent =
+        avgLen > 0 ? (avgTime / avgLen * 100).toFixed(1) : '0';
+    }
+    const withPer100 = bySpan.withSpans.totalLen > 0
+      ? (bySpan.withSpans.totalTime / bySpan.withSpans.totalLen * 100) : 0;
+    const noPer100 = bySpan.noSpans.totalLen > 0
+      ? (bySpan.noSpans.totalTime / bySpan.noSpans.totalLen * 100) : 0;
+    document.getElementById('simSpanTax').textContent =
+      noPer100 > 0 ? (withPer100 / noPer100).toFixed(2) + '\u00d7' : '-';
+    this.pageSimResult.spanTax = { withPer100, noPer100, bySpan };
+
     progressEl.style.display = 'none';
     btn.disabled = false;
     btn.textContent = 'Run Page Simulation';
     this.showStatus('Ready');
+  }
+
+  // ── Concurrency ───────────────────────────────────────────────
+
+  // Runs `texts` through a fixed-size pool of overlapping translate() calls.
+  async runConcurrentPool(texts, concurrency) {
+    let next = 0;
+    const worker = async () => {
+      for (let i = next++; i < texts.length; i = next++) {
+        await this.translator.translate(texts[i]);
+      }
+    };
+    const start = performance.now();
+    await Promise.all(Array.from({ length: concurrency }, worker));
+    return performance.now() - start;
+  }
+
+  // Each translate() call carries a fixed dispatch cost that does not scale
+  // with input length. If the API can overlap calls, that cost is recoverable
+  // without batched inference; if the speedup stays at 1x the API serializes
+  // and only true batching will help.
+  async measureConcurrency() {
+    if (!(await this.ensureTranslator())) return;
+
+    const btn = document.getElementById('runConcurrency');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="loading"></div> Measuring...';
+    document.getElementById('concurrencyResults').style.display = 'block';
+
+    const texts = [
+      ...PAGE_SIM_SEGMENTS.nav,
+      ...PAGE_SIM_SEGMENTS.headings,
+      ...PAGE_SIM_SEGMENTS.short,
+    ];
+    const totalChars = texts.reduce((s, t) => s + t.length, 0);
+    document.getElementById('concSegments').textContent = texts.length;
+
+    try {
+      // Warm-up so the first level is not charged for lazy setup.
+      await this.translator.translate(texts[0]);
+
+      let baseline = 0;
+      for (const level of [1, 2, 4, 8]) {
+        this.showStatus(`Concurrency ${level}...`, true);
+        const elapsed = await this.runConcurrentPool(texts, level);
+        if (level === 1) baseline = elapsed;
+
+        document.getElementById(`conc${level}Time`).textContent = elapsed.toFixed(0);
+        document.getElementById(`conc${level}Cps`).textContent =
+          Math.round(totalChars / (elapsed / 1000));
+        document.getElementById(`conc${level}Speedup`).textContent =
+          baseline > 0 ? (baseline / elapsed).toFixed(2) + '\u00d7' : '-';
+      }
+
+      const best = [1, 2, 4, 8]
+        .map(l => parseFloat(document.getElementById(`conc${l}Speedup`).textContent))
+        .reduce((a, b) => Math.max(a, b), 0);
+      document.getElementById('concBestSpeedup').textContent = best.toFixed(2) + '\u00d7';
+      document.getElementById('concVerdict').textContent = best >= 1.15
+        ? 'Calls overlap: per-call dispatch cost is partly recoverable without batched inference.'
+        : 'No speedup: the API serializes translate() calls, so only batched inference will help.';
+      this.showStatus('Ready');
+    } catch (error) {
+      this.showStatus(`Error: ${error.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Run Concurrency Test';
+    }
   }
 
   // ── Run All ───────────────────────────────────────────────────
@@ -822,6 +930,24 @@ class TranslationSpeedBenchmark {
         `  Short Text/Labels:    ${document.getElementById('simShortCount').textContent} segs, avg ${document.getElementById('simShortAvgTime').textContent} ms`,
         `  Paragraphs:           ${document.getElementById('simParaCount').textContent} segs, avg ${document.getElementById('simParaAvgTime').textContent} ms`,
       );
+      lines.push(
+        `  With numbers/URLs:    ${document.getElementById('simSpanCount').textContent} segs, avg ${document.getElementById('simSpanAvgTime').textContent} ms, ${document.getElementById('simSpanPer100').textContent} ms/100ch`,
+        `  Plain prose:          ${document.getElementById('simNoSpanCount').textContent} segs, avg ${document.getElementById('simNoSpanAvgTime').textContent} ms, ${document.getElementById('simNoSpanPer100').textContent} ms/100ch`,
+        `  Protected-span tax:   ${document.getElementById('simSpanTax').textContent}`,
+      );
+    }
+
+    // Concurrency results (if available)
+    const concBest = document.getElementById('concBestSpeedup').textContent;
+    if (concBest !== '-') {
+      lines.push(
+        ``,
+        `Concurrency (${document.getElementById('concSegments').textContent} segments):`,
+        ...[1, 2, 4, 8].map(l =>
+          `  ${String(l).padStart(2)} parallel:          ${document.getElementById('conc' + l + 'Time').textContent} ms, ` +
+          `${document.getElementById('conc' + l + 'Cps').textContent} chars/sec, ${document.getElementById('conc' + l + 'Speedup').textContent}`),
+        `  Best speedup:         ${concBest}`,
+      );
     }
 
     lines.push(`${'═'.repeat(50)}`);
@@ -831,13 +957,20 @@ class TranslationSpeedBenchmark {
       'Init (ms)', 'Single Latency (ms)', 'Avg Throughput (chars/sec)',
       'Batch Throughput (chars/sec)', 'Batch Total (ms)',
       'Sync Time (ms)', 'Stream Time (ms)', '1st Chunk (ms)', 'Chunks', 'Stream Overhead',
-      'Page Sim Segments', 'Page Sim Total (ms)', 'Page Sim Avg/Call (ms)'].join('\t');
+      'Page Sim Segments', 'Page Sim Total (ms)', 'Page Sim Avg/Call (ms)',
+      'Span Tax', 'Span ms/100ch', 'Prose ms/100ch',
+      'Conc 1 (ms)', 'Conc 2 (ms)', 'Conc 4 (ms)', 'Conc 8 (ms)', 'Best Speedup'].join('\t');
     const tsvRow = [
       new Date().toLocaleDateString(), browserInfo, gpuInfo,
       `${sourceName} → ${targetName}`, `${sourceLanguage} → ${targetLanguage}`,
       initTime, singleLatency, avgThroughput, batchThroughput, batchTotalTime,
       syncTime, streamTime, firstChunkTime, streamChunks, streamOverhead,
-      simSegs, simTotal, simAvg
+      simSegs, simTotal, simAvg,
+      document.getElementById('simSpanTax').textContent,
+      document.getElementById('simSpanPer100').textContent,
+      document.getElementById('simNoSpanPer100').textContent,
+      ...[1, 2, 4, 8].map(l => document.getElementById('conc' + l + 'Time').textContent),
+      document.getElementById('concBestSpeedup').textContent
     ].join('\t');
 
     const clipboardData = lines.join('\n') + '\n\n' + tsvHeader + '\n' + tsvRow;
