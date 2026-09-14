@@ -602,6 +602,23 @@ function computeRoundTripScore(original, roundTripped) {
 
 // ─── Quality Benchmark ─────────────────────────────────────────────
 
+function createOperationAbort(parentSignal, timeoutMs) {
+  if (parentSignal.aborted) return { signal: parentSignal, dispose() {} };
+  const controller = new AbortController();
+  const onParentAbort = () => controller.abort(parentSignal.reason);
+  parentSignal.addEventListener('abort', onParentAbort, { once: true });
+  const timer = setTimeout(() => {
+    controller.abort(new DOMException('Operation timed out', 'TimeoutError'));
+  }, timeoutMs);
+  return {
+    signal: controller.signal,
+    dispose() {
+      clearTimeout(timer);
+      parentSignal.removeEventListener('abort', onParentAbort);
+    },
+  };
+}
+
 class TranslationQualityBenchmark {
   constructor() {
     this.translator = null;
@@ -613,6 +630,12 @@ class TranslationQualityBenchmark {
     this.defectTesting = false;
     this.defectResults = [];
     this.runningAll = false;
+    this.importedCases = [];
+    this.importWarnings = [];
+    this.run = null;
+    this.runController = null;
+    this.importing = false;
+    this.baseline = null;
     this.init();
   }
 
@@ -629,8 +652,9 @@ class TranslationQualityBenchmark {
       .sort((a, b) => a.name.localeCompare(b.name));
 
     this.sourceSelect = new SearchableLanguageSelect(
-      'sourceLanguageSearch', 'sourceLanguageDropdown', 'sourceLanguage', languages, 'en'
+      'sourceLanguageSearch', 'sourceLanguageDropdown', 'sourceLanguage', [{ code: 'en', name: 'English' }], 'en'
     );
+    document.getElementById('sourceLanguageSearch').disabled = true;
     this.targetSelect = new SearchableLanguageSelect(
       'targetLanguageSearch', 'targetLanguageDropdown', 'targetLanguage', languages, 'es'
     );
@@ -647,6 +671,16 @@ class TranslationQualityBenchmark {
     document.getElementById('stopAllTests').addEventListener('click', () => this.stopAllTests());
     document.getElementById('clearAllResults').addEventListener('click', () => this.clearAllResults());
     document.getElementById('copyAllResults').addEventListener('click', () => this.copyAllResults());
+    document.getElementById('regressionCsv').addEventListener('change', event => this.importCsv(event.target.files[0]));
+    document.getElementById('corpusSelection').addEventListener('change', () => this.onLanguageChange());
+    document.getElementById('exportRun').addEventListener('click', () => this.exportRun());
+    document.getElementById('snapshotFile').addEventListener('change', event => this.importSnapshot(event.target.files[0]));
+    document.getElementById('testLog').addEventListener('change', event => {
+      if (event.target.dataset.verdict === undefined) return;
+      const result = this.defectResults[Number(event.target.dataset.verdict)];
+      if (result) result.humanVerdict = event.target.value;
+      this.renderDefectResults();
+    });
   }
 
   async checkAPI() {
@@ -676,6 +710,106 @@ class TranslationQualityBenchmark {
     return 'roundtrip';
   }
 
+  getDefectCases() {
+    const target = document.getElementById('targetLanguage').value;
+    const selection = document.getElementById('corpusSelection').value;
+    const builtin = [...DEFECT_TEST_DATA.map((test, index) => ({ ...test, caseId: `builtin:${index}`, sourceLanguage: 'en' })),
+      ...QualityChecks.cases];
+    return (selection === 'imported' ? this.importedCases : selection === 'combined' ? [...builtin, ...this.importedCases] : builtin)
+      .filter(test => test.lang === target);
+  }
+
+  async importCsv(file) {
+    if (!file || this.runningAll || this.importing) return;
+    this.importing = true;
+    document.getElementById('runAllTests').disabled = true;
+    document.getElementById('regressionCsv').disabled = true;
+    const status = document.getElementById('corpusStatus');
+    try {
+      if (file.size > 25 * 1024 * 1024) throw new Error('Corpus exceeds the 25 MB limit.');
+      const bytes = await file.arrayBuffer();
+      const isJson = file.name.toLowerCase().endsWith('.json');
+      let encoding = isJson ? 'utf-8' : document.getElementById('csvEncoding').value;
+      let text;
+      if (encoding === 'auto') {
+        try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); encoding = 'utf-8'; }
+        catch { text = new TextDecoder('windows-1252').decode(bytes); encoding = 'windows-1252'; }
+      } else {
+        text = new TextDecoder(encoding, { fatal: true }).decode(bytes);
+      }
+      let imported;
+      if (isJson) {
+        imported = QualityChecks.importCorpus(JSON.parse(text));
+        if (!LANGUAGE_NAMES[imported.target]) throw new Error('Unsupported corpus target language.');
+      } else {
+        const parsed = Papa.parse(text, { header: true, skipEmptyLines: 'greedy' });
+        if (parsed.errors.length) throw new Error(`CSV parse error: ${parsed.errors[0].message}`);
+        imported = QualityChecks.importRows(parsed.data, parsed.meta.fields || []);
+      }
+      this.importedCases = imported.cases;
+      this.importWarnings = imported.warnings;
+      this.importMetadata = { encoding, rows: imported.cases.length };
+      this.targetSelect.setValue(imported.target || 'es');
+      document.getElementById('corpusSelection').value = isJson ? 'imported' : 'combined';
+      this.onLanguageChange();
+      status.textContent = `${file.name}: ${imported.cases.length} cases; ${encoding}; ${imported.warnings.length} import warnings. Local only.`;
+      for (const warning of imported.warnings) this.log(this.escapeHtml(warning), 'warning');
+    } catch (error) {
+      status.textContent = `Import failed: ${error.message}`;
+    } finally {
+      this.importing = false;
+      document.getElementById('regressionCsv').disabled = false;
+      document.getElementById('runAllTests').disabled = !('Translator' in self);
+    }
+  }
+
+  async translateText(translator, input, api = 'standard') {
+    const operation = createOperationAbort(this.runController.signal, this.run.timeoutSeconds * 1000);
+    const { signal } = operation;
+    const start = performance.now();
+    const chunks = [];
+    let firstChunkMs = null;
+    let onAbort;
+    try {
+      signal.throwIfAborted();
+      const aborted = new Promise((resolve, reject) => {
+        onAbort = () => reject(signal.reason);
+        signal.addEventListener('abort', onAbort, { once: true });
+      });
+      const translate = async () => {
+        if (api === 'standard') return translator.translate(input, { signal });
+        if (api !== 'streaming' || typeof translator.translateStreaming !== 'function') {
+          throw new Error('Streaming translation is unavailable.');
+        }
+        for await (const chunk of translator.translateStreaming(input, { signal })) {
+          signal.throwIfAborted();
+          if (typeof chunk !== 'string') throw new Error('Unexpected streaming chunk type.');
+          if (firstChunkMs === null) firstChunkMs = performance.now() - start;
+          chunks.push(chunk);
+        }
+        return chunks.join('');
+      };
+      const output = await Promise.race([translate(), aborted]);
+      signal.throwIfAborted();
+      this.run.requests.push({ input, api, output, time: performance.now() - start,
+        ...(api === 'streaming' ? { chunks, firstChunkMs } : {}) });
+      return output;
+    } catch (error) {
+      this.run.requests.push({ input, api, error: error.message, time: performance.now() - start,
+        ...(api === 'streaming' ? { partialOutput: chunks.join(''), chunks, firstChunkMs } : {}) });
+      if (signal.aborted || error.name === 'InvalidStateError') {
+        translator.destroy();
+        if (this.translator === translator) this.translator = null;
+        if (this.reverseTranslator === translator) this.reverseTranslator = null;
+        this.runController.abort(error);
+      }
+      throw error;
+    } finally {
+      if (onAbort) signal.removeEventListener('abort', onAbort);
+      operation.dispose();
+    }
+  }
+
   updateTestMode() {
     const mode = this.getTestMode();
     const badge = document.getElementById('modeBadge');
@@ -687,11 +821,11 @@ class TranslationQualityBenchmark {
       const count = QUALITY_TEST_DATA.filter(d => d.refs[target]).length;
       badge.textContent = 'Reference';
       badge.className = 'mode-badge mode-reference';
-      desc.textContent = `${count} test sentences with reference translations for ${targetName}. Scored using n-gram similarity (BLEU).`;
+      desc.textContent = `${count} references for ${targetName}. BLEU-like similarity, not accuracy.`;
     } else {
       badge.textContent = 'Round-Trip';
       badge.className = 'mode-badge mode-roundtrip';
-      desc.textContent = `No reference translations for ${targetName}. Will use round-trip translation (source → target → source) to measure fidelity.`;
+      desc.textContent = `Round-trip similarity for ${targetName}; semantic quality is unverified.`;
     }
 
     document.getElementById('totalCount').textContent = QUALITY_TEST_DATA.length;
@@ -700,7 +834,7 @@ class TranslationQualityBenchmark {
     const defectInfo = document.getElementById('defectInfoText');
     if (defectInfo) {
       const target = document.getElementById('targetLanguage').value;
-      const cases = DEFECT_TEST_DATA.filter(c => c.lang === target);
+      const cases = this.getDefectCases();
       if (cases.length > 0) {
         const byId = {};
         cases.forEach(c => { byId[c.id] = (byId[c.id] || 0) + 1; });
@@ -715,8 +849,12 @@ class TranslationQualityBenchmark {
   }
 
   onLanguageChange() {
+    if (this.runningAll) return;
+    this.translator?.destroy();
+    this.reverseTranslator?.destroy();
     this.translator = null;
     this.reverseTranslator = null;
+    this.clearAllResults();
     this.updateTestMode();
   }
 
@@ -739,7 +877,7 @@ class TranslationQualityBenchmark {
       // Forward translator
       if (!this.translator) {
         this.log(`Initializing translator: ${LANGUAGE_NAMES[source]} → ${LANGUAGE_NAMES[target]}...`, 'info');
-        this.translator = await Translator.create({
+        this.translator = await this.createTranslator({
           sourceLanguage: source,
           targetLanguage: target,
           monitor(m) {
@@ -757,7 +895,7 @@ class TranslationQualityBenchmark {
       // Reverse translator (for round-trip mode)
       if (this.getTestMode() === 'roundtrip' && !this.reverseTranslator) {
         this.log(`Initializing reverse translator: ${LANGUAGE_NAMES[target]} → ${LANGUAGE_NAMES[source]}...`, 'info');
-        this.reverseTranslator = await Translator.create({
+        this.reverseTranslator = await this.createTranslator({
           sourceLanguage: target,
           targetLanguage: source,
           monitor(m) {
@@ -775,12 +913,35 @@ class TranslationQualityBenchmark {
       return true;
     } catch (error) {
       progressContainer.style.display = 'none';
-      this.log(`Failed to initialize translator: ${error.message}`, 'error');
+      this.log(`Failed to initialize translator: ${this.escapeHtml(error.message)}`, 'error');
+      this.run.initializationError = error.message;
       return false;
     }
   }
 
   // ── Test execution ───────────────────────────────────────────────
+
+  async createTranslator(options) {
+    const operation = createOperationAbort(this.runController.signal, 300000);
+    const { signal } = operation;
+    signal.throwIfAborted();
+    let onAbort;
+    const aborted = new Promise((resolve, reject) => {
+      onAbort = () => reject(signal.reason);
+      signal.addEventListener('abort', onAbort, { once: true });
+    });
+    try {
+      const pending = Translator.create({ ...options, signal }).then(translator => {
+        if (signal.aborted) translator.destroy();
+        signal.throwIfAborted();
+        return translator;
+      });
+      return await Promise.race([pending, aborted]);
+    } finally {
+      signal.removeEventListener('abort', onAbort);
+      operation.dispose();
+    }
+  }
 
   async runTests() {
     if (this.testing) return;
@@ -805,7 +966,7 @@ class TranslationQualityBenchmark {
     let totalTime = 0;
 
     for (let i = 0; i < testData.length; i++) {
-      if (!this.testing) {
+      if (!this.testing || this.runController.signal.aborted) {
         this.log('Test paused by user.', 'warning');
         break;
       }
@@ -818,7 +979,7 @@ class TranslationQualityBenchmark {
 
         if (mode === 'reference') {
           // Reference mode: translate and compare to reference
-          translated = await this.translator.translate(item.source);
+          translated = await this.translateText(this.translator, item.source);
           const reference = item.refs[target];
           score = computeBLEU(translated, reference);
           details = { reference, translated };
@@ -833,8 +994,8 @@ class TranslationQualityBenchmark {
           );
         } else {
           // Round-trip mode: source → target → source
-          translated = await this.translator.translate(item.source);
-          const roundTripped = await this.reverseTranslator.translate(translated);
+          translated = await this.translateText(this.translator, item.source);
+          const roundTripped = await this.translateText(this.reverseTranslator, translated);
           score = computeRoundTripScore(item.source, roundTripped);
           details = { translated, roundTripped };
 
@@ -858,17 +1019,18 @@ class TranslationQualityBenchmark {
           source: item.source,
           score,
           time: elapsed,
+          checks: QualityChecks.evaluate({ source: item.source, lang: target }, translated),
           ...details
         });
 
       } catch (error) {
-        this.log(`Q${i + 1}: Error - ${error.message}`, 'error');
+        this.log(`Q${i + 1}: Error - ${this.escapeHtml(error.message)}`, 'error');
         this.results.push({
           id: item.id,
           category: item.category,
           source: item.source,
-          score: 0,
-          time: 0,
+          score: null,
+          time: performance.now() - startTime,
           error: error.message
         });
       }
@@ -876,8 +1038,9 @@ class TranslationQualityBenchmark {
       // Update UI
       const completed = this.results.length;
       document.getElementById('completedCount').textContent = completed;
-      document.getElementById('overallScore').textContent = (totalScore / completed).toFixed(1);
-      document.getElementById('avgTime').textContent = Math.round(totalTime / completed);
+      const scored = this.results.filter(result => !result.error).length;
+      document.getElementById('overallScore').textContent = scored ? (totalScore / scored).toFixed(1) : '--';
+      document.getElementById('avgTime').textContent = scored ? Math.round(totalTime / scored) : '--';
       const total = this._allTestsTotal || testData.length;
       document.getElementById('testProgressFill').style.width =
         ((completed / total) * 100) + '%';
@@ -887,8 +1050,8 @@ class TranslationQualityBenchmark {
 
     // Final
     if (this.results.length > 0) {
-      const avgScore = (totalScore / this.results.length).toFixed(1);
-      this.log(`\nQuality phase complete: avg score ${avgScore}% (${this.results.length} sentences).`, 'info');
+      const scored = this.results.filter(result => !result.error).length;
+      this.log(`Similarity phase: ${scored} scored; ${this.results.length - scored} execution errors.`, 'info');
     }
 
     this.testing = false;
@@ -997,7 +1160,7 @@ class TranslationQualityBenchmark {
   async runDefectTests() {
     if (this.defectTesting) return;
     const target = document.getElementById('targetLanguage').value;
-    const cases = DEFECT_TEST_DATA.filter(c => c.lang === target);
+    const cases = this.getDefectCases();
     if (cases.length === 0) {
       this.log(`No defect cases defined for ${LANGUAGE_NAMES[target] || target}. Try es, ja, or zh-hans.`, 'warning');
       return;
@@ -1019,17 +1182,18 @@ class TranslationQualityBenchmark {
     );
 
     for (let i = 0; i < cases.length; i++) {
-      if (!this.defectTesting) {
+      if (!this.defectTesting || this.runController.signal.aborted) {
         this.log('Defect tests paused by user.', 'warning');
         break;
       }
       const testCase = cases[i];
       const startTime = performance.now();
       try {
-        const output = await this.translator.translate(testCase.source);
+        const output = await this.translateText(this.translator, testCase.source);
         const evalResult = evaluateDefectCase(testCase, output);
         const elapsed = performance.now() - startTime;
         this.defectResults.push({
+          ...testCase,
           id: testCase.id,
           source: testCase.source,
           output,
@@ -1037,7 +1201,19 @@ class TranslationQualityBenchmark {
           time: elapsed,
           ...evalResult,
         });
-        const status = evalResult.pass ? 'success' : 'error';
+        const result = this.defectResults.at(-1);
+        if (this.run.compareStreaming) {
+          try {
+            const streamed = await this.translateText(this.translator, testCase.source, 'streaming');
+            const request = this.run.requests.at(-1);
+            result.streaming = { output: streamed, time: request.time, firstChunkMs: request.firstChunkMs,
+              chunks: request.chunks, ...evaluateDefectCase(testCase, streamed),
+              identical: streamed === output, semanticVerdict: 'unreviewed' };
+          } catch (error) {
+            result.streaming = { output: '', error: error.message, status: 'error', pass: false };
+          }
+        }
+        const status = evalResult.pass ? 'warning' : 'error';
         const reasons = [];
         if (evalResult.missing.length > 0) {
           reasons.push(`missing: ${evalResult.missing.map(s => `<code>${this.escapeHtml(s)}</code>`).join(', ')}`);
@@ -1048,28 +1224,39 @@ class TranslationQualityBenchmark {
         if (evalResult.sentenceShortfall > 0) {
           reasons.push(`missing ${evalResult.sentenceShortfall} sentence-final punctuation mark(s)`);
         }
+        reasons.push(...evalResult.failures.map(reason => this.escapeHtml(reason)));
+        reasons.push(...evalResult.review.map(reason => `review: ${this.escapeHtml(reason)}`));
         const reasonHtml = reasons.length > 0
-          ? `<br><span class="log-out">Why fail:</span> ${reasons.join('; ')}` : '';
+          ? `<br><span class="log-out">Findings:</span> ${reasons.join('; ')}` : '';
         this.log(
-          `<span class="log-q">[${testCase.id}]</span> ${this.escapeHtml(testCase.source)}`
+          `<span class="log-q">[${this.escapeHtml(testCase.segmentId || testCase.caseId)}]</span> ${this.escapeHtml(testCase.source)}`
           + `<br><span class="log-out">Output:</span> ${this.escapeHtml(output)}`
-          + `<br><span class="log-score ${evalResult.pass ? 'good' : 'poor'}">${evalResult.pass ? 'PASS' : 'FAIL'}</span>`
-          + reasonHtml,
+          + (result.streaming ? `<br><span class="log-out">Streaming:</span> ${this.escapeHtml(result.streaming.error || result.streaming.output)}<br>API parity: ${result.streaming.error ? 'error' : result.streaming.identical ? 'identical' : 'different / needs review'}; checks: ${this.escapeHtml((result.streaming.failures || []).join(', ') || 'clear')}` : '')
+          + (testCase.origin === 'import' ? `<br>Old: ${this.escapeHtml(testCase.oldOutput || '(missing)')}<br>July: ${this.escapeHtml(testCase.julyOutput || '(missing)')}` : '')
+          + (testCase.baselineOutput !== undefined ? `<br>Canary baseline: ${this.escapeHtml(testCase.baselineOutput)}` : '')
+          + `<br><span class="log-score ${evalResult.pass ? 'ok' : 'poor'}">${evalResult.pass ? 'CHECKS CLEAR / NEEDS REVIEW' : 'AUTOMATIC DEFECT'}</span>`
+          + reasonHtml
+          + `<br><label>Semantic verdict <select data-verdict="${this.defectResults.length - 1}"><option value="unreviewed">Unreviewed</option><option value="acceptable">Acceptable</option><option value="defect">Defect</option><option value="uncertain">Uncertain</option></select></label>`,
           status
         );
       } catch (error) {
         this.defectResults.push({
+          ...testCase,
           id: testCase.id,
           source: testCase.source,
+          output: '',
           lang: testCase.lang,
-          time: 0,
+          time: performance.now() - startTime,
           pass: false,
+          status: this.runController.signal.aborted ? 'aborted' : 'error',
+          failures: [],
+          review: [],
           missing: [],
           forbidden: [],
           sentenceShortfall: 0,
           error: error.message,
         });
-        this.log(`[${testCase.id}] Error \u2014 ${this.escapeHtml(error.message)}`, 'error');
+        this.log(`[${this.escapeHtml(testCase.caseId)}] Error: ${this.escapeHtml(error.message)}`, 'error');
       }
 
       const completed = this.defectResults.length;
@@ -1079,17 +1266,17 @@ class TranslationQualityBenchmark {
         ((allDone / allTotal) * 100) + '%';
       document.getElementById('testProgressText').textContent =
         `${allDone} / ${allTotal}`;
-      this.renderDefectResults();
+      if (completed % 25 === 0 || completed === cases.length) this.renderDefectResults();
     }
 
     if (this.defectResults.length > 0) {
       const passed = this.defectResults.filter(r => r.pass).length;
       const total = this.defectResults.length;
       this.log(
-        `Defect phase complete: ${passed}/${total} passed (${(100 * passed / total).toFixed(1)}%).`,
+        `Automatic checks clear: ${passed}/${total}. Semantic verdicts remain separate.`,
         'info'
       );
-      document.getElementById('saveSnapshot').disabled = false;
+      this.renderDefectResults();
     }
     this.defectTesting = false;
   }
@@ -1105,7 +1292,7 @@ class TranslationQualityBenchmark {
       return;
     }
 
-    const byCat = {};
+    const byCat = Object.create(null);
     this.defectResults.forEach(r => {
       if (!byCat[r.id]) byCat[r.id] = { pass: 0, total: 0 };
       byCat[r.id].total++;
@@ -1114,7 +1301,7 @@ class TranslationQualityBenchmark {
 
     let priorByCat = null;
     if (compareTo) {
-      priorByCat = {};
+      priorByCat = Object.create(null);
       compareTo.forEach(r => {
         if (!priorByCat[r.id]) priorByCat[r.id] = { pass: 0, total: 0 };
         priorByCat[r.id].total++;
@@ -1125,6 +1312,13 @@ class TranslationQualityBenchmark {
     const totalPass = this.defectResults.filter(r => r.pass).length;
     const totalAll = this.defectResults.length;
     const overall = ((totalPass / totalAll) * 100).toFixed(1);
+    const failureCounts = Object.create(null);
+    for (const result of this.defectResults) {
+      for (const failure of result.failures || []) {
+        const category = failure.split(':')[0];
+        failureCounts[category] = (failureCounts[category] || 0) + 1;
+      }
+    }
 
     const rows = Object.entries(byCat).map(([id, c]) => {
       const rate = ((c.pass / c.total) * 100).toFixed(1);
@@ -1144,7 +1338,7 @@ class TranslationQualityBenchmark {
         }
       }
       return `<tr>
-        <td><code>${id}</code></td>
+        <td><code>${this.escapeHtml(id)}</code></td>
         <td class="${cellClass}">${c.pass} / ${c.total}</td>
         <td class="${cellClass}">${rate}%</td>
         ${deltaCell}
@@ -1154,16 +1348,27 @@ class TranslationQualityBenchmark {
     const target = document.getElementById('targetLanguage').value;
     const targetName = LANGUAGE_NAMES[target] || target;
     const compareHeader = priorByCat ? '<th>Δ vs snapshot</th>' : '';
+    const streamed = this.defectResults.filter(result => result.streaming).map(result => result.streaming);
+    const streamingSummary = this.run?.compareStreaming ? `<p><strong>Streaming checks clear:</strong>
+      ${streamed.filter(result => result.pass).length} / ${streamed.length} cases.
+      Streaming execution errors: ${streamed.filter(result => result.error).length}.
+      API output differences: ${streamed.filter(result => result.identical === false).length} (needs review).</p>` : '';
 
     container.innerHTML = `
       <div class="defect-summary">
-        <strong>Overall:</strong> ${totalPass} / ${totalAll} cases passed
+        <strong>Standard checks clear:</strong> ${totalPass} / ${totalAll} cases
         (<span class="${overall >= 80 ? 'good' : overall >= 50 ? 'ok' : 'poor'}">${overall}%</span>)
         for ${targetName}.
+        Semantic review: ${this.defectResults.filter(result => result.humanVerdict === 'acceptable').length} acceptable,
+        ${this.defectResults.filter(result => result.humanVerdict === 'defect').length} defects;
+        ${this.defectResults.filter(result => !result.humanVerdict || result.humanVerdict === 'unreviewed').length} unreviewed.
+        Execution errors: ${this.defectResults.filter(result => result.error).length}.
+        <p>${Object.entries(failureCounts).map(([label, count]) => `${this.escapeHtml(label)}: ${count}`).join('; ')}</p>
+        ${streamingSummary}
       </div>
       <table class="inner-table defect-table">
         <thead>
-          <tr><th>Category</th><th>Passed</th><th>Pass rate</th>${compareHeader}</tr>
+          <tr><th>Category</th><th>Checks clear</th><th>Check rate</th>${compareHeader}</tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
@@ -1173,65 +1378,98 @@ class TranslationQualityBenchmark {
   // ── Snapshots (localStorage, scoped by target language) ──────────
 
   snapshotKey() {
-    const target = document.getElementById('targetLanguage').value;
-    return `quality-defect-snapshot-${target}`;
+    return `quality-run-v2-${this.run?.source}-${this.run?.target}-${this.run?.corpusHash}`;
+  }
+
+  buildSnapshot() {
+    if (!this.run) throw new Error('No run available.');
+    return structuredClone({ schemaVersion: 2, ...this.run, quality: this.results, defects: this.defectResults });
   }
 
   saveSnapshot() {
-    if (this.defectResults.length === 0) return;
-    const target = document.getElementById('targetLanguage').value;
-    const snapshot = {
-      target,
-      browser: this.getBrowserInfo(),
-      timestamp: new Date().toISOString(),
-      results: this.defectResults.map(r => ({
-        id: r.id, pass: r.pass, source: r.source, output: r.output,
-        missing: r.missing, forbidden: r.forbidden,
-        sentenceShortfall: r.sentenceShortfall,
-      })),
-    };
+    if (!this.run?.complete || this.runningAll) return;
     try {
+      const snapshot = this.buildSnapshot();
       localStorage.setItem(this.snapshotKey(), JSON.stringify(snapshot));
-      this.log(
-        `Snapshot saved for ${LANGUAGE_NAMES[target] || target} (${snapshot.browser}, ${this.defectResults.length} cases).`,
-        'success'
-      );
+      this.baseline = snapshot;
+      this.log('Complete run saved as baseline.', 'success');
     } catch (e) {
-      this.log(`Failed to save snapshot: ${e.message}`, 'error');
+      this.log(`Snapshot not saved: ${this.escapeHtml(e.message)}. Download Run JSON instead.`, 'error');
     }
   }
 
   compareSnapshot() {
-    const target = document.getElementById('targetLanguage').value;
-    const raw = localStorage.getItem(this.snapshotKey());
-    if (!raw) {
-      this.log(
-        `No saved snapshot for ${LANGUAGE_NAMES[target] || target}. Run defect tests, then click \u201cSave Snapshot\u201d to create one.`,
-        'warning'
-      );
-      return;
-    }
-    if (this.defectResults.length === 0) {
-      this.log('Run defect tests first \u2014 nothing to compare against.', 'warning');
-      return;
-    }
     try {
-      const snap = JSON.parse(raw);
-      this.log(
-        `Comparing current run against snapshot from ${snap.timestamp} (${snap.browser}, ${snap.results.length} cases).`,
-        'info'
-      );
-      this.renderDefectResults(snap.results);
+      const prior = this.baseline || JSON.parse(localStorage.getItem(this.snapshotKey()) || 'null');
+      if (!prior) throw new Error('No baseline saved or imported.');
+      const comparison = QualityChecks.compare(this.buildSnapshot(), prior);
+      const priorQuality = new Map((prior.quality || []).map(row => [row.id, row]));
+      this.run.similarityComparison = this.results.map(row => ({ id: row.id, source: row.source,
+        before: priorQuality.get(row.id)?.translated, after: row.translated,
+        scoreDelta: row.error || !priorQuality.has(row.id) || priorQuality.get(row.id).error ? null : row.score - priorQuality.get(row.id).score }));
+      this.run.comparison = { baselineTimestamp: prior.timestamp, baselineBuild: prior.buildLabel, rows: comparison };
+      const counts = {};
+      for (const row of comparison) counts[row.state] = (counts[row.state] || 0) + 1;
+      const container = document.getElementById('snapshotComparison');
+      container.replaceChildren();
+      const heading = document.createElement('p');
+      heading.textContent = `Case comparison: ${Object.entries(counts).map(([key, value]) => `${key}: ${value}`).join('; ')}`;
+      container.appendChild(heading);
+      for (const row of comparison.filter(item => item.state !== 'unchanged_output')) {
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        summary.textContent = `${row.state}: ${row.source}`;
+        const body = document.createElement('pre');
+        body.textContent = `Before: ${row.before || '(error)'}\nAfter: ${row.after || '(error)'}\nBefore checks: ${(row.beforeFailures || []).join(', ')}\nAfter checks: ${(row.afterFailures || []).join(', ')}`
+          + (row.streaming ? `\nStreaming before: ${row.streaming.before}\nStreaming after: ${row.streaming.after}\nStreaming changed: ${row.streaming.changed}` : '');
+        details.append(summary, body);
+        container.appendChild(details);
+      }
     } catch (e) {
-      this.log(`Failed to read snapshot: ${e.message}`, 'error');
+      this.log(`Comparison unavailable: ${this.escapeHtml(e.message)}`, 'error');
     }
   }
 
   clearSnapshot() {
-    const target = document.getElementById('targetLanguage').value;
-    localStorage.removeItem(this.snapshotKey());
-    this.log(`Snapshot cleared for ${LANGUAGE_NAMES[target] || target}.`, 'info');
-    this.renderDefectResults();
+    for (let index = localStorage.length - 1; index >= 0; index--) {
+      const key = localStorage.key(index);
+      if (key?.startsWith('quality-run-v2-') || key?.startsWith('quality-defect-snapshot-')) {
+        localStorage.removeItem(key);
+      }
+    }
+    this.baseline = null;
+    document.getElementById('snapshotFile').value = '';
+    document.getElementById('snapshotComparison').replaceChildren();
+    this.log('Saved baselines cleared.', 'info');
+  }
+
+  async importSnapshot(file) {
+    if (!file || this.runningAll) return;
+    try {
+      if (file.size > 50 * 1024 * 1024) throw new Error('Snapshot exceeds the 50 MB limit.');
+      const snapshot = JSON.parse(await file.text());
+      if (snapshot.schemaVersion !== 2 || !Array.isArray(snapshot.defects) || !snapshot.complete ||
+          snapshot.defects.some(row => typeof row.caseId !== 'string' || typeof row.pass !== 'boolean') ||
+          new Set(snapshot.defects.map(row => row.caseId)).size !== snapshot.defects.length) {
+        throw new Error('Expected a complete version-2 run with unique case IDs.');
+      }
+      this.baseline = snapshot;
+      this.log(`Baseline imported: ${this.escapeHtml(snapshot.buildLabel || snapshot.browser)}.`, 'info');
+    } catch (error) {
+      this.baseline = null;
+      this.log(`Baseline import failed: ${this.escapeHtml(error.message)}`, 'error');
+    }
+  }
+
+  exportRun() {
+    if (!this.run || this.runningAll) return;
+    const blob = new Blob([JSON.stringify(this.buildSnapshot(), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `translation-${this.run.source}-${this.run.target}-${this.run.timestamp.replace(/[:.]/g, '-')}.json`;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   _formatDefectResults() {
@@ -1239,7 +1477,7 @@ class TranslationQualityBenchmark {
     const targetName = LANGUAGE_NAMES[target] || target;
     const browserInfo = this.getBrowserInfo();
 
-    const byCat = {};
+    const byCat = Object.create(null);
     this.defectResults.forEach(r => {
       if (!byCat[r.id]) byCat[r.id] = { pass: 0, total: 0 };
       byCat[r.id].total++;
@@ -1286,17 +1524,35 @@ class TranslationQualityBenchmark {
   // ── Snapshots (localStorage, scoped by target language) ──────────────
 
   async runAllTests() {
-    if (this.runningAll) return;
-    this.runningAll = true;
-
-    // Precompute combined total for the unified progress bar.
+    if (this.runningAll || this.importing) return;
     const target = document.getElementById('targetLanguage').value;
+    if (target === 'en') { this.log('Choose a target other than English.', 'warning'); return; }
+    const cases = this.getDefectCases();
+    const importedOnly = document.getElementById('corpusSelection').value === 'imported';
+    if (importedOnly && !cases.length) { this.log('No imported cases for this pair.', 'warning'); return; }
+    const timeoutSeconds = Number(document.getElementById('requestTimeout').value);
+    if (!Number.isFinite(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 600) {
+      this.log('Request timeout must be between 1 and 600 seconds.', 'warning'); return;
+    }
+    this.clearAllResults();
+    this.runningAll = true;
+    this.runController = new AbortController();
+
     const mode = this.getTestMode();
-    const qualityCount = mode === 'reference'
-      ? QUALITY_TEST_DATA.filter(d => d.refs[target]).length
-      : QUALITY_TEST_DATA.length;
-    const defectCount = DEFECT_TEST_DATA.filter(c => c.lang === target).length;
+    const qualityCases = importedOnly ? [] : mode === 'reference' ? QUALITY_TEST_DATA.filter(test => test.refs[target]) : QUALITY_TEST_DATA;
+    const qualityCount = qualityCases.length;
+    const defectCount = cases.length;
     this._allTestsTotal = qualityCount + defectCount;
+    this.run = { source: 'en', target, mode, timestamp: new Date().toISOString(),
+      browser: this.getBrowserInfo(), userAgent: navigator.userAgent, validatorVersion: QualityChecks.VERSION, harnessVersion: '6',
+      compareStreaming: document.getElementById('compareStreaming').checked,
+      buildLabel: document.getElementById('buildLabel').value, runtimeLabel: document.getElementById('runtimeLabel').value || 'unknown',
+      timeoutSeconds, complete: false, requests: [], corpus: cases, qualityCorpus: qualityCases,
+      importMetadata: this.importMetadata || null, importWarnings: this.importWarnings };
+    const locked = ['targetLanguageSearch', 'regressionCsv', 'csvEncoding', 'corpusSelection', 'buildLabel',
+      'runtimeLabel', 'requestTimeout', 'compareStreaming', 'clearAllResults', 'snapshotFile', 'compareSnapshot', 'clearSnapshot'];
+    for (const id of locked) document.getElementById(id).disabled = true;
+    this.targetSelect.close();
 
     // Reset display before kicking off both phases.
     this.results = [];
@@ -1314,34 +1570,44 @@ class TranslationQualityBenchmark {
     document.getElementById('stopAllTests').disabled = false;
     document.getElementById('copyAllResults').disabled = true;
 
-    await this.runTests();
-    if (this.runningAll) {
-      await this.runDefectTests();
-    }
-
-    this.runningAll = false;
-    this._allTestsTotal = 0;
-    document.getElementById('runAllTests').disabled = false;
-    document.getElementById('stopAllTests').disabled = true;
-    if (this.results.length > 0 || this.defectResults.length > 0) {
+    try {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify({ qualityCases, cases })));
+      this.run.corpusHash = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+      if (!this.runController.signal.aborted && qualityCount) await this.runTests();
+      if (!this.runController.signal.aborted && !this.run.initializationError && defectCount) await this.runDefectTests();
+      this.run.complete = !this.runController.signal.aborted && !this.run.initializationError &&
+        this.results.length === qualityCount && this.defectResults.length === defectCount &&
+        !this.run.requests.some(request => request.error) &&
+        !this.results.some(result => result.error) && !this.defectResults.some(result => result.error || result.streaming?.error);
+    } catch (error) {
+      this.run.error = error.message;
+      this.log(`Run failed: ${this.escapeHtml(error.message)}`, 'error');
+    } finally {
+      this.run.finishedAt = new Date().toISOString();
+      this.runningAll = false;
+      this.testing = false;
+      this.defectTesting = false;
+      this._allTestsTotal = 0;
+      for (const id of locked) document.getElementById(id).disabled = false;
+      document.getElementById('runAllTests').disabled = false;
+      document.getElementById('stopAllTests').disabled = true;
       document.getElementById('copyAllResults').disabled = false;
+      document.getElementById('exportRun').disabled = false;
+      document.getElementById('saveSnapshot').disabled = !this.run.complete;
+      this.log(this.run.complete ? 'Run complete.' : 'Run incomplete; not eligible for baseline comparison.', this.run.complete ? 'info' : 'warning');
     }
   }
 
   stopAllTests() {
-    this.runningAll = false;
+    this.runController?.abort();
     this.testing = false;
     this.defectTesting = false;
     document.getElementById('stopAllTests').disabled = true;
   }
 
   copyAllResults() {
-    const parts = [];
-    if (this.results.length > 0) parts.push(this._formatQualityResults());
-    if (this.defectResults.length > 0) parts.push(this._formatDefectResults());
-    if (parts.length === 0) return;
-    const tsv = this.results.length > 0 ? this._formatQualityTsv() : null;
-    const text = parts.join('\n\n') + (tsv ? '\n\n' + tsv : '');
+    if (!this.run || this.runningAll) return;
+    const text = JSON.stringify(this.buildSnapshot(), null, 2);
     navigator.clipboard.writeText(text).then(() => {
       const btn = document.getElementById('copyAllResults');
       btn.textContent = '\u2713 Copied!';
@@ -1352,6 +1618,8 @@ class TranslationQualityBenchmark {
   }
 
   clearAllResults() {
+    if (this.runningAll) return;
+    this.run = null;
     this.results = [];
     this.defectResults = [];
     document.getElementById('testLog').innerHTML = '';
@@ -1363,6 +1631,8 @@ class TranslationQualityBenchmark {
     document.getElementById('testProgressText').textContent = '0 / 0';
     document.getElementById('saveSnapshot').disabled = true;
     document.getElementById('copyAllResults').disabled = true;
+    document.getElementById('exportRun').disabled = true;
+    document.getElementById('snapshotComparison').replaceChildren();
     this.updateTestMode();
   }
 }
@@ -1617,7 +1887,8 @@ const DEFECT_TEST_DATA = [
   { id: 'proper_noun_error', lang: 'es',      source: 'Albert Einstein worked at MIT before joining DeepMind in London.',
     mustPreserve: ['Albert Einstein', 'MIT', 'DeepMind'], mustNotContain: [] },
   { id: 'proper_noun_error', lang: 'zh-hans', source: 'Albert Einstein worked at MIT before joining DeepMind in London.',
-    mustPreserve: ['Albert Einstein', 'MIT', 'DeepMind'], mustNotContain: ['深度导师', '深度教师', '麻省理工学院'] },
+    mustPreserve: ['Albert Einstein', 'MIT', 'DeepMind'], mustNotContain: ['深度导师', '深度教师'],
+    allowedTokens: { 'Albert Einstein': ['Albert Einstein', '阿尔伯特·爱因斯坦'], 'MIT': ['MIT', '麻省理工学院'] } },
   { id: 'proper_noun_error', lang: 'zh-hans', source: 'The HKUST and HKUDS research teams collaborate on AI projects.',
     mustPreserve: ['HKUST', 'HKUDS'], mustNotContain: ['香港统计学硕士'] },
 
@@ -1772,28 +2043,7 @@ function normalizeNumeric(s, lang) {
 
 // Evaluates one defect case against the on-device translation output.
 function evaluateDefectCase(testCase, output) {
-  let normOutput = null;
-  const missing = (testCase.mustPreserve || []).filter(s => {
-    if (output.includes(s)) return false;
-    // Fall back to locale-aware numeric normalisation before flagging.
-    if (normOutput === null) normOutput = normalizeNumeric(output, testCase.lang);
-    const normToken = normalizeNumeric(s, testCase.lang);
-    return !normOutput.includes(normToken);
-  });
-  const forbidden = (testCase.mustNotContain || []).filter(s => output.includes(s));
-  let sentenceShortfall = 0;
-  if (typeof testCase.minSentences === 'number') {
-    const actual = countSentences(output);
-    if (actual < testCase.minSentences) {
-      sentenceShortfall = testCase.minSentences - actual;
-    }
-  }
-  return {
-    pass: missing.length === 0 && forbidden.length === 0 && sentenceShortfall === 0,
-    missing,
-    forbidden,
-    sentenceShortfall,
-  };
+  return QualityChecks.evaluate(testCase, output, normalizeNumeric);
 }
 
 // ─── Render Known Issues ─────────────────────────────────────

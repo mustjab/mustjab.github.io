@@ -28,7 +28,7 @@
     </nav>
     <header>
       <h1>Translation Quality Benchmark</h1>
-      <p class="subtitle">Measure translation accuracy using reference translations and round-trip fidelity</p>
+      <p class="subtitle">Translation regression review</p>
       <div class="api-status" id="apiStatus">
         <span class="status-indicator" id="statusIndicator"></span>
         <span id="statusText">Checking API availability...</span>
@@ -50,7 +50,7 @@
             </div>
           </div>
           <div class="swap-container">
-            <button type="button" id="swapLanguages" class="btn-swap" title="Swap source and target languages">
+            <button type="button" id="swapLanguages" class="btn-swap" title="This corpus contains English source text" disabled>
               ⇄
             </button>
           </div>
@@ -72,18 +72,51 @@
           <div class="progress-text" id="progressText">0%</div>
         </div>
         <div id="initResult" class="result-box" style="display: none;"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="buildLabel">Build / experiment label</label>
+            <input id="buildLabel" type="text" placeholder="e.g. baseline, numeric masking off">
+          </div>
+          <div class="form-group">
+            <label for="runtimeLabel">ORT / GenAI / model-pack versions (manual)</label>
+            <input id="runtimeLabel" type="text" placeholder="Unknown">
+          </div>
+          <div class="form-group">
+            <label for="requestTimeout">Request timeout (seconds)</label>
+            <input id="requestTimeout" type="number" min="1" max="600" value="60">
+          </div>
+          <div class="form-group">
+            <label for="compareStreaming"><input id="compareStreaming" type="checkbox"> Compare streaming output</label>
+          </div>
+        </div>
       </section>
 
       <!-- Translation Tests -->
       <section class="card">
         <h2>Translation Tests</h2>
-        <div class="info-banner">
-          <h3>📊 Quality + defect validation</h3>
-          <p>Runs translation quality scoring (BLEU n-gram similarity against reference translations, or
-            round-trip fidelity when no references are available) and per-category defect tests (checks
-            that brand names, acronyms, URLs, numbers, and other critical tokens were preserved). One
-            click validates all scenarios; one copy gives you the full report.</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="regressionCsv">Local corpus (CSV or focused JSON)</label>
+            <input id="regressionCsv" type="file" accept=".csv,.json,text/csv,application/json">
+          </div>
+          <div class="form-group">
+            <label for="csvEncoding">CSV encoding</label>
+            <select id="csvEncoding">
+              <option value="auto">Auto: UTF-8 / Windows-1252</option>
+              <option value="utf-8">UTF-8</option>
+              <option value="windows-1252">Windows-1252</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="corpusSelection">Corpus</label>
+            <select id="corpusSelection">
+              <option value="builtin">Built-in checks</option>
+              <option value="combined">Built-in + imported rows</option>
+              <option value="imported">Imported rows only</option>
+            </select>
+          </div>
         </div>
+        <div id="corpusStatus" role="status">No corpus imported.</div>
 
         <div class="test-mode-info" id="testModeInfo">
           <span class="mode-badge" id="modeBadge">--</span>
@@ -103,26 +136,29 @@
         <div class="bench-controls">
           <button id="saveSnapshot" class="btn btn-secondary" disabled>💾 Save Snapshot</button>
           <button id="compareSnapshot" class="btn btn-secondary">📊 Compare to Snapshot</button>
-          <button id="clearSnapshot" class="btn btn-secondary">🗑 Clear Snapshot</button>
+          <button id="clearSnapshot" class="btn btn-secondary">🗑 Clear Saved Baselines</button>
+          <button id="exportRun" class="btn btn-secondary" disabled>Download Run JSON</button>
+          <label for="snapshotFile">Baseline JSON</label>
+          <input id="snapshotFile" type="file" accept=".json,application/json">
         </div>
 
         <!-- Score Summary (quality stats) -->
         <div class="score-grid">
           <div class="score-item">
             <div class="score-value" id="overallScore">0</div>
-            <div class="score-label">Quality Score (%)</div>
+            <div class="score-label">Text Similarity (0-100)</div>
           </div>
           <div class="score-item">
             <div class="score-value" id="completedCount">0</div>
-            <div class="score-label">Quality Completed</div>
+            <div class="score-label">Similarity Cases Run</div>
           </div>
           <div class="score-item">
             <div class="score-value" id="totalCount">0</div>
-            <div class="score-label">Quality Total</div>
+            <div class="score-label">Similarity Cases Total</div>
           </div>
           <div class="score-item">
             <div class="score-value" id="avgTime">0</div>
-            <div class="score-label">Avg Time (ms)</div>
+            <div class="score-label">Avg Case Time (ms)</div>
           </div>
         </div>
 
@@ -136,6 +172,7 @@
 
         <!-- Defect category breakdown table -->
         <div id="defectResults" class="defect-results"></div>
+        <div id="snapshotComparison" aria-live="polite"></div>
 
         <!-- Unified test log -->
         <div class="test-log-container">
@@ -164,7 +201,9 @@
     </footer>
   </div>
 
-  <script src="quality.js"></script>
+  <script src="papaparse.min.js"></script>
+  <script src="checks.js?v=6"></script>
+  <script src="quality.js?v=6"></script>
 </body>
 
 </html>

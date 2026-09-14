@@ -1,5 +1,36 @@
 /* Quality benchmark specific styles */
 
+.form-group input:not([type="hidden"]):not([type="checkbox"]),
+.form-group select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+}
+
+.form-group { min-width: 0; }
+label[for="compareStreaming"] { display: flex; align-items: center; gap: 8px; }
+#compareStreaming { width: 16px; height: 16px; flex: 0 0 16px; margin: 0; }
+#corpusStatus { margin-bottom: 16px; overflow-wrap: anywhere; }
+#snapshotComparison { max-height: 480px; overflow: auto; }
+#snapshotComparison details { border-bottom: 1px solid var(--border-light); padding: 8px 0; }
+#snapshotComparison pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.test-log .log-entry { overflow-wrap: anywhere; }
+.test-log select { max-width: 100%; padding: 5px; margin-top: 6px; }
+.bench-controls { align-items: center; }
+.bench-controls input[type="file"] { max-width: 100%; min-width: 0; }
+.score-label, .mode-badge { letter-spacing: 0 !important; }
+
+@media (max-width: 600px) {
+  .form-row { flex-direction: column; }
+  .score-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .test-mode-info { flex-wrap: wrap; }
+}
+
 /* Test mode indicator */
 .test-mode-info {
   display: flex;
