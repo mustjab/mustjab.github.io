@@ -1157,6 +1157,27 @@ class TranslationQualityBenchmark {
 
   // ── Defect tests ─────────────────────────────────────────────────
 
+  async runDefectRequest(testCase, api) {
+    const empty = { output: '', pass: false, failures: [], review: [], missing: [], forbidden: [], sentenceShortfall: 0 };
+    if (this.runController.signal.aborted) {
+      return { ...empty, status: 'not_run', reason: this.runController.signal.reason?.message || 'Run stopped.' };
+    }
+    const requestIndex = this.run.requests.length;
+    const start = performance.now();
+    try {
+      const output = await this.translateText(this.translator, testCase.source, api);
+      const request = this.run.requests[requestIndex];
+      return { output, time: performance.now() - start, ...evaluateDefectCase(testCase, output),
+        ...(api === 'streaming' ? { chunks: request?.chunks, firstChunkMs: request?.firstChunkMs } : {}) };
+    } catch (error) {
+      const request = this.run.requests[requestIndex];
+      return { ...empty, status: this.runController.signal.aborted ? 'aborted' : 'error',
+        error: error.message, time: performance.now() - start,
+        ...(api === 'streaming' ? { partialOutput: request?.partialOutput || '',
+          chunks: request?.chunks || [], firstChunkMs: request?.firstChunkMs } : {}) };
+    }
+  }
+
   async runDefectTests() {
     if (this.defectTesting) return;
     const target = document.getElementById('targetLanguage').value;
@@ -1189,8 +1210,8 @@ class TranslationQualityBenchmark {
       const testCase = cases[i];
       const startTime = performance.now();
       try {
-        const output = await this.translateText(this.translator, testCase.source);
-        const evalResult = evaluateDefectCase(testCase, output);
+        const evalResult = await this.runDefectRequest(testCase, 'standard');
+        const output = evalResult.output;
         const elapsed = performance.now() - startTime;
         this.defectResults.push({
           ...testCase,
@@ -1203,14 +1224,9 @@ class TranslationQualityBenchmark {
         });
         const result = this.defectResults.at(-1);
         if (this.run.compareStreaming) {
-          try {
-            const streamed = await this.translateText(this.translator, testCase.source, 'streaming');
-            const request = this.run.requests.at(-1);
-            result.streaming = { output: streamed, time: request.time, firstChunkMs: request.firstChunkMs,
-              chunks: request.chunks, ...evaluateDefectCase(testCase, streamed),
-              identical: streamed === output, semanticVerdict: 'unreviewed' };
-          } catch (error) {
-            result.streaming = { output: '', error: error.message, status: 'error', pass: false };
+          result.streaming = { ...await this.runDefectRequest(testCase, 'streaming'), semanticVerdict: 'unreviewed' };
+          if (!result.error && !result.streaming.error && result.streaming.status !== 'not_run') {
+            result.streaming.identical = result.streaming.output === output;
           }
         }
         const status = evalResult.pass ? 'warning' : 'error';
@@ -1230,13 +1246,14 @@ class TranslationQualityBenchmark {
           ? `<br><span class="log-out">Findings:</span> ${reasons.join('; ')}` : '';
         this.log(
           `<span class="log-q">[${this.escapeHtml(testCase.segmentId || testCase.caseId)}]</span> ${this.escapeHtml(testCase.source)}`
-          + `<br><span class="log-out">Output:</span> ${this.escapeHtml(output)}`
-          + (result.streaming ? `<br><span class="log-out">Streaming:</span> ${this.escapeHtml(result.streaming.error || result.streaming.output)}<br>API parity: ${result.streaming.error ? 'error' : result.streaming.identical ? 'identical' : 'different / needs review'}; checks: ${this.escapeHtml((result.streaming.failures || []).join(', ') || 'clear')}` : '')
+          + `<br><span class="log-out">Output:</span> ${this.escapeHtml(result.error ? `Error: ${result.error}` : output)}`
+          + (result.streaming ? `<br><span class="log-out">Streaming:</span> ${this.escapeHtml(result.streaming.error ? `Error: ${result.streaming.error}` : result.streaming.status === 'not_run' ? `Not run: ${result.streaming.reason}` : result.streaming.output)}<br>API parity: ${result.streaming.identical === undefined ? 'unavailable' : result.streaming.identical ? 'identical' : 'different / needs review'}; checks: ${this.escapeHtml(result.streaming.error || result.streaming.status === 'not_run' ? 'not evaluated' : (result.streaming.failures || []).join(', ') || 'clear')}` : '')
+          + (result.streaming?.error && result.streaming.partialOutput ? `<br><span class="log-out">Partial streaming output:</span> ${this.escapeHtml(result.streaming.partialOutput)}` : '')
           + (testCase.origin === 'import' ? `<br>Old: ${this.escapeHtml(testCase.oldOutput || '(missing)')}<br>July: ${this.escapeHtml(testCase.julyOutput || '(missing)')}` : '')
           + (testCase.baselineOutput !== undefined ? `<br>Canary baseline: ${this.escapeHtml(testCase.baselineOutput)}` : '')
           + `<br><span class="log-score ${evalResult.pass ? 'ok' : 'poor'}">${evalResult.pass ? 'CHECKS CLEAR / NEEDS REVIEW' : 'AUTOMATIC DEFECT'}</span>`
           + reasonHtml
-          + `<br><label>Semantic verdict <select data-verdict="${this.defectResults.length - 1}"><option value="unreviewed">Unreviewed</option><option value="acceptable">Acceptable</option><option value="defect">Defect</option><option value="uncertain">Uncertain</option></select></label>`,
+          + (result.error ? '' : `<br><label>Semantic verdict <select data-verdict="${this.defectResults.length - 1}"><option value="unreviewed">Unreviewed</option><option value="acceptable">Acceptable</option><option value="defect">Defect</option><option value="uncertain">Uncertain</option></select></label>`),
           status
         );
       } catch (error) {
@@ -1287,15 +1304,17 @@ class TranslationQualityBenchmark {
   renderDefectResults(compareTo = null) {
     const container = document.getElementById('defectResults');
     if (!container) return;
-    if (this.defectResults.length === 0) {
+    if (this.defectResults.length === 0 && !this.run?.corpus?.length) {
       container.innerHTML = '';
       return;
     }
 
     const byCat = Object.create(null);
-    this.defectResults.forEach(r => {
+    (this.run?.corpus || this.defectResults).forEach(r => {
       if (!byCat[r.id]) byCat[r.id] = { pass: 0, total: 0 };
       byCat[r.id].total++;
+    });
+    this.defectResults.forEach(r => {
       if (r.pass) byCat[r.id].pass++;
     });
 
@@ -1310,7 +1329,8 @@ class TranslationQualityBenchmark {
     }
 
     const totalPass = this.defectResults.filter(r => r.pass).length;
-    const totalAll = this.defectResults.length;
+    const totalAll = this.run?.corpus?.length ?? this.defectResults.length;
+    const notRun = totalAll - this.defectResults.length;
     const overall = ((totalPass / totalAll) * 100).toFixed(1);
     const failureCounts = Object.create(null);
     for (const result of this.defectResults) {
@@ -1350,8 +1370,9 @@ class TranslationQualityBenchmark {
     const compareHeader = priorByCat ? '<th>Δ vs snapshot</th>' : '';
     const streamed = this.defectResults.filter(result => result.streaming).map(result => result.streaming);
     const streamingSummary = this.run?.compareStreaming ? `<p><strong>Streaming checks clear:</strong>
-      ${streamed.filter(result => result.pass).length} / ${streamed.length} cases.
+      ${streamed.filter(result => result.pass).length} / ${totalAll} cases.
       Streaming execution errors: ${streamed.filter(result => result.error).length}.
+      Streaming not run: ${totalAll - streamed.filter(result => result.status !== 'not_run').length}.
       API output differences: ${streamed.filter(result => result.identical === false).length} (needs review).</p>` : '';
 
     container.innerHTML = `
@@ -1363,6 +1384,8 @@ class TranslationQualityBenchmark {
         ${this.defectResults.filter(result => result.humanVerdict === 'defect').length} defects;
         ${this.defectResults.filter(result => !result.humanVerdict || result.humanVerdict === 'unreviewed').length} unreviewed.
         Execution errors: ${this.defectResults.filter(result => result.error).length}.
+        Not run: ${notRun}.
+        ${this.run?.initializationError ? `<p>Initialization error: ${this.escapeHtml(this.run.initializationError)}</p>` : ''}
         <p>${Object.entries(failureCounts).map(([label, count]) => `${this.escapeHtml(label)}: ${count}`).join('; ')}</p>
         ${streamingSummary}
       </div>
@@ -1387,12 +1410,13 @@ class TranslationQualityBenchmark {
   }
 
   saveSnapshot() {
-    if (!this.run?.complete || this.runningAll) return;
+    if (!this.run || this.runningAll) return;
     try {
       const snapshot = this.buildSnapshot();
+      QualityChecks.snapshotCases(snapshot);
       localStorage.setItem(this.snapshotKey(), JSON.stringify(snapshot));
       this.baseline = snapshot;
-      this.log('Complete run saved as baseline.', 'success');
+      this.log(snapshot.complete ? 'Run saved as baseline.' : 'Incomplete run saved with errors and unattempted cases.', 'info');
     } catch (e) {
       this.log(`Snapshot not saved: ${this.escapeHtml(e.message)}. Download Run JSON instead.`, 'error');
     }
@@ -1400,28 +1424,59 @@ class TranslationQualityBenchmark {
 
   compareSnapshot() {
     try {
+      if (this.runningAll) throw new Error('Stop the current run before comparing.');
       const prior = this.baseline || JSON.parse(localStorage.getItem(this.snapshotKey()) || 'null');
       if (!prior) throw new Error('No baseline saved or imported.');
       const comparison = QualityChecks.compare(this.buildSnapshot(), prior);
       const priorQuality = new Map((prior.quality || []).map(row => [row.id, row]));
-      this.run.similarityComparison = this.results.map(row => ({ id: row.id, source: row.source,
-        before: priorQuality.get(row.id)?.translated, after: row.translated,
-        scoreDelta: row.error || !priorQuality.has(row.id) || priorQuality.get(row.id).error ? null : row.score - priorQuality.get(row.id).score }));
-      this.run.comparison = { baselineTimestamp: prior.timestamp, baselineBuild: prior.buildLabel, rows: comparison };
+      const currentQuality = new Map(this.results.map(row => [row.id, row]));
+      this.run.similarityComparison = (this.run.qualityCorpus || this.results).map(spec => {
+        const old = priorQuality.get(spec.id);
+        const row = currentQuality.get(spec.id);
+        return { id: spec.id, source: spec.source, before: old?.translated, after: row?.translated,
+          beforeStatus: !old ? 'not_run' : old.error ? 'error' : 'ok',
+          afterStatus: !row ? 'not_run' : row.error ? 'error' : 'ok',
+          beforeError: old?.error, afterError: row?.error,
+          scoreDelta: !row || !old || row.error || old.error ? null : row.score - old.score };
+      });
+      const execution = run => ({ complete: run.complete, error: run.error,
+        initializationError: run.initializationError, aborted: run.aborted, stopReason: run.stopReason,
+        requestErrors: (run.requests || []).filter(row => row.error !== undefined) });
+      this.run.comparison = { baselineTimestamp: prior.timestamp, baselineBuild: prior.buildLabel,
+        beforeExecution: execution(prior), afterExecution: execution(this.run), rows: comparison };
       const counts = {};
       for (const row of comparison) counts[row.state] = (counts[row.state] || 0) + 1;
       const container = document.getElementById('snapshotComparison');
       container.replaceChildren();
       const heading = document.createElement('p');
-      heading.textContent = `Case comparison: ${Object.entries(counts).map(([key, value]) => `${key}: ${value}`).join('; ')}`;
+      heading.textContent = `Case comparison (${comparison.length} planned): ${Object.entries(counts).map(([key, value]) => `${key}: ${value}`).join('; ')}`;
       container.appendChild(heading);
+      const runStatus = document.createElement('pre');
+      runStatus.textContent = `Baseline run: ${prior.complete ? 'complete' : 'incomplete'}${prior.initializationError || prior.error || prior.stopReason ? `; ${prior.initializationError || prior.error || prior.stopReason}` : ''}\nCurrent run: ${this.run.complete ? 'complete' : 'incomplete'}${this.run.initializationError || this.run.error || this.run.stopReason ? `; ${this.run.initializationError || this.run.error || this.run.stopReason}` : ''}`;
+      container.appendChild(runStatus);
+      const formatOutcome = (outcome, side) => {
+        const status = outcome[`${side}Status`];
+        if (status === 'not_run') return `Not run: ${outcome[`${side}Reason`] || 'No result recorded.'}`;
+        if (status === 'error') return `Error: ${outcome[`${side}Error`] || 'Request failed.'}`
+          + (outcome[`${side}PartialOutput`] ? `\nPartial output: ${outcome[`${side}PartialOutput`]}` : '');
+        return outcome[side] ?? '';
+      };
       for (const row of comparison.filter(item => item.state !== 'unchanged_output')) {
         const details = document.createElement('details');
         const summary = document.createElement('summary');
         summary.textContent = `${row.state}: ${row.source}`;
         const body = document.createElement('pre');
-        body.textContent = `Before: ${row.before || '(error)'}\nAfter: ${row.after || '(error)'}\nBefore checks: ${(row.beforeFailures || []).join(', ')}\nAfter checks: ${(row.afterFailures || []).join(', ')}`
-          + (row.streaming ? `\nStreaming before: ${row.streaming.before}\nStreaming after: ${row.streaming.after}\nStreaming changed: ${row.streaming.changed}` : '');
+        body.textContent = `Standard (${row.standard.state})\nBefore: ${formatOutcome(row.standard, 'before')}\nAfter: ${formatOutcome(row.standard, 'after')}\nBefore checks: ${(row.beforeFailures || []).join(', ')}\nAfter checks: ${(row.afterFailures || []).join(', ')}`
+          + (row.streaming ? `\nStreaming (${row.streaming.state})\nBefore: ${formatOutcome(row.streaming, 'before')}\nAfter: ${formatOutcome(row.streaming, 'after')}` : '');
+        details.append(summary, body);
+        container.appendChild(details);
+      }
+      for (const row of this.run.similarityComparison.filter(item => item.beforeStatus !== 'ok' || item.afterStatus !== 'ok')) {
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        summary.textContent = `Reference execution: ${row.source}`;
+        const body = document.createElement('pre');
+        body.textContent = `Before: ${row.beforeStatus}${row.beforeError ? `; ${row.beforeError}` : ''}\nAfter: ${row.afterStatus}${row.afterError ? `; ${row.afterError}` : ''}`;
         details.append(summary, body);
         container.appendChild(details);
       }
@@ -1448,13 +1503,10 @@ class TranslationQualityBenchmark {
     try {
       if (file.size > 50 * 1024 * 1024) throw new Error('Snapshot exceeds the 50 MB limit.');
       const snapshot = JSON.parse(await file.text());
-      if (snapshot.schemaVersion !== 2 || !Array.isArray(snapshot.defects) || !snapshot.complete ||
-          snapshot.defects.some(row => typeof row.caseId !== 'string' || typeof row.pass !== 'boolean') ||
-          new Set(snapshot.defects.map(row => row.caseId)).size !== snapshot.defects.length) {
-        throw new Error('Expected a complete version-2 run with unique case IDs.');
-      }
+      if (snapshot.schemaVersion !== 2) throw new Error('Expected a version-2 run.');
+      QualityChecks.snapshotCases(snapshot);
       this.baseline = snapshot;
-      this.log(`Baseline imported: ${this.escapeHtml(snapshot.buildLabel || snapshot.browser)}.`, 'info');
+      this.log(`Baseline imported: ${this.escapeHtml(snapshot.buildLabel || snapshot.browser)} (${snapshot.complete ? 'complete' : 'incomplete'}).`, 'info');
     } catch (error) {
       this.baseline = null;
       this.log(`Baseline import failed: ${this.escapeHtml(error.message)}`, 'error');
@@ -1544,7 +1596,7 @@ class TranslationQualityBenchmark {
     const defectCount = cases.length;
     this._allTestsTotal = qualityCount + defectCount;
     this.run = { source: 'en', target, mode, timestamp: new Date().toISOString(),
-      browser: this.getBrowserInfo(), userAgent: navigator.userAgent, validatorVersion: QualityChecks.VERSION, harnessVersion: '6',
+      browser: this.getBrowserInfo(), userAgent: navigator.userAgent, validatorVersion: QualityChecks.VERSION, harnessVersion: '7',
       compareStreaming: document.getElementById('compareStreaming').checked,
       buildLabel: document.getElementById('buildLabel').value, runtimeLabel: document.getElementById('runtimeLabel').value || 'unknown',
       timeoutSeconds, complete: false, requests: [], corpus: cases, qualityCorpus: qualityCases,
@@ -1584,6 +1636,8 @@ class TranslationQualityBenchmark {
       this.log(`Run failed: ${this.escapeHtml(error.message)}`, 'error');
     } finally {
       this.run.finishedAt = new Date().toISOString();
+      this.run.aborted = this.runController.signal.aborted;
+      if (this.run.aborted) this.run.stopReason = this.runController.signal.reason?.message || 'Run stopped.';
       this.runningAll = false;
       this.testing = false;
       this.defectTesting = false;
@@ -1593,8 +1647,9 @@ class TranslationQualityBenchmark {
       document.getElementById('stopAllTests').disabled = true;
       document.getElementById('copyAllResults').disabled = false;
       document.getElementById('exportRun').disabled = false;
-      document.getElementById('saveSnapshot').disabled = !this.run.complete;
-      this.log(this.run.complete ? 'Run complete.' : 'Run incomplete; not eligible for baseline comparison.', this.run.complete ? 'info' : 'warning');
+      document.getElementById('saveSnapshot').disabled = false;
+      this.renderDefectResults();
+      this.log(this.run.complete ? 'Run complete.' : 'Run incomplete; errors and unattempted cases retained.', this.run.complete ? 'info' : 'warning');
     }
   }
 

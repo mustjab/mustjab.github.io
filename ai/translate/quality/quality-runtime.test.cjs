@@ -26,6 +26,7 @@ function createHarness(translatorFactory) {
       removeItem(key) { storage.delete(key); },
     },
     structuredClone,
+    QualityChecks: require('./checks.js'),
     Translator: { create: translatorFactory },
     AbortController, DOMException, performance,
     AbortSignal: {
@@ -198,4 +199,85 @@ test('imported category names cannot collide with object prototype properties', 
   assert.ok(html.includes('<code>__proto__</code>'));
   assert.ok(html.includes('<code>constructor</code>'));
   assert.equal(html.includes('NaN'), false);
+});
+
+test('standard failure still attempts streaming and preserves partial streaming failure', async () => {
+  const { bench } = createHarness(async () => null);
+  bench.run.compareStreaming = true;
+  bench.getDefectCases = () => [{ id: 'case', caseId: 'one', source: 'Hello', lang: 'es' }];
+  bench.ensureTranslators = async () => true;
+  const calls = [];
+  bench.translator = {
+    async translate() { calls.push('standard'); throw new Error('generation failed'); },
+    async *translateStreaming() { calls.push('streaming'); yield '<partial>'; throw new Error('decode failed'); },
+  };
+  bench.log = () => {};
+  bench.escapeHtml = value => value;
+  bench.renderDefectResults = () => {};
+  bench.results = [];
+  await bench.runDefectTests();
+  assert.deepEqual(calls, ['standard', 'streaming']);
+  const result = bench.defectResults[0];
+  assert.equal(result.error, 'generation failed');
+  assert.equal(result.streaming.error, 'decode failed');
+  assert.equal(result.streaming.partialOutput, '<partial>');
+  assert.equal(result.streaming.chunks[0], '<partial>');
+  assert.equal(result.streaming.identical, undefined);
+  assert.equal(result.streaming.output, '');
+  assert.equal(bench.run.requests.length, 2);
+});
+
+test('stopping a run records streaming as unattempted without issuing a request', async () => {
+  const { bench } = createHarness(async () => null);
+  bench.runController.abort(new Error('Run cancelled'));
+  bench.translateText = () => { throw new Error('must not run'); };
+  const result = await bench.runDefectRequest({ source: 'Hello' }, 'streaming');
+  assert.equal(result.status, 'not_run');
+  assert.equal(result.reason, 'Run cancelled');
+  assert.equal(result.pass, false);
+  assert.equal(bench.run.requests.length, 0);
+});
+
+test('incomplete snapshots can be saved, imported and exported without losing errors or corpus', async () => {
+  const { bench, storage } = createHarness(async () => null);
+  bench.log = () => {};
+  bench.escapeHtml = value => value;
+  bench.results = [];
+  bench.defectResults = [{ caseId: 'one', source: 'Hello', error: 'failed', output: '', pass: false }];
+  bench.run = { complete: false, source: 'en', target: 'es', corpusHash: 'test',
+    corpus: [{ caseId: 'one', source: 'Hello' }, { caseId: 'two', source: 'World' }], requests: [] };
+  bench.saveSnapshot();
+  const serialized = storage.get(bench.snapshotKey());
+  assert.ok(serialized);
+  bench.baseline = null;
+  await bench.importSnapshot({ size: serialized.length, text: async () => serialized });
+  assert.equal(bench.baseline.complete, false);
+  assert.equal(bench.baseline.corpus.length, 2);
+  assert.equal(bench.baseline.defects[0].error, 'failed');
+  const exported = bench.buildSnapshot();
+  assert.equal(exported.complete, false);
+  assert.equal(exported.defects[0].error, 'failed');
+  assert.equal(exported.corpus.length, 2);
+});
+
+test('summary retains the planned denominator after early stop or initialization failure', () => {
+  const { bench, elements } = createHarness(async () => null);
+  bench.escapeHtml = value => value;
+  bench.run.compareStreaming = true;
+  bench.run.corpus = [{ id: 'test', caseId: 'one' }, { id: 'test', caseId: 'two' }];
+  bench.defectResults = [{ id: 'test', pass: false, error: 'failed', failures: [],
+    streaming: { status: 'not_run', pass: false } }];
+  bench.renderDefectResults();
+  let html = elements.get('defectResults').innerHTML.replace(/\s+/g, ' ');
+  assert.ok(html.includes('Standard checks clear:</strong> 0 / 2'));
+  assert.ok(html.includes('Streaming checks clear:</strong> 0 / 2'));
+  assert.ok(html.includes('Execution errors: 1.'));
+  assert.ok(html.includes('Not run: 1.'));
+  assert.ok(html.includes('Streaming not run: 2.'));
+  bench.defectResults = [];
+  bench.run.initializationError = 'model unavailable';
+  bench.renderDefectResults();
+  html = elements.get('defectResults').innerHTML.replace(/\s+/g, ' ');
+  assert.ok(html.includes('Initialization error: model unavailable'));
+  assert.ok(html.includes('Not run: 2.'));
 });

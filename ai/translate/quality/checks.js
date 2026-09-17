@@ -166,6 +166,57 @@
     return { cases: imported, warnings: [], target: corpus.target };
   }
 
+  function snapshotCases(run) {
+    if (!Array.isArray(run.defects) || typeof run.complete !== 'boolean') {
+      throw new Error('Expected run results and a completion status.');
+    }
+    if (!run.complete && !Array.isArray(run.corpus)) {
+      throw new Error('Incomplete runs must include their planned corpus.');
+    }
+    const cases = run.corpus || run.defects;
+    for (const rows of [cases, run.defects]) {
+      if (rows.some(row => !row || typeof row.caseId !== 'string' || !row.caseId || typeof row.source !== 'string') ||
+          new Set(rows.map(row => row.caseId)).size !== rows.length) {
+        throw new Error('Snapshots contain invalid or duplicate case IDs.');
+      }
+    }
+    const planned = new Map(cases.map(row => [row.caseId, row]));
+    for (const row of run.defects) {
+      if (planned.get(row.caseId)?.source !== row.source) throw new Error(`Unexpected result or source changed for ${row.caseId}`);
+      for (const outcome of [row, row.streaming].filter(Boolean)) {
+        if ((outcome.output !== undefined && typeof outcome.output !== 'string') ||
+            (outcome.error !== undefined && typeof outcome.error !== 'string') ||
+            (outcome.partialOutput !== undefined && typeof outcome.partialOutput !== 'string')) {
+          throw new Error(`Invalid outcome for ${row.caseId}`);
+        }
+      }
+    }
+    return cases;
+  }
+
+  function compareOutcome(old, result) {
+    const status = row => !row || row.status === 'not_run' ? 'not_run' :
+      row.error !== undefined || row.status === 'error' || row.status === 'aborted' ? 'error' :
+      typeof row.output === 'string' ? 'ok' : 'not_run';
+    const beforeStatus = status(old);
+    const afterStatus = status(result);
+    const state = beforeStatus === 'not_run' || afterStatus === 'not_run' ? 'not_run' :
+      beforeStatus === 'ok' && afterStatus === 'error' ? 'execution_regression' :
+      beforeStatus === 'error' && afterStatus === 'ok' ? 'execution_recovery' :
+      beforeStatus === 'error' && afterStatus === 'error' ? 'execution_error' :
+      old.pass && !result.pass ? 'check_regression' :
+      !old.pass && result.pass ? 'check_improvement' :
+      old.output === result.output ? 'unchanged_output' : 'changed_needs_review';
+    return { state, beforeStatus, afterStatus, before: old?.output, after: result?.output,
+      beforeError: old?.error, afterError: result?.error,
+      beforeReason: old?.reason, afterReason: result?.reason,
+      beforePartialOutput: old?.partialOutput, afterPartialOutput: result?.partialOutput,
+      beforeChunks: old?.chunks, afterChunks: result?.chunks,
+      beforeFailures: old?.failures, afterFailures: result?.failures,
+      changed: beforeStatus !== afterStatus || old?.output !== result?.output || old?.error !== result?.error ||
+        old?.partialOutput !== result?.partialOutput };
+  }
+
   function compare(current, prior) {
     if (Boolean(current.compareStreaming) !== Boolean(prior.compareStreaming) ||
         current.harnessVersion !== prior.harnessVersion) {
@@ -175,34 +226,39 @@
         current.corpusHash !== prior.corpusHash || current.validatorVersion !== prior.validatorVersion) {
       throw new Error('Snapshots differ in language pair, corpus, or validator version.');
     }
-    if (!current.complete || !prior.complete) throw new Error('Only complete runs can be compared.');
-    for (const run of [current, prior]) {
-      if (run.error || run.initializationError ||
-          [...(run.requests || []), ...(run.quality || []), ...run.defects].some(row => row.error || row.streaming?.error)) {
-        throw new Error('Runs with execution errors cannot be used for baseline comparison.');
-      }
-    }
+    const cases = snapshotCases(current);
+    const priorCases = new Map(snapshotCases(prior).map(row => [row.caseId, row]));
+    if (cases.length !== priorCases.size) throw new Error('Snapshots contain different planned case IDs.');
     const previous = new Map(prior.defects.map(result => [result.caseId, result]));
-    if (previous.size !== prior.defects.length || previous.size !== current.defects.length ||
-        new Set(current.defects.map(result => result.caseId)).size !== current.defects.length) {
-      throw new Error('Snapshots contain different or duplicate case IDs.');
-    }
-    return current.defects.map(result => {
-      const old = previous.get(result.caseId);
-      if (!old) throw new Error(`Snapshot is missing case ${result.caseId}`);
-      if (old.source !== result.source) throw new Error(`Source changed for ${result.caseId}`);
-      if (current.compareStreaming && (!old.streaming || !result.streaming)) {
-        throw new Error(`Missing streaming result for ${result.caseId}`);
+    const results = new Map(current.defects.map(result => [result.caseId, result]));
+    const indexRequests = run => {
+      const requests = new Map();
+      for (const request of run.requests || []) {
+        const key = JSON.stringify([request.input, request.api]);
+        requests.set(key, requests.has(key) ? null : request);
       }
-      const state = old.error || result.error ? 'execution_error' :
-        old.output === result.output && (!current.compareStreaming || old.streaming.output === result.streaming.output) ? 'unchanged_output' :
-        old.pass && !result.pass ? 'check_regression' :
-        !old.pass && result.pass ? 'check_improvement' : 'changed_needs_review';
-      return { caseId: result.caseId, source: result.source, state, before: old.output, after: result.output,
-        beforeFailures: old.failures, afterFailures: result.failures,
-        ...(current.compareStreaming ? { streaming: { before: old.streaming.output, after: result.streaming.output,
-          changed: old.streaming.output !== result.streaming.output,
-          beforeFailures: old.streaming.failures, afterFailures: result.streaming.failures } } : {}) };
+      return requests;
+    };
+    const requestIndexes = new Map([[prior, indexRequests(prior)], [current, indexRequests(current)]]);
+    const outcome = (run, row, spec, api) => {
+      const value = api === 'streaming' ? row?.streaming : row;
+      if (!value) return { status: 'not_run', reason: run.initializationError || run.error || run.stopReason || 'No result recorded.' };
+      const request = requestIndexes.get(run).get(JSON.stringify([spec.source, api]));
+      return { ...request, ...value };
+    };
+    return cases.map(spec => {
+      if (!priorCases.has(spec.caseId)) throw new Error(`Snapshot is missing case ${spec.caseId}`);
+      if (priorCases.get(spec.caseId).source !== spec.source) throw new Error(`Source changed for ${spec.caseId}`);
+      const old = previous.get(spec.caseId);
+      const result = results.get(spec.caseId);
+      const standard = compareOutcome(outcome(prior, old, spec, 'standard'), outcome(current, result, spec, 'standard'));
+      const streaming = current.compareStreaming ?
+        compareOutcome(outcome(prior, old, spec, 'streaming'), outcome(current, result, spec, 'streaming')) : undefined;
+      const states = [standard.state, streaming?.state];
+      const state = ['execution_regression', 'not_run', 'execution_error', 'execution_recovery',
+        'check_regression', 'check_improvement', 'changed_needs_review', 'unchanged_output'].find(value => states.includes(value));
+      return { caseId: spec.caseId, source: spec.source, ...standard, state, standard,
+        ...(streaming ? { streaming } : {}) };
     });
   }
 
@@ -248,7 +304,7 @@
     }
   }
 
-  const api = { VERSION, occurrences, markerStructure, evaluate, importRows, importCorpus, compare, cases };
+  const api = { VERSION, occurrences, markerStructure, evaluate, importRows, importCorpus, snapshotCases, compare, cases };
   root.QualityChecks = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(globalThis);

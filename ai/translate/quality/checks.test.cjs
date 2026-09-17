@@ -62,13 +62,58 @@ test('CSV imports discard unused metadata and identifiers', () => {
 
 test('snapshot comparison pairs cases rather than cancelling category changes', () => {
   const metadata = { source: 'en', target: 'es', corpusHash: 'abc', validatorVersion: checks.VERSION, complete: true };
-  const prior = { ...metadata, defects: [{ caseId: 'one', pass: true, output: 'old one' }, { caseId: 'two', pass: false, output: 'old two' }] };
-  const current = { ...metadata, defects: [{ caseId: 'one', pass: false, output: 'new one' }, { caseId: 'two', pass: true, output: 'new two' }] };
+  const prior = { ...metadata, defects: [{ caseId: 'one', source: 'One', pass: true, output: 'old one' }, { caseId: 'two', source: 'Two', pass: false, output: 'old two' }] };
+  const current = { ...metadata, defects: [{ caseId: 'one', source: 'One', pass: false, output: 'new one' }, { caseId: 'two', source: 'Two', pass: true, output: 'new two' }] };
   assert.deepEqual(checks.compare(current, prior).map(row => row.state), ['check_regression', 'check_improvement']);
   assert.throws(() => checks.compare({ ...current, source: 'fr' }, prior), /differ/);
-  assert.throws(() => checks.compare({ ...current, complete: false }, prior), /complete/);
+  assert.throws(() => checks.compare({ ...current, complete: false }, prior), /planned corpus/);
   assert.throws(() => checks.compare({ ...current, defects: [...current.defects, current.defects[0]] }, prior), /duplicate/);
-  assert.throws(() => checks.compare(current, { ...prior, requests: [{ error: 'signal timed out' }] }), /execution errors/);
+  assert.equal(checks.compare(current, { ...prior, requests: [{ error: 'signal timed out' }] }).length, 2);
+});
+
+test('compares errors, recoveries, partial streams and unattempted cases without losing the denominator', () => {
+  const corpus = ['error', 'recovery', 'both', 'stream', 'missing'].map(caseId => ({ caseId, source: caseId }));
+  const metadata = { source: 'en', target: 'es', corpusHash: 'same', validatorVersion: checks.VERSION,
+    harnessVersion: '7', compareStreaming: true, complete: false, corpus };
+  const success = spec => ({ ...spec, pass: true, output: 'ok', streaming: { output: 'ok', pass: true } });
+  const prior = { ...metadata, defects: corpus.map(success) };
+  const current = { ...metadata, defects: corpus.slice(0, 4).map(success) };
+  current.defects[0] = { ...corpus[0], output: '', error: 'generation failed', pass: false };
+  prior.defects[1].error = 'timeout';
+  prior.defects[2].error = 'old failure';
+  current.defects[2].error = 'new failure';
+  current.defects[3].streaming = { error: 'decode failed', partialOutput: 'part', chunks: ['pa', 'rt'], pass: false };
+  const rows = checks.compare(current, prior);
+  assert.equal(rows.length, 5);
+  assert.deepEqual(rows.map(row => row.state), ['execution_regression', 'execution_recovery', 'execution_error', 'execution_regression', 'not_run']);
+  assert.equal(rows[0].afterError, 'generation failed');
+  assert.equal(rows[0].streaming.afterStatus, 'not_run');
+  assert.equal(rows[2].beforeError, 'old failure');
+  assert.equal(rows[2].afterError, 'new failure');
+  assert.equal(rows[3].standard.state, 'unchanged_output');
+  assert.equal(rows[3].streaming.afterPartialOutput, 'part');
+  assert.deepEqual(rows[3].streaming.afterChunks, ['pa', 'rt']);
+  assert.equal(rows[4].afterStatus, 'not_run');
+  assert.equal(rows[4].beforeStatus, 'ok');
+  assert.equal(checks.compare({ ...current, stopReason: 'Cancelled run' }, prior)[4].afterReason, 'Cancelled run');
+  const initialization = checks.compare({ ...current, defects: [], initializationError: 'model unavailable' }, prior);
+  assert.equal(initialization.length, 5);
+  assert.equal(initialization[0].afterReason, 'model unavailable');
+  assert.throws(() => checks.compare({ ...current, corpus: [...corpus, corpus[0]] }, prior), /duplicate/);
+  assert.throws(() => checks.compare({ ...current, corpus: corpus.slice(1) }, prior), /Unexpected|different/);
+  assert.throws(() => checks.compare({ ...current, defects: [{ ...corpus[0], source: 'changed' }] }, prior), /source changed/);
+});
+
+test('legacy streaming partial text is retained from request records', () => {
+  const spec = { caseId: 'one', source: 'Hello' };
+  const prior = { complete: true, source: 'en', target: 'es', corpusHash: 'one', compareStreaming: true,
+    defects: [{ ...spec, output: 'Hola', pass: true, streaming: { output: 'Hola', pass: true } }] };
+  const current = { ...prior, complete: false, corpus: [spec],
+    defects: [{ ...spec, output: 'Hola', pass: true, streaming: { output: '', error: 'failure', pass: false } }],
+    requests: [{ input: 'Hello', api: 'streaming', error: 'failure', partialOutput: 'partial', chunks: ['partial'] }] };
+  assert.equal(checks.compare(current, prior)[0].streaming.afterPartialOutput, 'partial');
+  const ambiguous = { ...current, requests: [...current.requests, { ...current.requests[0], partialOutput: 'other case' }] };
+  assert.equal(checks.compare(ambiguous, prior)[0].streaming.afterPartialOutput, undefined);
 });
 
 test('checks source URLs and emails without manually authored expectations', () => {

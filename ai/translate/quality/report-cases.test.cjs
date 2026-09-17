@@ -42,5 +42,7 @@ test('snapshot comparison includes streaming-only changes and rejects incompatib
   assert.equal(comparison.state, 'changed_needs_review');
   assert.equal(comparison.streaming.changed, true);
   assert.throws(() => checks.compare(current, { ...prior, compareStreaming: false }), /execution modes/);
-  assert.throws(() => checks.compare(current, { ...prior, defects: [{ ...row, streaming: { error: 'failed' } }] }), /execution errors/);
+  const recovery = checks.compare(current, { ...prior, defects: [{ ...row, streaming: { error: 'failed' } }] })[0];
+  assert.equal(recovery.state, 'execution_recovery');
+  assert.equal(recovery.streaming.beforeError, 'failed');
 });
