@@ -15,7 +15,8 @@ function createHarness(translatorFactory) {
   };
   const context = vm.createContext({
     document: { addEventListener() {}, getElementById(id) {
-      if (!elements.has(id)) elements.set(id, { value: 'es', style: {}, replaceChildren() {} });
+      if (!elements.has(id)) elements.set(id, { value: 'es', style: {}, handlers: {},
+        replaceChildren() {}, addEventListener(type, handler) { this.handlers[type] = handler; } });
       return elements.get(id);
     } },
     localStorage: {
@@ -26,7 +27,11 @@ function createHarness(translatorFactory) {
       removeItem(key) { storage.delete(key); },
     },
     structuredClone,
+    TextEncoder,
     QualityChecks: require('./checks.js'),
+    QualityRegressions: require('./regressions.js'),
+    crypto: require('node:crypto').webcrypto,
+    navigator: { userAgent: 'Synthetic harness; no model execution' },
     Translator: { create: translatorFactory },
     AbortController, DOMException, performance,
     AbortSignal: {
@@ -280,4 +285,186 @@ test('summary retains the planned denominator after early stop or initialization
   html = elements.get('defectResults').innerHTML.replace(/\s+/g, ' ');
   assert.ok(html.includes('Initialization error: model unavailable'));
   assert.ok(html.includes('Not run: 2.'));
+});
+
+test('focused selection runs only fifteen defect pairs and exports a compatible new baseline', async () => {
+  const { bench, elements } = createHarness(async () => null);
+  elements.set('sourceLanguage', { value: 'en' });
+  elements.set('targetLanguage', { value: 'es' });
+  elements.set('corpusSelection', { value: 'focused' });
+  elements.set('requestTimeout', { value: '60' });
+  elements.set('compareStreaming', { checked: true });
+  bench.log = () => {};
+  bench.escapeHtml = value => value;
+  bench.targetSelect = { close() {} };
+  bench.importWarnings = [];
+  bench.clearAllResults = () => { bench.run = null; };
+  bench.runTests = async () => assert.fail('Focused mode must not run reference tests');
+  bench.runDefectTests = async () => {
+    const cases = bench.getDefectCases();
+    bench.defectResults = cases.map(spec => ({ ...spec, output: 'synthetic fixture', pass: true,
+      humanVerdict: 'unreviewed', failures: [],
+      streaming: { output: 'synthetic fixture', pass: true, humanVerdict: 'unreviewed', failures: [] } }));
+    bench.run.requests = cases.flatMap(spec => ['standard', 'streaming'].map(api =>
+      ({ input: spec.source, api, output: 'synthetic fixture' })));
+  };
+  await bench.runAllTests();
+  assert.equal(bench.run.complete, true);
+  assert.equal(bench.run.qualityCorpus.length, 0);
+  assert.equal(bench.run.corpus.length, 15);
+  assert.equal(bench.run.requests.length, 30);
+  assert.equal(bench.run.harnessVersion, '8');
+  assert.equal(bench.run.validatorVersion, require('./checks.js').VERSION);
+  assert.equal(elements.get('overallScore').textContent, 'N/A');
+  const snapshot = bench.buildSnapshot();
+  assert.equal(snapshot.schemaVersion, 2);
+  assert.equal(snapshot.defects[0].humanVerdict, 'unreviewed');
+  assert.equal(snapshot.defects[0].streaming.humanVerdict, 'unreviewed');
+});
+
+test('standard and streaming semantic verdict controls update only their own API result', () => {
+  const { bench, elements } = createHarness(async () => null);
+  bench.renderDefectResults = () => {};
+  bench.defectResults = [{ humanVerdict: 'unreviewed', streaming: { humanVerdict: 'unreviewed' } }];
+  bench.setupEventListeners();
+  const change = elements.get('testLog').handlers.change;
+  change({ target: { dataset: { verdict: '0', api: 'standard' }, value: 'defect' } });
+  assert.equal(bench.defectResults[0].humanVerdict, 'defect');
+  assert.equal(bench.defectResults[0].streaming.humanVerdict, 'unreviewed');
+  change({ target: { dataset: { verdict: '0', api: 'streaming' }, value: 'acceptable' } });
+  assert.equal(bench.defectResults[0].streaming.humanVerdict, 'acceptable');
+  assert.equal(bench.defectResults[0].humanVerdict, 'defect');
+});
+
+test('unsupported focused language reports the limitation without starting a request', async () => {
+  const { bench, elements } = createHarness(async () => null);
+  elements.set('targetLanguage', { value: 'fr' });
+  elements.set('corpusSelection', { value: 'focused' });
+  let warning;
+  bench.log = message => { warning = message; };
+  bench.runTests = () => assert.fail('Unsupported focused target must not run references');
+  bench.runDefectTests = () => assert.fail('Unsupported focused target must not translate');
+  assert.equal(bench.getDefectCases().length, 0);
+  await bench.runAllTests();
+  assert.match(warning, /support es, ja, and zh-hans/);
+  assert.equal(bench.runningAll, undefined);
+});
+test('summary separates completed execution, coverage flags and semantic verdicts with missing APIs retained', () => {
+  const { bench, elements } = createHarness(async () => null);
+  bench.escapeHtml = value => value;
+  bench.run.compareStreaming = true;
+  bench.run.corpus = [{ id: 'coverage', caseId: 'one', regressionRule: 'departments' },
+    { id: 'coverage', caseId: 'two', regressionRule: 'passages' }];
+  bench.defectResults = [{ id: 'coverage', output: 'synthetic', pass: false,
+    humanVerdict: 'defect', failures: ['department_clause_1: 0'], coverage: { pass: false },
+    streaming: { output: 'synthetic', pass: true, humanVerdict: 'acceptable', coverage: { pass: true } } }];
+  bench.renderDefectResults();
+  const html = elements.get('defectResults').innerHTML.replace(/\s+/g, ' ');
+  assert.ok(html.includes('Execution completed: 1 / 2'));
+  assert.ok(html.includes('Coverage checks clear: 0 / 2'));
+  assert.ok(html.includes('Coverage checks clear: 1 / 2'));
+  assert.ok(html.includes('0 acceptable, 1 defects, 0 uncertain; 1 unreviewed or not run'));
+  assert.ok(html.includes('1 acceptable, 0 defects, 0 uncertain; 1 unreviewed or not run'));
+  assert.ok(html.includes('It does not mean the translation is semantically correct'));
+});
+test('concurrent comparison overlaps requests in waves and records parity per case', async () => {
+  const { bench } = createHarness(async () => null);
+  bench.log = () => {};
+  bench.escapeHtml = value => value;
+  bench.renderDefectResults = () => {};
+  bench.run.concurrency = 2;
+  let inFlight = 0;
+  let maxInFlight = 0;
+  bench.translator = {
+    async translate(input) {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise(resolve => queueMicrotask(resolve));
+      inFlight--;
+      return input === 'Two' ? 'batched two' : `out ${input}`;
+    },
+  };
+  bench.defectResults = ['One', 'Two', 'Three'].map(source =>
+    ({ caseId: source, source, output: `out ${source}`, pass: true, failures: [] }));
+  bench.defectResults.push({ caseId: 'Four', source: 'Four', output: '', error: 'failed', pass: false, failures: [] });
+  await bench.runConcurrentDefectTests();
+  assert.equal(maxInFlight, 2);
+  assert.equal(bench.run.concurrentWaves.length, 2);
+  assert.equal(JSON.stringify(bench.run.concurrentWaves.map(wave => wave.size)), '[2,2]');
+  assert.equal(bench.defectResults[0].concurrent.identical, true);
+  assert.equal(bench.defectResults[1].concurrent.identical, false);
+  assert.equal(bench.defectResults[1].concurrent.output, 'batched two');
+  assert.equal(bench.defectResults[1].concurrent.humanVerdict, 'unreviewed');
+  assert.equal(bench.defectResults[3].concurrent.identical, undefined,
+    'A sequential failure leaves concurrent parity unevaluated');
+  assert.equal(bench.run.requests.length, 4);
+  assert.ok(bench.run.requests.every(request => request.phase === 'concurrent' && request.api === 'standard'));
+});
+
+test('concurrent summary reports differences, errors and unattempted requests', () => {
+  const { bench, elements } = createHarness(async () => null);
+  bench.escapeHtml = value => value;
+  bench.run.compareConcurrent = true;
+  bench.run.concurrency = 8;
+  bench.run.concurrentWaves = [{ start: 0, size: 3, ms: 30, attempted: 2 }];
+  bench.run.corpus = [{ id: 'test', caseId: 'one' }, { id: 'test', caseId: 'two' }, { id: 'test', caseId: 'three' }];
+  bench.defectResults = [
+    { id: 'test', pass: true, failures: [], output: 'a', concurrent: { pass: true, output: 'a', identical: true } },
+    { id: 'test', pass: true, failures: [], output: 'b', concurrent: { pass: false, output: 'c', identical: false } },
+    { id: 'test', pass: true, failures: [], output: 'd', concurrent: { status: 'not_run', pass: false } },
+  ];
+  bench.renderDefectResults();
+  const html = elements.get('defectResults').innerHTML.replace(/\s+/g, ' ');
+  assert.ok(html.includes('Concurrent checks clear:</strong> 1 / 3'));
+  assert.ok(html.includes('Concurrent not run: 1.'));
+  assert.ok(html.includes('Differences from sequential standard output: 1 (needs review).'));
+  assert.ok(html.includes('Waves: 1 of up to 8 requests; mean 30 ms, max 30 ms.'));
+});
+
+test('concurrent comparison is opt-in and keeps sequential snapshots comparable', async () => {
+  for (const enabled of [false, true]) {
+    const { bench, elements } = createHarness(async () => null);
+    elements.set('sourceLanguage', { value: 'en' });
+    elements.set('targetLanguage', { value: 'es' });
+    elements.set('corpusSelection', { value: 'focused' });
+    elements.set('requestTimeout', { value: '60' });
+    elements.set('compareStreaming', { checked: false });
+    elements.set('compareConcurrent', { checked: enabled });
+    elements.set('concurrency', { value: '4' });
+    bench.log = () => {};
+    bench.escapeHtml = value => value;
+    bench.targetSelect = { close() {} };
+    bench.importWarnings = [];
+    bench.clearAllResults = () => { bench.run = null; };
+    bench.runDefectTests = async () => {
+      bench.defectResults = bench.getDefectCases().map(spec => ({ ...spec, output: 'fixture', pass: true,
+        humanVerdict: 'unreviewed', failures: [] }));
+    };
+    let concurrentRuns = 0;
+    bench.runConcurrentDefectTests = async () => {
+      concurrentRuns++;
+      bench.defectResults.forEach(result => { result.concurrent = { output: 'fixture', pass: true, identical: true }; });
+    };
+    await bench.runAllTests();
+    assert.equal(concurrentRuns, enabled ? 1 : 0);
+    assert.equal(bench.run.harnessVersion, '8');
+    assert.equal(bench.run.compareConcurrent, enabled ? true : undefined);
+    assert.equal(bench.run.concurrentHarnessVersion, enabled ? '1' : undefined);
+    assert.equal(bench.run.complete, true);
+  }
+});
+
+test('invalid concurrent wave width does not start a run', async () => {
+  const { bench, elements } = createHarness(async () => null);
+  elements.set('targetLanguage', { value: 'es' });
+  elements.set('corpusSelection', { value: 'focused' });
+  elements.set('requestTimeout', { value: '60' });
+  elements.set('compareConcurrent', { checked: true });
+  elements.set('concurrency', { value: '1' });
+  const messages = [];
+  bench.log = message => messages.push(message);
+  bench.clearAllResults = () => assert.fail('An invalid configuration must not start a run');
+  await bench.runAllTests();
+  assert.equal(bench.runningAll, undefined);
+  assert.ok(messages.some(message => message.includes('2 to 32')));
 });

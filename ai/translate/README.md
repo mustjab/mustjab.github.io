@@ -192,6 +192,63 @@ To extend this demo:
 4. Enhance the standardized benchmark texts
 5. Add language family grouping in the UI
 
+## Focused translation-quality baseline
+
+The [quality benchmark](./quality/) includes **Focused quality regressions**
+for English to Spanish, Japanese, and Simplified Chinese. It runs 15 development
+cases per target, optionally paired with streaming (30 API calls), without the
+full reference corpus or speed suite. Similarity is **N/A** for this subset,
+not a zero score.
+
+The shared [regression corpus and rules](./quality/regressions.js) cover long
+content and department associations, numeric magnitude and role, discount and
+negation, literal/synthetic markers, identifiers, Unicode codes, and explicit
+semantic-review obligations for fields, word sense, and idioms. Rules compare
+expected invariants, not whole-output reference strings. Coverage and
+language-specific concept checks are development gates; legitimate alternative
+wording still requires bilingual review. A checks-clear result does not imply
+semantic correctness or release qualification.
+
+Execution completion, objective checks, coverage, and standard/streaming human
+verdicts are tracked separately. All semantic verdicts start **unreviewed**.
+The partial-brace checker also catches malformed `{2` / `2}` markers while
+allowing markers actually present in the source.
+
+Before changing Edge, capture a new subset baseline:
+
+1. Select **Focused quality regressions**, the target language, and **Compare
+   streaming output**.
+2. Enter a build label and actual runtime/model versions; run the tests.
+3. Download the run JSON and preserve it outside browser storage. Save Snapshot
+   provides a local convenience baseline.
+4. Record bilingual verdicts separately for each API where available.
+5. Compare a candidate against the same language, corpus, validator and harness
+   versions. Version-6 checks / harness-8 snapshots are intentionally incompatible
+   with earlier checker results; do not treat a checker change as a model gain.
+
+**Batching validation (optional).** Select **Compare concurrent (batched)
+output** to repeat every case as overlapping standard requests, in waves of
+**Concurrent requests per wave** (2-32, default 8), after the sequential phase.
+Each concurrent output is compared with that case's sequential standard output,
+and differences are listed for review with their own semantic verdict. The
+summary reports concurrent checks, errors, unattempted requests, differences and
+wave timings. The browser decides whether to batch, so identical output does not
+prove batching ran; enable it in the browser under test (for Edge development
+builds, `--enable-features=msEdgeTranslationDynamicBatching`). The option is off
+by default and recorded as `concurrentHarnessVersion` 1, so sequential harness-8
+snapshots stay comparable.
+
+Incomplete runs retain planned cases, errors, partial streams, and not-run
+denominators. Baseline comparison reports execution, check, and reviewed semantic
+changes without editing generated text. No output-repair or terminology
+substitution is implemented by the benchmark.
+
+Lightweight validation (no model execution):
+
+```powershell
+node --test .\quality\checks.test.cjs .\quality\report-cases.test.cjs .\quality\quality-runtime.test.cjs .\quality\regressions.test.cjs
+```
+
 ## References
 
 - [Chrome Translation API Documentation](https://developer.chrome.com/docs/ai/translator-api)

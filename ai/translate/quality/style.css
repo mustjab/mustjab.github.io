@@ -13,6 +13,7 @@
 }
 
 .form-group { min-width: 0; }
+.field-hint { margin: 8px 0 0; font-size: 0.85rem; color: #555; }
 label[for="compareStreaming"] { display: flex; align-items: center; gap: 8px; }
 #compareStreaming { width: 16px; height: 16px; flex: 0 0 16px; margin: 0; }
 #corpusStatus { margin-bottom: 16px; overflow-wrap: anywhere; }

@@ -1,7 +1,8 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '5';
+  const VERSION = '6';
+  const regressions = root.QualityRegressions || (typeof module !== 'undefined' ? require('./regressions.js') : null);
   const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   function occurrences(text, token) {
@@ -41,6 +42,17 @@
       Object.keys(left).every(key => left[key] === right[key]);
   }
 
+  function placeholderLeaks(source, output) {
+    const pattern = /\{\s*\d+(?:\s*\})?|\d+\s*\}/gu;
+    const counts = text => {
+      const result = new Map();
+      for (const token of text.match(pattern) || []) result.set(token, (result.get(token) || 0) + 1);
+      return result;
+    };
+    const original = counts(source);
+    return [...counts(output)].filter(([token, count]) => count > (original.get(token) || 0)).map(([token]) => token);
+  }
+
   function evaluate(test, output, normalize = value => value) {
     const failures = [];
     const review = [];
@@ -57,8 +69,7 @@
     if ([...output.matchAll(/<\/?b(\d+)\b/gi)].some(match => Number(match[1]) >= 9000 && !sourceIds.has(match[1]))) {
       failures.push('synthetic_placeholder_leak');
     }
-    const literalMarkers = new Set(source.match(/\{\s*\d+\s*\}/g) || []);
-    if ([...output.matchAll(/\{\s*\d+\s*\}/g)].some(match => !literalMarkers.has(match[0]))) {
+    if (placeholderLeaks(source, output).length) {
       failures.push('synthetic_placeholder_leak');
     }
     if (!sameCounts(sourceMarkers.counts, outputMarkers.counts)) failures.push('marker_count_or_identity');
@@ -102,9 +113,17 @@
     if (test.minSentences) review.push('clause_coverage');
     if (test.reviewTopics) review.push(...test.reviewTopics);
     if (test.acceptedOutputs && !test.acceptedOutputs.includes(output)) review.push('reference_variant');
+    const regression = regressions.evaluate(test, output);
+    failures.push(...regression.failures);
+    review.push(...regression.review);
+    const coverageFailures = regression.failures.filter(value =>
+      value.startsWith('department_') || value.startsWith('unexpected_department') ||
+      value.startsWith('final_cancellation') || value.startsWith('passage_'));
+    const coverage = ['departments', 'passages'].includes(test.regressionRule) ?
+      { pass: coverageFailures.length === 0, failures: coverageFailures } : null;
     const status = failures.length ? 'fail' : 'needs_review';
     return { pass: failures.length === 0, status, failures: [...new Set(failures)],
-      review: [...new Set(review)], missing, forbidden, sentenceShortfall: 0 };
+      review: [...new Set(review)], missing, forbidden, sentenceShortfall: 0, coverage };
   }
 
   function importRows(rows, headers) {
@@ -147,6 +166,16 @@
       seen.add(test.caseId);
       const result = { caseId: test.caseId, id: test.id, source: test.source, lang: test.lang,
         sourceLanguage: test.sourceLanguage, origin: 'import' };
+      if (test.regressionRule !== undefined) {
+        if (!regressions.rules.includes(test.regressionRule)) throw new Error(`Invalid regression rule in ${test.caseId}`);
+        result.regressionRule = test.regressionRule;
+      }
+      if (test.expectedInvariant !== undefined) {
+        if (typeof test.expectedInvariant !== 'string' || !test.expectedInvariant.trim()) {
+          throw new Error(`Invalid expected invariant in ${test.caseId}`);
+        }
+        result.expectedInvariant = test.expectedInvariant;
+      }
       for (const field of ['mustPreserve', 'mustNotContain', 'exactTokens', 'reviewTopics', 'acceptedOutputs']) {
         if (test[field] !== undefined) {
           if (!Array.isArray(test[field]) || test[field].some(value => typeof value !== 'string' || !value)) {
@@ -200,12 +229,17 @@
       typeof row.output === 'string' ? 'ok' : 'not_run';
     const beforeStatus = status(old);
     const afterStatus = status(result);
+    const beforeVerdict = old?.humanVerdict || old?.semanticVerdict || 'unreviewed';
+    const afterVerdict = result?.humanVerdict || result?.semanticVerdict || 'unreviewed';
     const state = beforeStatus === 'not_run' || afterStatus === 'not_run' ? 'not_run' :
       beforeStatus === 'ok' && afterStatus === 'error' ? 'execution_regression' :
       beforeStatus === 'error' && afterStatus === 'ok' ? 'execution_recovery' :
       beforeStatus === 'error' && afterStatus === 'error' ? 'execution_error' :
       old.pass && !result.pass ? 'check_regression' :
       !old.pass && result.pass ? 'check_improvement' :
+      beforeVerdict === 'acceptable' && afterVerdict === 'defect' ? 'semantic_regression' :
+      beforeVerdict === 'defect' && afterVerdict === 'acceptable' ? 'semantic_improvement' :
+      beforeVerdict !== afterVerdict ? 'semantic_review_changed' :
       old.output === result.output ? 'unchanged_output' : 'changed_needs_review';
     return { state, beforeStatus, afterStatus, before: old?.output, after: result?.output,
       beforeError: old?.error, afterError: result?.error,
@@ -213,8 +247,9 @@
       beforePartialOutput: old?.partialOutput, afterPartialOutput: result?.partialOutput,
       beforeChunks: old?.chunks, afterChunks: result?.chunks,
       beforeFailures: old?.failures, afterFailures: result?.failures,
+      beforeVerdict, afterVerdict,
       changed: beforeStatus !== afterStatus || old?.output !== result?.output || old?.error !== result?.error ||
-        old?.partialOutput !== result?.partialOutput };
+        old?.partialOutput !== result?.partialOutput || beforeVerdict !== afterVerdict };
   }
 
   function compare(current, prior) {
@@ -256,7 +291,8 @@
         compareOutcome(outcome(prior, old, spec, 'streaming'), outcome(current, result, spec, 'streaming')) : undefined;
       const states = [standard.state, streaming?.state];
       const state = ['execution_regression', 'not_run', 'execution_error', 'execution_recovery',
-        'check_regression', 'check_improvement', 'changed_needs_review', 'unchanged_output'].find(value => states.includes(value));
+        'check_regression', 'semantic_regression', 'check_improvement', 'semantic_improvement',
+        'semantic_review_changed', 'changed_needs_review', 'unchanged_output'].find(value => states.includes(value));
       return { caseId: spec.caseId, source: spec.source, ...standard, state, standard,
         ...(streaming ? { streaming } : {}) };
     });
@@ -304,7 +340,7 @@
     }
   }
 
-  const api = { VERSION, occurrences, markerStructure, evaluate, importRows, importCorpus, snapshotCases, compare, cases };
+  const api = { VERSION, occurrences, markerStructure, placeholderLeaks, evaluate, importRows, importCorpus, snapshotCases, compare, cases };
   root.QualityChecks = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(globalThis);

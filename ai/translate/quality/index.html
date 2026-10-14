@@ -88,7 +88,18 @@
           <div class="form-group">
             <label for="compareStreaming"><input id="compareStreaming" type="checkbox"> Compare streaming output</label>
           </div>
+          <div class="form-group">
+            <label for="compareConcurrent"><input id="compareConcurrent" type="checkbox"> Compare concurrent (batched) output</label>
+          </div>
+          <div class="form-group">
+            <label for="concurrency">Concurrent requests per wave</label>
+            <input id="concurrency" type="number" min="2" max="32" value="8">
+          </div>
         </div>
+        <p class="field-hint">Concurrent comparison repeats each case as overlapping standard
+          requests so the browser can batch them, then compares each output with the
+          sequential standard output. Batching runs only if the browser enables it; identical
+          output does not prove batching ran.</p>
       </section>
 
       <!-- Translation Tests -->
@@ -110,6 +121,7 @@
           <div class="form-group">
             <label for="corpusSelection">Corpus</label>
             <select id="corpusSelection">
+              <option value="focused">Focused quality regressions (15 cases)</option>
               <option value="builtin">Built-in checks</option>
               <option value="combined">Built-in + imported rows</option>
               <option value="imported">Imported rows only</option>
@@ -202,8 +214,9 @@
   </div>
 
   <script src="papaparse.min.js"></script>
-  <script src="checks.js?v=7"></script>
-  <script src="quality.js?v=7"></script>
+  <script src="regressions.js?v=1"></script>
+  <script src="checks.js?v=6"></script>
+  <script src="quality.js?v=8"></script>
 </body>
 
 </html>

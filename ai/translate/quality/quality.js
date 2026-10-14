@@ -678,7 +678,10 @@ class TranslationQualityBenchmark {
     document.getElementById('testLog').addEventListener('change', event => {
       if (event.target.dataset.verdict === undefined) return;
       const result = this.defectResults[Number(event.target.dataset.verdict)];
-      if (result) result.humanVerdict = event.target.value;
+      const api = event.target.dataset.api;
+      const selected = api === 'streaming' ? result?.streaming :
+        api === 'concurrent' ? result?.concurrent : result;
+      if (selected) selected.humanVerdict = event.target.value;
       this.renderDefectResults();
     });
   }
@@ -713,6 +716,9 @@ class TranslationQualityBenchmark {
   getDefectCases() {
     const target = document.getElementById('targetLanguage').value;
     const selection = document.getElementById('corpusSelection').value;
+    if (selection === 'focused') {
+      return ['es', 'ja', 'zh-hans'].includes(target) ? QualityRegressions.getCases(target) : [];
+    }
     const builtin = [...DEFECT_TEST_DATA.map((test, index) => ({ ...test, caseId: `builtin:${index}`, sourceLanguage: 'en' })),
       ...QualityChecks.cases];
     return (selection === 'imported' ? this.importedCases : selection === 'combined' ? [...builtin, ...this.importedCases] : builtin)
@@ -763,7 +769,7 @@ class TranslationQualityBenchmark {
     }
   }
 
-  async translateText(translator, input, api = 'standard') {
+  async translateText(translator, input, api = 'standard', phase = null) {
     const operation = createOperationAbort(this.runController.signal, this.run.timeoutSeconds * 1000);
     const { signal } = operation;
     const start = performance.now();
@@ -792,10 +798,12 @@ class TranslationQualityBenchmark {
       const output = await Promise.race([translate(), aborted]);
       signal.throwIfAborted();
       this.run.requests.push({ input, api, output, time: performance.now() - start,
+        ...(phase ? { phase } : {}),
         ...(api === 'streaming' ? { chunks, firstChunkMs } : {}) });
       return output;
     } catch (error) {
       this.run.requests.push({ input, api, error: error.message, time: performance.now() - start,
+        ...(phase ? { phase } : {}),
         ...(api === 'streaming' ? { partialOutput: chunks.join(''), chunks, firstChunkMs } : {}) });
       if (signal.aborted || error.name === 'InvalidStateError') {
         translator.destroy();
@@ -817,7 +825,14 @@ class TranslationQualityBenchmark {
     const target = document.getElementById('targetLanguage').value;
     const targetName = LANGUAGE_NAMES[target] || target;
 
-    if (mode === 'reference') {
+    const focused = document.getElementById('corpusSelection').value === 'focused';
+    if (focused) {
+      badge.textContent = 'Focused';
+      badge.className = 'mode-badge mode-reference';
+      desc.textContent = ['es', 'ja', 'zh-hans'].includes(target) ?
+        '15 development cases: objective checks and semantic review are separate. No similarity score.' :
+        'Focused regressions support Spanish, Japanese, and Simplified Chinese only. Choose one of these targets or another corpus.';
+    } else if (mode === 'reference') {
       const count = QUALITY_TEST_DATA.filter(d => d.refs[target]).length;
       badge.textContent = 'Reference';
       badge.className = 'mode-badge mode-reference';
@@ -828,7 +843,8 @@ class TranslationQualityBenchmark {
       desc.textContent = `Round-trip similarity for ${targetName}; semantic quality is unverified.`;
     }
 
-    document.getElementById('totalCount').textContent = QUALITY_TEST_DATA.length;
+    document.getElementById('totalCount').textContent = focused ? 0 : QUALITY_TEST_DATA.length;
+    if (focused) document.getElementById('overallScore').textContent = 'N/A';
 
     // Defect-test panel: count cases that match current target.
     const defectInfo = document.getElementById('defectInfoText');
@@ -1157,15 +1173,15 @@ class TranslationQualityBenchmark {
 
   // ── Defect tests ─────────────────────────────────────────────────
 
-  async runDefectRequest(testCase, api) {
-    const empty = { output: '', pass: false, failures: [], review: [], missing: [], forbidden: [], sentenceShortfall: 0 };
+  async runDefectRequest(testCase, api, phase = null) {
+    const empty = { output: '', pass: false, failures: [], review: [], missing: [], forbidden: [], sentenceShortfall: 0, coverage: null };
     if (this.runController.signal.aborted) {
       return { ...empty, status: 'not_run', reason: this.runController.signal.reason?.message || 'Run stopped.' };
     }
     const requestIndex = this.run.requests.length;
     const start = performance.now();
     try {
-      const output = await this.translateText(this.translator, testCase.source, api);
+      const output = await this.translateText(this.translator, testCase.source, api, phase);
       const request = this.run.requests[requestIndex];
       return { output, time: performance.now() - start, ...evaluateDefectCase(testCase, output),
         ...(api === 'streaming' ? { chunks: request?.chunks, firstChunkMs: request?.firstChunkMs } : {}) };
@@ -1221,10 +1237,11 @@ class TranslationQualityBenchmark {
           lang: testCase.lang,
           time: elapsed,
           ...evalResult,
+          humanVerdict: 'unreviewed',
         });
         const result = this.defectResults.at(-1);
         if (this.run.compareStreaming) {
-          result.streaming = { ...await this.runDefectRequest(testCase, 'streaming'), semanticVerdict: 'unreviewed' };
+          result.streaming = { ...await this.runDefectRequest(testCase, 'streaming'), humanVerdict: 'unreviewed' };
           if (!result.error && !result.streaming.error && result.streaming.status !== 'not_run') {
             result.streaming.identical = result.streaming.output === output;
           }
@@ -1247,13 +1264,17 @@ class TranslationQualityBenchmark {
         this.log(
           `<span class="log-q">[${this.escapeHtml(testCase.segmentId || testCase.caseId)}]</span> ${this.escapeHtml(testCase.source)}`
           + `<br><span class="log-out">Output:</span> ${this.escapeHtml(result.error ? `Error: ${result.error}` : output)}`
+          + (testCase.expectedInvariant ? `<br><span class="log-out">Expected invariant:</span> ${this.escapeHtml(testCase.expectedInvariant)}` : '')
           + (result.streaming ? `<br><span class="log-out">Streaming:</span> ${this.escapeHtml(result.streaming.error ? `Error: ${result.streaming.error}` : result.streaming.status === 'not_run' ? `Not run: ${result.streaming.reason}` : result.streaming.output)}<br>API parity: ${result.streaming.identical === undefined ? 'unavailable' : result.streaming.identical ? 'identical' : 'different / needs review'}; checks: ${this.escapeHtml(result.streaming.error || result.streaming.status === 'not_run' ? 'not evaluated' : (result.streaming.failures || []).join(', ') || 'clear')}` : '')
           + (result.streaming?.error && result.streaming.partialOutput ? `<br><span class="log-out">Partial streaming output:</span> ${this.escapeHtml(result.streaming.partialOutput)}` : '')
           + (testCase.origin === 'import' ? `<br>Old: ${this.escapeHtml(testCase.oldOutput || '(missing)')}<br>July: ${this.escapeHtml(testCase.julyOutput || '(missing)')}` : '')
           + (testCase.baselineOutput !== undefined ? `<br>Canary baseline: ${this.escapeHtml(testCase.baselineOutput)}` : '')
-          + `<br><span class="log-score ${evalResult.pass ? 'ok' : 'poor'}">${evalResult.pass ? 'CHECKS CLEAR / NEEDS REVIEW' : 'AUTOMATIC DEFECT'}</span>`
+          + `<br><span class="log-score ${evalResult.pass ? 'ok' : 'poor'}">${result.error ? 'EXECUTION ERROR / NOT EVALUATED' :
+            evalResult.pass ? 'CHECKS CLEAR / NEEDS REVIEW' : 'AUTOMATIC CHECK FLAGS / NEEDS REVIEW'}</span>`
           + reasonHtml
-          + (result.error ? '' : `<br><label>Semantic verdict <select data-verdict="${this.defectResults.length - 1}"><option value="unreviewed">Unreviewed</option><option value="acceptable">Acceptable</option><option value="defect">Defect</option><option value="uncertain">Uncertain</option></select></label>`),
+          + (result.error ? '' : this.semanticVerdictControl(this.defectResults.length - 1, 'standard'))
+          + (!result.streaming || result.streaming.error || result.streaming.status === 'not_run' ? '' :
+            this.semanticVerdictControl(this.defectResults.length - 1, 'streaming')),
           status
         );
       } catch (error) {
@@ -1298,9 +1319,55 @@ class TranslationQualityBenchmark {
     this.defectTesting = false;
   }
 
+  // Repeats each sequentially evaluated case as overlapping standard requests
+  // so the browser may batch them, and compares each output with the
+  // sequential standard output. Waves bound how many requests overlap.
+  async runConcurrentDefectTests() {
+    const width = this.run.concurrency;
+    this.run.concurrentWaves = [];
+    this.log(`Repeating ${this.defectResults.length} cases as concurrent standard requests, ` +
+      `${width} per wave\u2026`, 'info');
+    for (let start = 0; start < this.defectResults.length; start += width) {
+      const wave = this.defectResults.slice(start, start + width);
+      const started = performance.now();
+      const outcomes = await Promise.all(
+        wave.map(result => this.runDefectRequest(result, 'standard', 'concurrent')));
+      const waveIndex = this.run.concurrentWaves.length;
+      this.run.concurrentWaves.push({ start, size: wave.length, ms: performance.now() - started,
+        attempted: outcomes.filter(outcome => outcome.status !== 'not_run').length });
+      wave.forEach((result, offset) => {
+        const concurrent = { ...outcomes[offset], wave: waveIndex, humanVerdict: 'unreviewed' };
+        if (!result.error && !concurrent.error && concurrent.status !== 'not_run') {
+          concurrent.identical = concurrent.output === result.output;
+        }
+        result.concurrent = concurrent;
+        if (concurrent.error || concurrent.identical === false) {
+          const index = this.defectResults.indexOf(result);
+          this.log(
+            `<span class="log-q">[${this.escapeHtml(result.segmentId || result.caseId)}] concurrent</span>`
+            + `<br><span class="log-out">Sequential:</span> ${this.escapeHtml(result.error ? `Error: ${result.error}` : result.output)}`
+            + `<br><span class="log-out">Concurrent:</span> ${this.escapeHtml(concurrent.error ? `Error: ${concurrent.error}` : concurrent.output)}`
+            + `<br>Concurrent parity: ${concurrent.error ? 'not evaluated' : 'different / needs review'}; checks: `
+            + this.escapeHtml(concurrent.error ? 'not evaluated' : (concurrent.failures || []).join(', ') || 'clear')
+            + (concurrent.error ? '' : this.semanticVerdictControl(index, 'concurrent')),
+            concurrent.error ? 'error' : 'warning');
+        }
+      });
+      this.renderDefectResults();
+    }
+    const differences = this.defectResults.filter(result => result.concurrent?.identical === false).length;
+    this.log(`Concurrent comparison: ${differences} output differences from sequential standard ` +
+      'output (needs review).', differences ? 'warning' : 'info');
+  }
+
   // Renders per-category pass-rate table. `compareTo` (optional) is a
   // saved snapshot's defect-results array; when supplied, a delta column
   // is shown.
+  semanticVerdictControl(index, api) {
+    const label = { streaming: 'Streaming', concurrent: 'Concurrent' }[api] || 'Standard';
+    return `<br><label>${label} semantic verdict <select data-verdict="${index}" data-api="${api}"><option value="unreviewed">Unreviewed</option><option value="acceptable">Acceptable</option><option value="defect">Defect</option><option value="uncertain">Uncertain</option></select></label>`;
+  }
+
   renderDefectResults(compareTo = null) {
     const container = document.getElementById('defectResults');
     if (!container) return;
@@ -1369,25 +1436,54 @@ class TranslationQualityBenchmark {
     const targetName = LANGUAGE_NAMES[target] || target;
     const compareHeader = priorByCat ? '<th>Δ vs snapshot</th>' : '';
     const streamed = this.defectResults.filter(result => result.streaming).map(result => result.streaming);
+    const planned = this.run?.corpus || this.defectResults;
+    const coverageTotal = planned.filter(spec => ['departments', 'passages'].includes(spec.regressionRule)).length;
+    const evaluated = results => results.filter(result =>
+      !result.error && result.status !== 'not_run' && typeof result.output === 'string' && result.output.trim());
+    const reviewed = results => {
+      const valid = evaluated(results);
+      const acceptable = valid.filter(result => result.humanVerdict === 'acceptable').length;
+      const defects = valid.filter(result => result.humanVerdict === 'defect').length;
+      const uncertain = valid.filter(result => result.humanVerdict === 'uncertain').length;
+      return `${acceptable} acceptable, ${defects} defects, ${uncertain} uncertain; ${totalAll - acceptable - defects - uncertain} unreviewed or not run (of ${totalAll} planned).`;
+    };
+    const coverageSummary = results => coverageTotal ?
+      `<p>Coverage checks clear: ${results.filter(result => result.coverage?.pass && evaluated([result]).length).length} / ${coverageTotal} planned coverage cases (development checks, not accuracy).</p>` : '';
     const streamingSummary = this.run?.compareStreaming ? `<p><strong>Streaming checks clear:</strong>
       ${streamed.filter(result => result.pass).length} / ${totalAll} cases.
       Streaming execution errors: ${streamed.filter(result => result.error).length}.
       Streaming not run: ${totalAll - streamed.filter(result => result.status !== 'not_run').length}.
-      API output differences: ${streamed.filter(result => result.identical === false).length} (needs review).</p>` : '';
+      API output differences: ${streamed.filter(result => result.identical === false).length} (needs review).
+      Execution completed: ${evaluated(streamed).length} / ${totalAll}.
+      Semantic review: ${reviewed(streamed)}</p>${coverageSummary(streamed)}` : '';
+    const concurrent = this.defectResults.filter(result => result.concurrent).map(result => result.concurrent);
+    const waves = this.run?.concurrentWaves || [];
+    const waveMs = waves.map(wave => wave.ms);
+    const concurrentSummary = this.run?.compareConcurrent ? `<p><strong>Concurrent checks clear:</strong>
+      ${concurrent.filter(result => result.pass).length} / ${totalAll} cases.
+      Concurrent execution errors: ${concurrent.filter(result => result.error).length}.
+      Concurrent not run: ${totalAll - concurrent.filter(result => result.status !== 'not_run').length}.
+      Differences from sequential standard output: ${concurrent.filter(result => result.identical === false).length} (needs review).
+      Waves: ${waves.length} of up to ${this.run.concurrency} requests${waveMs.length ?
+        `; mean ${(waveMs.reduce((sum, ms) => sum + ms, 0) / waveMs.length).toFixed(0)} ms, max ${Math.max(...waveMs).toFixed(0)} ms` : ''}.
+      Semantic review: ${reviewed(concurrent)}
+      Batching runs only if the browser enables it; identical output does not prove batching ran.</p>` : '';
 
     container.innerHTML = `
       <div class="defect-summary">
         <strong>Standard checks clear:</strong> ${totalPass} / ${totalAll} cases
         (<span class="${overall >= 80 ? 'good' : overall >= 50 ? 'ok' : 'poor'}">${overall}%</span>)
         for ${targetName}.
-        Semantic review: ${this.defectResults.filter(result => result.humanVerdict === 'acceptable').length} acceptable,
-        ${this.defectResults.filter(result => result.humanVerdict === 'defect').length} defects;
-        ${this.defectResults.filter(result => !result.humanVerdict || result.humanVerdict === 'unreviewed').length} unreviewed.
+        Execution completed: ${evaluated(this.defectResults).length} / ${totalAll}.
+        Semantic review: ${reviewed(this.defectResults)}
         Execution errors: ${this.defectResults.filter(result => result.error).length}.
         Not run: ${notRun}.
         ${this.run?.initializationError ? `<p>Initialization error: ${this.escapeHtml(this.run.initializationError)}</p>` : ''}
         <p>${Object.entries(failureCounts).map(([label, count]) => `${this.escapeHtml(label)}: ${count}`).join('; ')}</p>
+        <p>Checks clear means no automatic rule failed. It does not mean the translation is semantically correct.</p>
+        ${coverageSummary(this.defectResults)}
         ${streamingSummary}
+        ${concurrentSummary}
       </div>
       <table class="inner-table defect-table">
         <thead>
@@ -1466,8 +1562,8 @@ class TranslationQualityBenchmark {
         const summary = document.createElement('summary');
         summary.textContent = `${row.state}: ${row.source}`;
         const body = document.createElement('pre');
-        body.textContent = `Standard (${row.standard.state})\nBefore: ${formatOutcome(row.standard, 'before')}\nAfter: ${formatOutcome(row.standard, 'after')}\nBefore checks: ${(row.beforeFailures || []).join(', ')}\nAfter checks: ${(row.afterFailures || []).join(', ')}`
-          + (row.streaming ? `\nStreaming (${row.streaming.state})\nBefore: ${formatOutcome(row.streaming, 'before')}\nAfter: ${formatOutcome(row.streaming, 'after')}` : '');
+        body.textContent = `Standard (${row.standard.state})\nBefore: ${formatOutcome(row.standard, 'before')}\nAfter: ${formatOutcome(row.standard, 'after')}\nBefore checks: ${(row.beforeFailures || []).join(', ')}\nAfter checks: ${(row.afterFailures || []).join(', ')}\nSemantic verdict: ${row.standard.beforeVerdict} → ${row.standard.afterVerdict}`
+          + (row.streaming ? `\nStreaming (${row.streaming.state})\nBefore: ${formatOutcome(row.streaming, 'before')}\nAfter: ${formatOutcome(row.streaming, 'after')}\nSemantic verdict: ${row.streaming.beforeVerdict} → ${row.streaming.afterVerdict}` : '');
         details.append(summary, body);
         container.appendChild(details);
       }
@@ -1579,30 +1675,45 @@ class TranslationQualityBenchmark {
     if (this.runningAll || this.importing) return;
     const target = document.getElementById('targetLanguage').value;
     if (target === 'en') { this.log('Choose a target other than English.', 'warning'); return; }
+    if (document.getElementById('corpusSelection').value === 'focused' &&
+        !['es', 'ja', 'zh-hans'].includes(target)) {
+      this.log('Focused regressions support es, ja, and zh-hans. Choose a supported target or another corpus.', 'warning');
+      return;
+    }
     const cases = this.getDefectCases();
     const importedOnly = document.getElementById('corpusSelection').value === 'imported';
+    const focused = document.getElementById('corpusSelection').value === 'focused';
     if (importedOnly && !cases.length) { this.log('No imported cases for this pair.', 'warning'); return; }
     const timeoutSeconds = Number(document.getElementById('requestTimeout').value);
     if (!Number.isFinite(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 600) {
       this.log('Request timeout must be between 1 and 600 seconds.', 'warning'); return;
+    }
+    const compareConcurrent = document.getElementById('compareConcurrent').checked;
+    const concurrency = Number(document.getElementById('concurrency').value);
+    if (compareConcurrent && (!Number.isInteger(concurrency) || concurrency < 2 || concurrency > 32)) {
+      this.log('Concurrent requests per wave must be a whole number from 2 to 32.', 'warning'); return;
     }
     this.clearAllResults();
     this.runningAll = true;
     this.runController = new AbortController();
 
     const mode = this.getTestMode();
-    const qualityCases = importedOnly ? [] : mode === 'reference' ? QUALITY_TEST_DATA.filter(test => test.refs[target]) : QUALITY_TEST_DATA;
+    const qualityCases = importedOnly || focused ? [] : mode === 'reference' ? QUALITY_TEST_DATA.filter(test => test.refs[target]) : QUALITY_TEST_DATA;
     const qualityCount = qualityCases.length;
     const defectCount = cases.length;
     this._allTestsTotal = qualityCount + defectCount;
     this.run = { source: 'en', target, mode, timestamp: new Date().toISOString(),
-      browser: this.getBrowserInfo(), userAgent: navigator.userAgent, validatorVersion: QualityChecks.VERSION, harnessVersion: '7',
+      browser: this.getBrowserInfo(), userAgent: navigator.userAgent, validatorVersion: QualityChecks.VERSION, harnessVersion: '8',
+      corpusSelection: document.getElementById('corpusSelection').value,
+      regressionCorpusVersion: focused ? QualityRegressions.VERSION : undefined,
       compareStreaming: document.getElementById('compareStreaming').checked,
+      ...(compareConcurrent ? { compareConcurrent, concurrency, concurrentHarnessVersion: '1' } : {}),
       buildLabel: document.getElementById('buildLabel').value, runtimeLabel: document.getElementById('runtimeLabel').value || 'unknown',
       timeoutSeconds, complete: false, requests: [], corpus: cases, qualityCorpus: qualityCases,
       importMetadata: this.importMetadata || null, importWarnings: this.importWarnings };
     const locked = ['targetLanguageSearch', 'regressionCsv', 'csvEncoding', 'corpusSelection', 'buildLabel',
-      'runtimeLabel', 'requestTimeout', 'compareStreaming', 'clearAllResults', 'snapshotFile', 'compareSnapshot', 'clearSnapshot'];
+      'runtimeLabel', 'requestTimeout', 'compareStreaming', 'compareConcurrent', 'concurrency',
+      'clearAllResults', 'snapshotFile', 'compareSnapshot', 'clearSnapshot'];
     for (const id of locked) document.getElementById(id).disabled = true;
     this.targetSelect.close();
 
@@ -1611,7 +1722,7 @@ class TranslationQualityBenchmark {
     this.defectResults = [];
     document.getElementById('testLog').innerHTML = '';
     document.getElementById('defectResults').innerHTML = '';
-    document.getElementById('overallScore').textContent = '0';
+    document.getElementById('overallScore').textContent = qualityCount ? '0' : 'N/A';
     document.getElementById('completedCount').textContent = '0';
     document.getElementById('avgTime').textContent = '0';
     document.getElementById('totalCount').textContent = qualityCount;
@@ -1627,10 +1738,14 @@ class TranslationQualityBenchmark {
       this.run.corpusHash = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
       if (!this.runController.signal.aborted && qualityCount) await this.runTests();
       if (!this.runController.signal.aborted && !this.run.initializationError && defectCount) await this.runDefectTests();
+      if (!this.runController.signal.aborted && !this.run.initializationError && defectCount &&
+          compareConcurrent) await this.runConcurrentDefectTests();
       this.run.complete = !this.runController.signal.aborted && !this.run.initializationError &&
         this.results.length === qualityCount && this.defectResults.length === defectCount &&
         !this.run.requests.some(request => request.error) &&
-        !this.results.some(result => result.error) && !this.defectResults.some(result => result.error || result.streaming?.error);
+        !this.results.some(result => result.error) && !this.defectResults.some(result => result.error || result.streaming?.error) &&
+        (!compareConcurrent || this.defectResults.every(result => result.concurrent &&
+          !result.concurrent.error && result.concurrent.status !== 'not_run'));
     } catch (error) {
       this.run.error = error.message;
       this.log(`Run failed: ${this.escapeHtml(error.message)}`, 'error');

@@ -153,3 +153,69 @@ test('detects leaked brace markers without rejecting literal source markers', ()
   }
   assert.equal(checks.evaluate({ source: 'Keep {0}.' }, 'Mantenga {0}.').pass, true);
 });
+
+test('detects partial and duplicated brace markers without rejecting literal incomplete source markers', () => {
+  const spec = { source: 'The meeting starts at 2 PM.' };
+  for (const output of ['La reunión empieza a {2 y 2.', 'La reunión empieza a 2} y 2.']) {
+    assert.ok(checks.evaluate(spec, output).failures.includes('synthetic_placeholder_leak'));
+  }
+  const literal = { source: 'Keep the exact literal markers {2} and {3 in this example.' };
+  assert.equal(checks.evaluate(literal, 'Mantenga los marcadores {2} y {3 en este ejemplo.').pass, true);
+  assert.equal(checks.evaluate(literal, 'Mantenga {2} {2} y {3.').pass, false);
+  assert.equal(checks.evaluate({ source: 'Keep {2}.' }, 'Mantenga {2.').pass, false);
+});
+
+test('focused imports retain trusted rule/invariant metadata but reject unknown rules', () => {
+  const regressions = require('./regressions.js');
+  const source = { schemaVersion: 1, kind: 'translation-quality-corpus',
+    source: 'en', target: 'es', cases: regressions.getCases('es') };
+  const imported = checks.importCorpus(source).cases;
+  assert.equal(imported.length, 15);
+  assert.ok(imported.every(row => row.regressionRule && row.expectedInvariant));
+  assert.deepEqual(imported.map(row => row.regressionRule), source.cases.map(row => row.regressionRule));
+  assert.throws(() => checks.importCorpus({ ...source,
+    cases: [{ ...source.cases[0], regressionRule: 'unknown' }] }), /Invalid regression/);
+  assert.throws(() => checks.importCorpus({ ...source,
+    cases: [{ ...source.cases[0], expectedInvariant: '' }] }), /Invalid expected/);
+});
+
+test('semantic review improvements/regressions are tracked independently without inventing verdicts', () => {
+  const spec = { caseId: 'one', source: 'One message.' };
+  const metadata = { complete: true, source: 'en', target: 'es',
+    corpusHash: 'same', validatorVersion: checks.VERSION, harnessVersion: '8', compareStreaming: true };
+  const baseline = { ...metadata, defects: [{ ...spec, output: '1.', pass: true, humanVerdict: 'defect',
+    streaming: { output: '1.', pass: true, humanVerdict: 'acceptable' } }] };
+  const current = { ...metadata, defects: [{ ...spec, output: 'Un mensaje.', pass: true, humanVerdict: 'acceptable',
+    streaming: { output: '1.', pass: true, humanVerdict: 'defect' } }] };
+  const comparison = checks.compare(current, baseline)[0];
+  assert.equal(comparison.standard.state, 'semantic_improvement');
+  assert.equal(comparison.streaming.state, 'semantic_regression');
+  assert.equal(comparison.state, 'semantic_regression');
+  assert.equal(comparison.standard.beforeVerdict, 'defect');
+  assert.equal(comparison.standard.afterVerdict, 'acceptable');
+  const unreviewed = { ...current, defects: [{ ...current.defects[0], humanVerdict: 'unreviewed' }] };
+  assert.equal(checks.compare(unreviewed, baseline)[0].standard.state, 'semantic_review_changed');
+  assert.equal(checks.compare(unreviewed, baseline)[0].standard.afterVerdict, 'unreviewed');
+});
+
+test('recorded noun loss, discount meaning and tenfold budget errors no longer look checks-clear', () => {
+  const regressions = require('./regressions.js');
+  const spec = (lang, source) => {
+    const row = regressions.getCases(lang).find(testCase => testCase.source === source);
+    assert.ok(row, `Missing public regression: ${lang} / ${source}`);
+    return row;
+  };
+  const message = spec('es', '1 message remains unread.');
+  assert.equal(checks.evaluate(message, '1 permanece sin leer.').pass, false);
+  assert.equal(checks.evaluate(message, '1 mensaje permanece sin leer.').pass, true);
+  const discount = spec('es', 'Get 15% off the sample bundle.');
+  assert.equal(checks.evaluate(discount, 'Obtenga 15% del paquete de muestra.').pass, false);
+  assert.equal(checks.evaluate(discount, 'Obtenga un 15% de descuento en el paquete de muestra.').pass, true);
+  const japanese = spec('ja', 'The budget is $42 billion.');
+  assert.equal(checks.evaluate(japanese, '予算は42億ドル。').pass, false);
+  assert.equal(checks.evaluate(japanese, '予算は420億ドルです。').pass, true);
+  const chinese = spec('zh-hans', 'The budget is $42 billion.');
+  assert.equal(checks.evaluate(chinese, '预算为42亿美元。').pass, false);
+  assert.equal(checks.evaluate(chinese, '预算为420亿美元。').pass, true);
+  assert.equal(checks.evaluate(chinese, '预算为420亿美元。').status, 'needs_review');
+});
