@@ -28,7 +28,7 @@
     </nav>
     <header>
       <h1>Translation Quality Benchmark</h1>
-      <p class="subtitle">Translation regression review</p>
+      <p class="subtitle">Automated invariant, boundary, and reference quality suite (auto-loaded)</p>
       <div class="api-status" id="apiStatus">
         <span class="status-indicator" id="statusIndicator"></span>
         <span id="statusText">Checking API availability...</span>
@@ -36,12 +36,11 @@
     </header>
 
     <main>
-      <!-- Language Pair Selection -->
       <section class="card">
-        <h2>Language Pair Configuration</h2>
-        <div class="form-row">
+        <!-- Primary Top Row: Languages, Built-in Suite Selector, and Run Label -->
+        <div class="form-row quality-top-row">
           <div class="form-group">
-            <label for="sourceLanguage">Source Language:</label>
+            <label for="sourceLanguage">Source Language</label>
             <div class="searchable-select-container">
               <input type="text" id="sourceLanguageSearch" class="searchable-select-input"
                 placeholder="Type to search languages..." autocomplete="off">
@@ -55,7 +54,7 @@
             </button>
           </div>
           <div class="form-group">
-            <label for="targetLanguage">Target Language:</label>
+            <label for="targetLanguage">Target Language</label>
             <div class="searchable-select-container">
               <input type="text" id="targetLanguageSearch" class="searchable-select-input"
                 placeholder="Type to search languages..." autocomplete="off">
@@ -63,7 +62,90 @@
               <input type="hidden" id="targetLanguage" value="es">
             </div>
           </div>
+          <div class="form-group">
+            <label for="corpusSelection">Built-in Test Suite (Auto-Loaded)</label>
+            <select id="corpusSelection">
+              <option value="focused">Focused Quality Regressions (18 cases)</option>
+              <option value="builtin">Full Built-in Suite (References + Checks)</option>
+              <option value="combined">Built-in + Custom Imported Rows</option>
+              <option value="imported">Custom Imported Rows Only</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="buildLabel">Current Run Label</label>
+            <input id="buildLabel" type="text" placeholder="e.g. Local Build, Edge Canary, Chrome">
+          </div>
         </div>
+
+        <!-- Inline Mode & Comparison Toggles -->
+        <div class="quality-options-bar">
+          <div class="quality-toggles">
+            <label class="stage-pill" for="compareStreaming">
+              <input id="compareStreaming" type="checkbox" checked>
+              <span>🔄 Compare Streaming (<code>translateStreaming</code>)</span>
+            </label>
+            <label class="stage-pill" for="compareConcurrent">
+              <input id="compareConcurrent" type="checkbox">
+              <span>⚡ Compare Concurrent / Batched Wave</span>
+            </label>
+          </div>
+          <div class="quality-suite-badge">
+            <span class="mode-badge" id="modeBadge">Focused</span>
+            <span id="defectInfoText">18 cases auto-loaded.</span>
+          </div>
+        </div>
+
+        <!-- Action Controls -->
+        <div class="bench-controls">
+          <button id="runAllTests" class="btn btn-primary" disabled>▶ Run Quality Benchmark</button>
+          <button id="stopAllTests" class="btn btn-secondary" disabled>⏹ Stop</button>
+          <button id="copyAllResults" class="btn btn-secondary" disabled>📋 Copy Results</button>
+          <button id="saveSnapshot" class="btn btn-secondary" disabled>💾 Save as Baseline</button>
+          <button id="compareSnapshot" class="btn btn-secondary">📊 Compare to Baseline</button>
+          <button id="exportRun" class="btn btn-secondary" disabled>⬇ Export JSON</button>
+          <label class="btn btn-secondary file-btn" for="snapshotFile">📂 Import Baseline JSON</label>
+          <input id="snapshotFile" type="file" accept=".json,application/json" style="display: none;">
+          <button id="clearSnapshot" class="btn btn-secondary">🗑 Clear Baselines</button>
+          <button id="clearAllResults" class="btn btn-secondary">Reset</button>
+        </div>
+
+        <!-- Collapsible Advanced Settings & Optional External Corpus Import -->
+        <details class="advanced-drawer">
+          <summary>⚙️ Advanced Options &amp; Custom CSV/JSON Corpus Import (Optional — built-in suites load automatically)</summary>
+          <div class="advanced-drawer__body">
+            <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+              <div class="form-group">
+                <label for="runtimeLabel">ORT / GenAI / Model Version</label>
+                <input id="runtimeLabel" type="text" placeholder="Unknown">
+              </div>
+              <div class="form-group">
+                <label for="requestTimeout">Request Timeout (sec)</label>
+                <input id="requestTimeout" type="number" min="1" max="600" value="60">
+              </div>
+              <div class="form-group">
+                <label for="concurrency">Concurrent Requests / Wave</label>
+                <input id="concurrency" type="number" min="2" max="32" value="8">
+              </div>
+              <div class="form-group">
+                <label for="regressionCsv">Import Custom CSV / JSON Corpus</label>
+                <input id="regressionCsv" type="file" accept=".csv,.json,text/csv,application/json">
+              </div>
+              <div class="form-group">
+                <label for="csvEncoding">CSV Encoding</label>
+                <select id="csvEncoding">
+                  <option value="auto">Auto: UTF-8 / Windows-1252</option>
+                  <option value="utf-8">UTF-8</option>
+                  <option value="windows-1252">Windows-1252</option>
+                </select>
+              </div>
+            </div>
+            <div id="corpusStatus" class="field-hint" role="status">Built-in regression corpus auto-loaded.</div>
+            <div class="test-mode-info" id="testModeInfo" style="margin-top: 8px; margin-bottom: 0;">
+              <span id="modeDescription">Select languages to see test mode</span>
+            </div>
+            <div class="defect-info" id="defectInfo" style="display: none;"></div>
+          </div>
+        </details>
 
         <div class="progress-container" id="downloadProgress" style="display: none;">
           <div class="progress-bar">
@@ -72,105 +154,28 @@
           <div class="progress-text" id="progressText">0%</div>
         </div>
         <div id="initResult" class="result-box" style="display: none;"></div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="buildLabel">Build / experiment label</label>
-            <input id="buildLabel" type="text" placeholder="e.g. baseline, numeric masking off">
-          </div>
-          <div class="form-group">
-            <label for="runtimeLabel">ORT / GenAI / model-pack versions (manual)</label>
-            <input id="runtimeLabel" type="text" placeholder="Unknown">
-          </div>
-          <div class="form-group">
-            <label for="requestTimeout">Request timeout (seconds)</label>
-            <input id="requestTimeout" type="number" min="1" max="600" value="60">
-          </div>
-          <div class="form-group">
-            <label for="compareStreaming"><input id="compareStreaming" type="checkbox"> Compare streaming output</label>
-          </div>
-          <div class="form-group">
-            <label for="compareConcurrent"><input id="compareConcurrent" type="checkbox"> Compare concurrent (batched) output</label>
-          </div>
-          <div class="form-group">
-            <label for="concurrency">Concurrent requests per wave</label>
-            <input id="concurrency" type="number" min="2" max="32" value="8">
-          </div>
-        </div>
-        <p class="field-hint">Concurrent comparison repeats each case as overlapping standard
-          requests so the browser can batch them, then compares each output with the
-          sequential standard output. Batching runs only if the browser enables it; identical
-          output does not prove batching ran.</p>
-      </section>
 
-      <!-- Translation Tests -->
-      <section class="card">
-        <h2>Translation Tests</h2>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="regressionCsv">Local corpus (CSV or focused JSON)</label>
-            <input id="regressionCsv" type="file" accept=".csv,.json,text/csv,application/json">
-          </div>
-          <div class="form-group">
-            <label for="csvEncoding">CSV encoding</label>
-            <select id="csvEncoding">
-              <option value="auto">Auto: UTF-8 / Windows-1252</option>
-              <option value="utf-8">UTF-8</option>
-              <option value="windows-1252">Windows-1252</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="corpusSelection">Corpus</label>
-            <select id="corpusSelection">
-              <option value="focused">Focused quality regressions (15 cases)</option>
-              <option value="builtin">Built-in checks</option>
-              <option value="combined">Built-in + imported rows</option>
-              <option value="imported">Imported rows only</option>
-            </select>
-          </div>
-        </div>
-        <div id="corpusStatus" role="status">No corpus imported.</div>
-
-        <div class="test-mode-info" id="testModeInfo">
-          <span class="mode-badge" id="modeBadge">--</span>
-          <span id="modeDescription">Select languages to see test mode</span>
-        </div>
-
-        <div class="defect-info" id="defectInfo">
-          <span id="defectInfoText">Select a target language to see how many cases will run.</span>
-        </div>
-
-        <div class="bench-controls">
-          <button id="runAllTests" class="btn btn-primary" disabled>Run Tests</button>
-          <button id="stopAllTests" class="btn btn-secondary" disabled>Stop</button>
-          <button id="copyAllResults" class="btn btn-secondary" disabled>📋 Copy Results</button>
-          <button id="clearAllResults" class="btn btn-secondary">Clear Results</button>
-        </div>
-        <div class="bench-controls">
-          <button id="saveSnapshot" class="btn btn-secondary" disabled>💾 Save Snapshot</button>
-          <button id="compareSnapshot" class="btn btn-secondary">📊 Compare to Snapshot</button>
-          <button id="clearSnapshot" class="btn btn-secondary">🗑 Clear Saved Baselines</button>
-          <button id="exportRun" class="btn btn-secondary" disabled>Download Run JSON</button>
-          <label for="snapshotFile">Baseline JSON</label>
-          <input id="snapshotFile" type="file" accept=".json,application/json">
-        </div>
-
-        <!-- Score Summary (quality stats) -->
-        <div class="score-grid">
-          <div class="score-item">
-            <div class="score-value" id="overallScore">0</div>
-            <div class="score-label">Text Similarity (0-100)</div>
+        <!-- Unified Quality Scorecard -->
+        <div class="score-grid quality-scorecard">
+          <div class="score-item score-item--hero">
+            <div class="score-label">🏆 Checks Clear</div>
+            <div class="score-value" id="checksClearScore">0 / 18</div>
+            <div class="score-sub" id="checksClearSub">Automatic invariant checks</div>
           </div>
           <div class="score-item">
-            <div class="score-value" id="completedCount">0</div>
-            <div class="score-label">Similarity Cases Run</div>
+            <div class="score-label">Streaming Parity</div>
+            <div class="score-value" id="streamingParityScore">—</div>
+            <div class="score-sub" id="streamingParitySub">translate() vs streaming</div>
           </div>
           <div class="score-item">
-            <div class="score-value" id="totalCount">0</div>
-            <div class="score-label">Similarity Cases Total</div>
+            <div class="score-label">Reference BLEU</div>
+            <div class="score-value" id="overallScore">N/A</div>
+            <div class="score-sub"><span id="completedCount">0</span> / <span id="totalCount">0</span> ref cases</div>
           </div>
           <div class="score-item">
-            <div class="score-value" id="avgTime">0</div>
-            <div class="score-label">Avg Case Time (ms)</div>
+            <div class="score-label">Avg Case Time</div>
+            <div class="score-value"><span id="avgTime">0</span></div>
+            <div class="score-sub">ms per case</div>
           </div>
         </div>
 
@@ -191,19 +196,6 @@
           <h3>Test Log</h3>
           <div class="test-log" id="testLog"></div>
         </div>
-      </section>
-
-      <!-- Known Issues Report -->
-      <section class="card">
-        <h2>Known Translation Defects</h2>
-        <div class="info-banner">
-          <h3>🐛 Known On-Device Translation Defects</h3>
-          <p>13 categories of recurring translation defects observed in the on-device model. Click
-            a category to expand examples. Each category has matching tests in the Translation Tests
-            section above.</p>
-        </div>
-        <div class="issues-summary" id="issuesSummary"></div>
-        <div class="issues-list" id="issuesList"></div>
       </section>
     </main>
 

@@ -98,10 +98,9 @@ const LANGUAGE_NAMES = {
 // Simulates a real web page with ~300 text segments of varying types and lengths.
 // Modeled after typical content-heavy pages (news, docs, e-commerce).
 
-// Numbers, URLs and emails are replaced with placeholder markup before the
-// model sees them, and that markup is tokenized one token per character, so
-// these segments cost far more than their length suggests.
-const PROTECTED_SPAN_RE = /\b\d+(?:[.,]\d+)*|https?:\/\/\S+|\bwww\.\S+|\S+@\S+\.\w+/;
+// Numbers (excluding prose percentages like 15%), URLs, relative query paths,
+// and emails use phrase-fix span annotations before the model sees them.
+const PROTECTED_SPAN_RE = /\b\d+(?:[.,]\d+)*(?![.,]?\d|\s*%)|https?:\/\/\S+|\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+\?[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+|\bwww\.\S+|\S+@\S+\.\w+/;
 
 const PAGE_SIM_SEGMENTS = {
   nav: [
@@ -196,6 +195,9 @@ const PAGE_SIM_SEGMENTS = {
     'Join our Discord community',
     'Watch the tutorial video',
     'Read the full documentation',
+    'Docs: https://example.com/docs/2.8.15?id=676',
+    'Release path: /docs/release/2.8.15?id=676',
+    'Support: support@example.com',
     'Report a bug or issue',
     'Request a new feature',
     'Table of Contents',
@@ -402,6 +404,17 @@ class TranslationSpeedBenchmark {
     document.getElementById('runPageSim').addEventListener('click', () => this.measurePageSimulation());
     document.getElementById('runConcurrency').addEventListener('click', () => this.measureConcurrency());
 
+    const saveSnapBtn = document.getElementById('saveSpeedSnapshot');
+    if (saveSnapBtn) saveSnapBtn.addEventListener('click', () => this.saveSnapshot());
+    const cmpSnapBtn = document.getElementById('compareSpeedSnapshot');
+    if (cmpSnapBtn) cmpSnapBtn.addEventListener('click', () => this.compareSnapshot());
+    const expRunBtn = document.getElementById('exportSpeedRun');
+    if (expRunBtn) expRunBtn.addEventListener('click', () => this.exportRun());
+    const clrSnapBtn = document.getElementById('clearSpeedSnapshot');
+    if (clrSnapBtn) clrSnapBtn.addEventListener('click', () => this.clearSnapshot());
+    const snapFile = document.getElementById('speedSnapshotFile');
+    if (snapFile) snapFile.addEventListener('change', (e) => this.importSnapshot(e.target.files[0]));
+
     document.getElementById('sourceLanguage').addEventListener('change', () => this.resetTranslator());
     document.getElementById('targetLanguage').addEventListener('change', () => this.resetTranslator());
   }
@@ -471,6 +484,8 @@ class TranslationSpeedBenchmark {
       const initTime = (performance.now() - startTime).toFixed(2);
       progressContainer.style.display = 'none';
       document.getElementById('initTime').textContent = initTime;
+      const initMirror = document.getElementById('initTimeMirror');
+      if (initMirror) initMirror.textContent = initTime;
       this.showInitResult(
         `Translator initialized: ${LANGUAGE_NAMES[sourceLanguage] || sourceLanguage} → ${LANGUAGE_NAMES[targetLanguage] || targetLanguage} (${initTime} ms)`,
         'success'
@@ -487,8 +502,48 @@ class TranslationSpeedBenchmark {
   resetTranslator() {
     this.translator = null;
     document.getElementById('initTime').textContent = '0';
+    const initMirror = document.getElementById('initTimeMirror');
+    if (initMirror) initMirror.textContent = '0';
     document.getElementById('initResult').style.display = 'none';
     document.getElementById('saveResults').disabled = true;
+    const saveSnapBtn = document.getElementById('saveSpeedSnapshot');
+    if (saveSnapBtn) saveSnapBtn.disabled = true;
+    const expRunBtn = document.getElementById('exportSpeedRun');
+    if (expRunBtn) expRunBtn.disabled = true;
+  }
+
+  enableResultActions() {
+    const saveBtn = document.getElementById('saveResults');
+    if (saveBtn) saveBtn.disabled = false;
+    const saveSnapBtn = document.getElementById('saveSpeedSnapshot');
+    if (saveSnapBtn) saveSnapBtn.disabled = false;
+    const expRunBtn = document.getElementById('exportSpeedRun');
+    if (expRunBtn) expRunBtn.disabled = false;
+    this.updateOverallScore();
+  }
+
+  updateOverallScore() {
+    const num = id => {
+      const val = parseFloat(String(document.getElementById(id)?.textContent || '0').replace(/[^0-9.-]/g, ''));
+      return Number.isFinite(val) && val > 0 ? val : 0;
+    };
+    const pillars = [
+      num('singleScoreCps'),
+      num('avgThroughput'),
+      num('batchPrimaryThroughput') || num('batchConcThroughput') || num('batchThroughput'),
+      num('cmpStreamCps'),
+      num('simScoreCps'),
+    ].filter(v => v > 0);
+
+    const overallEl = document.getElementById('overallSpeedScore');
+    if (!overallEl) return 0;
+    if (!pillars.length) {
+      overallEl.textContent = '0';
+      return 0;
+    }
+    const geoMean = Math.round(Math.exp(pillars.reduce((sum, v) => sum + Math.log(v), 0) / pillars.length));
+    overallEl.textContent = String(geoMean);
+    return geoMean;
   }
 
   swapLanguages() {
@@ -515,9 +570,18 @@ class TranslationSpeedBenchmark {
     const text = "The rapid advancement of artificial intelligence has fundamentally transformed how businesses operate across virtually every industry. Companies are leveraging machine learning algorithms to automate complex processes and predict market trends.";
     const start = performance.now();
     await this.translator.translate(text);
-    const duration = (performance.now() - start).toFixed(2);
+    const ms = performance.now() - start;
+    const duration = ms.toFixed(2);
+    const cps = ms > 0 ? Math.round((text.length / ms) * 1000) : 0;
 
     document.getElementById('singleLatency').textContent = duration;
+    const latMirror = document.getElementById('singleLatencyMirror');
+    if (latMirror) latMirror.textContent = duration;
+    const cpsEl = document.getElementById('singleScoreCps');
+    if (cpsEl) cpsEl.textContent = String(cps);
+    const cpsMirror = document.getElementById('singleCpsMirror');
+    if (cpsMirror) cpsMirror.textContent = String(cps);
+    this.enableResultActions();
     this.showStatus('Ready');
   }
 
@@ -543,31 +607,74 @@ class TranslationSpeedBenchmark {
 
     const avg = Math.round(totalCps / THROUGHPUT_TEXTS.length);
     document.getElementById('avgThroughput').textContent = avg;
+    const avgMirror = document.getElementById('avgThroughputMirror');
+    if (avgMirror) avgMirror.textContent = avg;
     scratch.innerHTML = '&nbsp;';
+    this.enableResultActions();
     this.showStatus('Ready');
   }
 
   async measureBatch() {
     if (!(await this.ensureTranslator())) return;
-    this.showStatus('Running batch benchmark...', true);
+    this.showStatus('Running sequential batch benchmark (1×15)...', true);
 
-    const batchStart = performance.now();
-    let totalChars = 0;
+    const totalChars = BENCHMARK_TEXTS.reduce((sum, text) => sum + text.length, 0);
+    const seqStart = performance.now();
 
     for (let i = 0; i < BENCHMARK_TEXTS.length; i++) {
-      this.setProgress(Math.round(((i + 1) / BENCHMARK_TEXTS.length) * 100));
+      this.setProgress(Math.round(((i + 1) / (BENCHMARK_TEXTS.length * 2)) * 100));
       const text = BENCHMARK_TEXTS[i];
-      totalChars += text.length;
       await this.translator.translate(text);
     }
 
-    const totalMs = performance.now() - batchStart;
-    const cps = Math.round((totalChars / totalMs) * 1000);
+    const seqMs = performance.now() - seqStart;
+    const seqCps = Math.round((totalChars / seqMs) * 1000);
 
-    document.getElementById('batchThroughput').textContent = cps;
-    document.getElementById('batchTotalTime').textContent = totalMs.toFixed(1);
+    document.getElementById('batchThroughput').textContent = seqCps;
+    document.getElementById('batchTotalTime').textContent = seqMs.toFixed(1);
+
+    this.showStatus('Running concurrent batch benchmark (15×1 Promise.all)...', true);
+    let completed = 0;
+    const concStart = performance.now();
+    await Promise.all(BENCHMARK_TEXTS.map(text =>
+      this.translator.translate(text).then(res => {
+        completed++;
+        this.setProgress(50 + Math.round((completed / BENCHMARK_TEXTS.length) * 50));
+        return res;
+      })
+    ));
+    const concMs = performance.now() - concStart;
+    const concCps = Math.round((totalChars / concMs) * 1000);
+    const speedup = concMs > 0 ? (seqMs / concMs) : 1;
+    const speedupText = `${speedup.toFixed(2)}\u00d7`;
+
+    const concTimeEl = document.getElementById('batchConcTime');
+    if (concTimeEl) concTimeEl.textContent = concMs.toFixed(1);
+    const concCpsEl = document.getElementById('batchConcThroughput');
+    if (concCpsEl) concCpsEl.textContent = concCps;
+    const speedupEl = document.getElementById('batchSpeedup');
+    if (speedupEl) speedupEl.textContent = speedupText;
+    const primaryEl = document.getElementById('batchPrimaryThroughput');
+    if (primaryEl) primaryEl.textContent = concCps;
+    const concMirrorEl = document.getElementById('batchConcMirror');
+    if (concMirrorEl) concMirrorEl.textContent = concCps;
+    const seqSumEl = document.getElementById('batchSeqSummary');
+    if (seqSumEl) seqSumEl.textContent = seqMs.toFixed(1);
+    const concSumEl = document.getElementById('batchConcSummary');
+    if (concSumEl) concSumEl.textContent = concMs.toFixed(1);
+    const badgeEl = document.getElementById('batchSpeedupBadge');
+    if (badgeEl) badgeEl.textContent = speedupText;
+    const highlightEl = document.getElementById('batchSpeedupHighlight');
+    if (highlightEl) {
+      highlightEl.style.display = 'block';
+      const mirrorBadgeEl = document.getElementById('batchSpeedupMirror');
+      if (mirrorBadgeEl) mirrorBadgeEl.textContent = `${speedupText} (${seqCps} \u2192 ${concCps} chars/sec)`;
+    }
+
+    this.batchResult = { totalChars, seqMs, seqCps, concMs, concCps, speedup };
     this.setProgress(100);
     this.showStatus('Ready');
+    this.enableResultActions();
   }
 
   async measureStreamingComparison() {
@@ -607,6 +714,12 @@ class TranslationSpeedBenchmark {
     document.getElementById('cmpStreamCps').textContent = streamCps;
     document.getElementById('cmpStreamChunks').textContent = chunks;
     document.getElementById('cmpFirstChunk').textContent = firstChunkTime;
+    const firstMirror = document.getElementById('cmpFirstChunkMirror');
+    if (firstMirror) firstMirror.textContent = firstChunkTime;
+    const cpsMirror = document.getElementById('cmpStreamCpsMirror');
+    if (cpsMirror) cpsMirror.textContent = streamCps;
+    const primaryStreamEl = document.getElementById('cmpStreamPrimaryCps');
+    if (primaryStreamEl) primaryStreamEl.textContent = streamCps;
 
     // Overhead
     const overhead = ((parseFloat(streamMs) / parseFloat(syncMs) - 1) * 100).toFixed(1);
@@ -739,13 +852,23 @@ class TranslationSpeedBenchmark {
       ? (bySpan.withSpans.totalTime / bySpan.withSpans.totalLen * 100) : 0;
     const noPer100 = bySpan.noSpans.totalLen > 0
       ? (bySpan.noSpans.totalTime / bySpan.noSpans.totalLen * 100) : 0;
-    document.getElementById('simSpanTax').textContent =
-      noPer100 > 0 ? (withPer100 / noPer100).toFixed(2) + '\u00d7' : '-';
+    const taxStr = noPer100 > 0 ? (withPer100 / noPer100).toFixed(2) + '\u00d7' : '-';
+    document.getElementById('simSpanTax').textContent = taxStr;
+    const taxMirror = document.getElementById('simSpanTaxMirror');
+    if (taxMirror) taxMirror.textContent = taxStr;
+    const simCps = totalTime > 0 ? Math.round((totalChars / totalTime) * 1000) : 0;
+    const simScoreEl = document.getElementById('simScoreCps');
+    if (simScoreEl) simScoreEl.textContent = String(simCps);
+    const simScoreMirror = document.getElementById('simScoreCpsMirror');
+    if (simScoreMirror) simScoreMirror.textContent = String(simCps);
     this.pageSimResult.spanTax = { withPer100, noPer100, bySpan };
+    this.pageSimResult.cps = simCps;
 
     progressEl.style.display = 'none';
     btn.disabled = false;
-    btn.textContent = 'Run Page Simulation';
+    if (btn.tagName === 'BUTTON') btn.textContent = 'Run Page Simulation';
+    else btn.textContent = '↻';
+    this.enableResultActions();
     this.showStatus('Ready');
   }
 
@@ -847,17 +970,267 @@ class TranslationSpeedBenchmark {
       await this.measureBatch();
 
       // 5. Streaming comparison
-      this.setProgress(90);
+      this.setProgress(75);
       await this.measureStreamingComparison();
+
+      // 6. Real-World Page Mix
+      this.setProgress(88);
+      await this.measurePageSimulation();
 
       this.setProgress(100);
       this.showStatus('Complete');
-      document.getElementById('saveResults').disabled = false;
+      this.enableResultActions();
+      if (this.hasAnyBaseline()) {
+        this.compareSnapshot();
+      }
     } catch (error) {
       this.showStatus(`Error: ${error.message}`);
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Measure All';
+      btn.textContent = '▶ Run Full Speed Benchmark';
+    }
+  }
+
+  // ── Baseline Snapshots & Comparison (Edge Canary / Chrome / Custom) ───
+
+  snapshotKey(slot = null) {
+    const src = document.getElementById('sourceLanguage')?.value || 'en';
+    const tgt = document.getElementById('targetLanguage')?.value || 'es';
+    if (!slot) return `speed-run-v1-${src}-${tgt}`;
+    return `speed-run-v1-${slot}-${src}-${tgt}`;
+  }
+
+  hasAnyBaseline() {
+    if (this.baseline || (this.baselines && Object.keys(this.baselines).length > 0)) return true;
+    for (const slot of ['canary', 'chrome', 'custom', null]) {
+      if (localStorage.getItem(this.snapshotKey(slot))) return true;
+    }
+    return false;
+  }
+
+  buildSnapshot() {
+    const sourceLanguage = document.getElementById('sourceLanguage')?.value || 'en';
+    const targetLanguage = document.getElementById('targetLanguage')?.value || 'es';
+    const num = id => {
+      const text = document.getElementById(id)?.textContent ?? '0';
+      const parsed = parseFloat(String(text).replace(/[^0-9.-]/g, ''));
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    const overallScoreCps = this.updateOverallScore();
+    return {
+      schemaVersion: 1,
+      kind: 'translation-speed-snapshot',
+      timestamp: new Date().toISOString(),
+      buildLabel: document.getElementById('speedBuildLabel')?.value?.trim() || this.getBrowserInfo(),
+      browser: this.getBrowserInfo(),
+      gpu: this.getGpuInfo(),
+      source: sourceLanguage,
+      target: targetLanguage,
+      metrics: {
+        overallScoreCps,
+        initMs: num('initTime'),
+        singleLatencyMs: num('singleLatency'),
+        singleScoreCps: num('singleScoreCps'),
+        avgThroughputCps: num('avgThroughput'),
+        batchSeqThroughputCps: num('batchThroughput'),
+        batchSeqTotalMs: num('batchTotalTime'),
+        batchConcThroughputCps: num('batchConcThroughput'),
+        batchConcTotalMs: num('batchConcTime'),
+        batchSpeedup: num('batchSpeedup'),
+        syncTimeMs: num('cmpSyncTime'),
+        streamTimeMs: num('cmpStreamTime'),
+        streamCps: num('cmpStreamCps'),
+        firstChunkMs: num('cmpFirstChunk'),
+        streamChunks: num('cmpStreamChunks'),
+        pageSimTotalMs: num('simTotalTime'),
+        pageSimAvgMs: num('simAvgPerCall'),
+        pageSimCps: num('simScoreCps'),
+        spanPer100Ms: num('simSpanPer100'),
+        prosePer100Ms: num('simNoSpanPer100'),
+        spanTax: num('simSpanTax'),
+        conc1Ms: num('conc1Time'),
+        conc2Ms: num('conc2Time'),
+        conc4Ms: num('conc4Time'),
+        conc8Ms: num('conc8Time'),
+        concBestSpeedup: num('concBestSpeedup'),
+      },
+    };
+  }
+
+  static compareSnapshots(current, prior) {
+    if (!current?.metrics || !prior?.metrics) {
+      throw new Error('Both current and baseline snapshots must include metrics.');
+    }
+    if (current.source !== prior.source || current.target !== prior.target) {
+      throw new Error(`Language pair mismatch: ${current.source}→${current.target} vs ${prior.source}→${prior.target}.`);
+    }
+    const defs = [
+      { key: 'overallScoreCps', label: '🏆 Overall Speed Score (chars/sec)', unit: 'chars/sec', lowerBetter: false },
+      { key: 'singleScoreCps', label: '1. Single Call Speed (chars/sec)', unit: 'chars/sec', lowerBetter: false },
+      { key: 'singleLatencyMs', label: '   Single Call Latency (ms)', unit: 'ms', lowerBetter: true },
+      { key: 'avgThroughputCps', label: '2. Long-Passage Throughput (chars/sec)', unit: 'chars/sec', lowerBetter: false },
+      { key: 'batchConcThroughputCps', label: '3. Batched 15× Throughput (chars/sec)', unit: 'chars/sec', lowerBetter: false },
+      { key: 'batchConcTotalMs', label: '   Batched 15× Total Time (ms)', unit: 'ms', lowerBetter: true },
+      { key: 'batchSeqTotalMs', label: '   Sequential 1×15 Total Time (ms)', unit: 'ms', lowerBetter: true },
+      { key: 'batchSpeedup', label: '   Batching Speedup (×)', unit: '×', lowerBetter: false },
+      { key: 'streamCps', label: '4. Streaming Throughput (chars/sec)', unit: 'chars/sec', lowerBetter: false },
+      { key: 'firstChunkMs', label: '   Streaming 1st Chunk (ms)', unit: 'ms', lowerBetter: true },
+      { key: 'pageSimCps', label: '5. Real-Page Mix Speed (chars/sec)', unit: 'chars/sec', lowerBetter: false },
+      { key: 'pageSimTotalMs', label: '   Page Simulation Total (ms)', unit: 'ms', lowerBetter: true },
+      { key: 'spanTax', label: '   Protected-Span Tax (×)', unit: '×', lowerBetter: true },
+      { key: 'initMs', label: 'Translator Init (ms)', unit: 'ms', lowerBetter: true },
+    ];
+    return defs.flatMap(def => {
+      const before = prior.metrics[def.key] || 0;
+      const after = current.metrics[def.key] || 0;
+      if (before <= 0 && after <= 0) return [];
+      const deltaPct = before > 0 ? ((after - before) / before) * 100 : null;
+      const improved = deltaPct === null ? null : def.lowerBetter ? deltaPct < -1 : deltaPct > 1;
+      const regressed = deltaPct === null ? null : def.lowerBetter ? deltaPct > 1 : deltaPct < -1;
+      return [{
+        ...def,
+        before,
+        after,
+        deltaPct,
+        status: improved ? 'improved' : regressed ? 'regressed' : 'neutral',
+      }];
+    });
+  }
+
+  saveSnapshot() {
+    try {
+      const slot = document.getElementById('baselineSlotSelect')?.value || 'canary';
+      const slotNames = { canary: 'Edge Canary', chrome: 'Chrome', custom: 'Custom Baseline' };
+      const snapshot = this.buildSnapshot();
+      if (!document.getElementById('speedBuildLabel')?.value?.trim()) {
+        snapshot.buildLabel = slotNames[slot] || snapshot.buildLabel;
+      }
+      snapshot.slot = slot;
+      localStorage.setItem(this.snapshotKey(slot), JSON.stringify(snapshot));
+      localStorage.setItem(this.snapshotKey(null), JSON.stringify(snapshot));
+      this.baselines = this.baselines || {};
+      this.baselines[slot] = snapshot;
+      this.baseline = snapshot;
+      this.showInitResult(`Saved ${slotNames[slot] || slot} baseline: ${snapshot.buildLabel} (${snapshot.source} → ${snapshot.target})`, 'success');
+    } catch (error) {
+      this.showInitResult(`Failed to save baseline: ${error.message}`, 'error');
+    }
+  }
+
+  async importSnapshot(file) {
+    if (!file) return;
+    try {
+      const snapshot = JSON.parse(await file.text());
+      if (snapshot.kind !== 'translation-speed-snapshot' || !snapshot.metrics) {
+        throw new Error('Invalid speed benchmark snapshot JSON.');
+      }
+      const slot = document.getElementById('baselineSlotSelect')?.value || snapshot.slot || 'custom';
+      this.baselines = this.baselines || {};
+      this.baselines[slot] = snapshot;
+      this.baseline = snapshot;
+      localStorage.setItem(this.snapshotKey(slot), JSON.stringify(snapshot));
+      this.showInitResult(`Imported baseline into ${slot}: ${snapshot.buildLabel || snapshot.browser} (${snapshot.source} → ${snapshot.target})`, 'success');
+    } catch (error) {
+      this.showInitResult(`Baseline import failed: ${error.message}`, 'error');
+    }
+  }
+
+  exportRun() {
+    const snapshot = this.buildSnapshot();
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `translation-speed-${snapshot.source}-${snapshot.target}-${snapshot.timestamp.replace(/[:.]/g, '-')}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  clearSnapshot() {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('speed-run-v1-')) localStorage.removeItem(key);
+    }
+    this.baseline = null;
+    this.baselines = {};
+    const cmpEl = document.getElementById('speedSnapshotComparison');
+    if (cmpEl) {
+      cmpEl.style.display = 'none';
+      cmpEl.innerHTML = '';
+    }
+    const fileInput = document.getElementById('speedSnapshotFile');
+    if (fileInput) fileInput.value = '';
+    this.showInitResult('Cleared saved speed baselines.', 'info');
+  }
+
+  getAvailableBaselines() {
+    const list = [];
+    const seen = new Set();
+    for (const [slot, fallbackName] of [['canary', 'Edge Canary'], ['chrome', 'Chrome'], ['custom', 'Custom']]) {
+      const snap = this.baselines?.[slot] || JSON.parse(localStorage.getItem(this.snapshotKey(slot)) || 'null');
+      if (snap && snap.metrics) {
+        seen.add(JSON.stringify([snap.timestamp, snap.buildLabel]));
+        list.push({ slot, title: snap.buildLabel || fallbackName, snapshot: snap });
+      }
+    }
+    if (!list.length) {
+      const legacy = this.baseline || JSON.parse(localStorage.getItem(this.snapshotKey(null)) || 'null');
+      if (legacy && legacy.metrics) {
+        list.push({ slot: 'baseline', title: legacy.buildLabel || legacy.browser || 'Baseline', snapshot: legacy });
+      }
+    }
+    return list;
+  }
+
+  compareSnapshot() {
+    const cmpEl = document.getElementById('speedSnapshotComparison');
+    if (!cmpEl) return;
+    try {
+      const baselines = this.getAvailableBaselines();
+      if (!baselines.length) throw new Error('No saved or imported baselines found for this language pair.');
+      const current = this.buildSnapshot();
+      const comparisons = baselines.map(b => ({
+        title: b.title,
+        rows: new Map(TranslationSpeedBenchmark.compareSnapshots(current, b.snapshot).map(r => [r.key, r])),
+      }));
+      const allKeys = [];
+      for (const c of comparisons) {
+        for (const [k, r] of c.rows) {
+          if (!allKeys.some(item => item.key === k)) allKeys.push({ key: k, label: r.label, after: r.after });
+        }
+      }
+      if (!allKeys.length) throw new Error('Run at least one benchmark test before comparing.');
+
+      const headerCols = comparisons.map(c => `<th>${c.title}</th><th>vs. ${c.title}</th>`).join('');
+      const bodyRows = allKeys.map(item => {
+        const cols = comparisons.map(c => {
+          const row = c.rows.get(item.key);
+          if (!row) return '<td>—</td><td>—</td>';
+          const deltaStr = row.deltaPct === null ? '—' : `${row.deltaPct > 0 ? '+' : ''}${row.deltaPct.toFixed(1)}%`;
+          const color = row.status === 'improved' ? 'var(--success-color, #10b981)'
+            : row.status === 'regressed' ? 'var(--error-color, #ef4444)' : 'var(--text-secondary)';
+          return `<td>${row.before}</td><td style="font-weight:700; color:${color};">${deltaStr}</td>`;
+        }).join('');
+        return `<tr>
+          <td style="text-align:left; font-weight:${item.key === 'overallScoreCps' ? '700' : '500'};">${item.label}</td>
+          <td style="font-weight:700;">${item.after}</td>
+          ${cols}
+        </tr>`;
+      }).join('');
+
+      cmpEl.style.display = 'block';
+      cmpEl.innerHTML = `
+        <h3>📊 Speed Comparison: ${current.buildLabel || current.browser} vs. ${comparisons.map(c => c.title).join(' & ')}</h3>
+        <table class="inner-table" style="width:100%;">
+          <thead>
+            <tr><th style="text-align:left;">Benchmark Pillar</th><th>Current (${current.buildLabel || current.browser})</th>${headerCols}</tr>
+          </thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      `;
+    } catch (error) {
+      cmpEl.style.display = 'block';
+      cmpEl.innerHTML = `<strong>Comparison unavailable:</strong> ${error.message}`;
     }
   }
 
@@ -877,6 +1250,9 @@ class TranslationSpeedBenchmark {
     const avgThroughput = document.getElementById('avgThroughput').textContent;
     const batchThroughput = document.getElementById('batchThroughput').textContent;
     const batchTotalTime = document.getElementById('batchTotalTime').textContent;
+    const batchConcThroughput = document.getElementById('batchConcThroughput')?.textContent || '0';
+    const batchConcTime = document.getElementById('batchConcTime')?.textContent || '0';
+    const batchSpeedup = document.getElementById('batchSpeedup')?.textContent || '-';
     const syncTime = document.getElementById('cmpSyncTime').textContent;
     const streamTime = document.getElementById('cmpStreamTime').textContent;
     const firstChunkTime = document.getElementById('cmpFirstChunk').textContent;
@@ -906,7 +1282,9 @@ class TranslationSpeedBenchmark {
       `Throughput (5 runs):    ${avgThroughput} chars/sec avg`,
       ...tpRuns,
       ``,
-      `Batch (15 texts):       ${batchThroughput} chars/sec  (${batchTotalTime} ms total)`,
+      `Batch (15 texts):`,
+      `  Sequential (1×15):    ${batchThroughput} chars/sec  (${batchTotalTime} ms total)`,
+      `  Batched (15×1):       ${batchConcThroughput} chars/sec  (${batchConcTime} ms total, speedup ${batchSpeedup})`,
       ``,
       `Streaming Comparison:`,
       `  translate():          ${syncTime} ms`,
@@ -955,7 +1333,8 @@ class TranslationSpeedBenchmark {
     // Also include TSV row for spreadsheet pasting
     const tsvHeader = ['Date', 'Browser', 'GPU', 'Language Pair', 'Language Codes',
       'Init (ms)', 'Single Latency (ms)', 'Avg Throughput (chars/sec)',
-      'Batch Throughput (chars/sec)', 'Batch Total (ms)',
+      'Batch Seq Throughput (chars/sec)', 'Batch Seq Total (ms)',
+      'Batch Conc Throughput (chars/sec)', 'Batch Conc Total (ms)', 'Batch Speedup',
       'Sync Time (ms)', 'Stream Time (ms)', '1st Chunk (ms)', 'Chunks', 'Stream Overhead',
       'Page Sim Segments', 'Page Sim Total (ms)', 'Page Sim Avg/Call (ms)',
       'Span Tax', 'Span ms/100ch', 'Prose ms/100ch',
@@ -963,7 +1342,8 @@ class TranslationSpeedBenchmark {
     const tsvRow = [
       new Date().toLocaleDateString(), browserInfo, gpuInfo,
       `${sourceName} → ${targetName}`, `${sourceLanguage} → ${targetLanguage}`,
-      initTime, singleLatency, avgThroughput, batchThroughput, batchTotalTime,
+      initTime, singleLatency, avgThroughput,
+      batchThroughput, batchTotalTime, batchConcThroughput, batchConcTime, batchSpeedup,
       syncTime, streamTime, firstChunkTime, streamChunks, streamOverhead,
       simSegs, simTotal, simAvg,
       document.getElementById('simSpanTax').textContent,
@@ -1007,6 +1387,19 @@ class TranslationSpeedBenchmark {
 }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
-  new TranslationSpeedBenchmark();
-});
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    new TranslationSpeedBenchmark();
+  });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    TranslationSpeedBenchmark,
+    BENCHMARK_TEXTS,
+    THROUGHPUT_TEXTS,
+    STREAMING_TEST_TEXT,
+    PAGE_SIM_SEGMENTS,
+    PROTECTED_SPAN_RE,
+  };
+}

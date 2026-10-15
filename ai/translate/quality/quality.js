@@ -830,7 +830,7 @@ class TranslationQualityBenchmark {
       badge.textContent = 'Focused';
       badge.className = 'mode-badge mode-reference';
       desc.textContent = ['es', 'ja', 'zh-hans'].includes(target) ?
-        '15 development cases: objective checks and semantic review are separate. No similarity score.' :
+        '18 development cases: objective checks and semantic review are separate. No similarity score.' :
         'Focused regressions support Spanish, Japanese, and Simplified Chinese only. Choose one of these targets or another corpus.';
     } else if (mode === 'reference') {
       const count = QUALITY_TEST_DATA.filter(d => d.refs[target]).length;
@@ -857,6 +857,8 @@ class TranslationQualityBenchmark {
         const catCount = Object.keys(byId).length;
         defectInfo.textContent =
           `${cases.length} defect cases across ${catCount} categories will run for ${targetName}.`;
+        const checksEl = document.getElementById('checksClearScore');
+        if (checksEl && !this.defectResults.length) checksEl.textContent = `0 / ${cases.length}`;
       } else {
         defectInfo.textContent =
           `No defect cases defined for ${targetName} yet. Defect tests target es, ja, and zh-hans.`;
@@ -1437,7 +1439,7 @@ class TranslationQualityBenchmark {
     const compareHeader = priorByCat ? '<th>Δ vs snapshot</th>' : '';
     const streamed = this.defectResults.filter(result => result.streaming).map(result => result.streaming);
     const planned = this.run?.corpus || this.defectResults;
-    const coverageTotal = planned.filter(spec => ['departments', 'passages'].includes(spec.regressionRule)).length;
+    const coverageTotal = planned.filter(spec => ['departments', 'departments14', 'passages'].includes(spec.regressionRule)).length;
     const evaluated = results => results.filter(result =>
       !result.error && result.status !== 'not_run' && typeof result.output === 'string' && result.output.trim());
     const reviewed = results => {
@@ -1492,6 +1494,28 @@ class TranslationQualityBenchmark {
         <tbody>${rows}</tbody>
       </table>
     `;
+
+    const checksScoreEl = document.getElementById('checksClearScore');
+    if (checksScoreEl) checksScoreEl.textContent = `${totalPass} / ${totalAll}`;
+    const checksSubEl = document.getElementById('checksClearSub');
+    if (checksSubEl) checksSubEl.textContent = `${overall}% checks clear`;
+    const parityScoreEl = document.getElementById('streamingParityScore');
+    const paritySubEl = document.getElementById('streamingParitySub');
+    if (parityScoreEl && this.run?.compareStreaming) {
+      const streamClear = streamed.filter(result => result.pass).length;
+      const diffs = streamed.filter(result => result.identical === false).length;
+      parityScoreEl.textContent = `${streamClear} / ${totalAll}`;
+      if (paritySubEl) paritySubEl.textContent = `${diffs} output diff${diffs === 1 ? '' : 's'} vs standard`;
+    } else if (parityScoreEl) {
+      parityScoreEl.textContent = '—';
+    }
+    if (!this.results?.length && this.defectResults?.length) {
+      const avgTimeEl = document.getElementById('avgTime');
+      if (avgTimeEl) {
+        const meanMs = Math.round(this.defectResults.reduce((s, r) => s + (r.time || 0), 0) / this.defectResults.length);
+        avgTimeEl.textContent = String(meanMs);
+      }
+    }
   }
 
   // ── Snapshots (localStorage, scoped by target language) ──────────
@@ -1807,172 +1831,6 @@ class TranslationQualityBenchmark {
   }
 }
 
-// ─── Known Issues Data ─────────────────────────────────────────────
-
-const KNOWN_ISSUES = [
-  {
-    id: 'case_change',
-    title: 'Capitalization Corrupted',
-    severity: 'medium',
-    pattern: 'The model systematically lowercases the last letter of uppercase tokens (GPU→GPu, MCP→MCp, API→APi) and sometimes lowercases entire full-width sequences in Japanese.',
-    examples: [
-      { lang: 'zh-CN', source: '(ZSPD)', output: '(Zspd)', explanation: 'Airport code fully lowercased from all-caps' },
-      { lang: 'zh-CN', source: '(alternative MSI installer)', output: '(替代 MSi 安装程序)', explanation: 'Acronym MSI → MSi, last letter lowered' },
-      { lang: 'zh-CN', source: 'RSS', output: 'RSs', explanation: 'Acronym RSS → RSs, last letter lowered' },
-      { lang: 'ja', source: 'ＢＭＷ', output: 'ｂｍｗ', explanation: 'Full-width brand name fully lowercased' },
-      { lang: 'ja', source: 'ＭＩＮＩ', output: 'ｍｉｎｉ', explanation: 'Full-width brand name fully lowercased' },
-      { lang: 'es', source: '[#GPC_BANNER_ICON#]', output: '[#Gpc_banner_icon#]', explanation: 'Placeholder token case destroyed' },
-    ]
-  },
-  {
-    id: 'char_insertion',
-    title: 'Spurious L/T/U Characters Injected',
-    severity: 'high',
-    pattern: 'Spurious L insertion is most common (API→APIL, PC→PCL), followed by T (WhatsApp→WhatsTapp, PowerPoint→PowerTpoint) and U (MySQL→MyUsql, ChatGPT→ChatUgpt). en→es has the highest rate (36.3% of errors).',
-    examples: [
-      { lang: 'ja', source: 'HTML5ゲームポータルサイト', output: 'HTMLL5ゲームポータルサイト', explanation: 'Spurious L inserted: HTML5 → HTMLL5' },
-      { lang: 'ja', source: 'nginx', output: 'NGinxLの', explanation: 'Case changed, spurious L and の appended' },
-      { lang: 'es', source: 'FAVORITE - Holy Quran', output: 'FAVORITo - Sagrado Corán', explanation: 'Last letter of FAVORITE lowered' },
-      { lang: 'es', source: 'API documentation', output: 'APIL documentación', explanation: 'Spurious L appended to all-caps token' },
-    ]
-  },
-  {
-    id: 'char_corruption',
-    title: 'Characters Garbled/Doubled',
-    severity: 'high',
-    pattern: 'YouTube → YouTtube is universal across all three languages. Apple product names are consistently corrupted: iOS→iUos, iPhone→iTphone, macOS→macUos, iPad→iTpad.',
-    examples: [
-      { lang: 'ja', source: 'YouTube Video Player', output: 'YouTtube動画プレーヤー', explanation: 't doubled: YouTube → YouTtube' },
-      { lang: 'es', source: 'YouTube Video Player', output: 'Reproductor de video de YouTtube', explanation: 'Same YouTtube bug across languages' },
-      { lang: 'zh-CN', source: 'USBKey', output: 'USBkLey', explanation: 'Key garbled to kLey' },
-      { lang: 'zh-CN', source: 'BIP系统', output: 'BIpL系统', explanation: 'P → pL corruption' },
-    ]
-  },
-  {
-    id: 'brand_translated',
-    title: 'Brand/Product Names Literally Translated',
-    severity: 'high',
-    pattern: 'The model cannot distinguish brand names from common words. Worst in en→es where even well-known brands like Discord, Steam, and Blender are translated to their Spanish dictionary meanings.',
-    examples: [
-      { lang: 'es', source: 'Discord', output: 'Discordia', explanation: 'Chat platform → "discord/strife"' },
-      { lang: 'es', source: 'Steam Deck', output: 'plataforma de vapor', explanation: 'Gaming device → "steam platform"' },
-      { lang: 'es', source: 'Blender', output: 'Licuadora', explanation: '3D software name → kitchen blender' },
-      { lang: 'es', source: 'Copilot', output: 'Copiloto', explanation: 'Microsoft product name translated' },
-      { lang: 'zh-CN', source: '#clawhub', output: '#爪轴', explanation: 'Platform name → "claw shaft"' },
-      { lang: 'ja', source: 'Shopee', output: 'ショピー', explanation: 'E-commerce brand transliterated to katakana' },
-    ]
-  },
-  {
-    id: 'semantic_error',
-    title: 'Wrong Meaning/Sense Chosen',
-    severity: 'high',
-    pattern: 'Technical/domain-specific terms are translated using their most common dictionary meaning. Worst for tech jargon (agents, forks, LLM) and context-dependent UI terms (Play, Dislike).',
-    examples: [
-      { lang: 'zh-CN', source: '"2026 is already the year of personal agents."', output: '"2026年已经是个人经纪人年了。"', explanation: 'AI agents → 个人经纪人 (real estate brokers)' },
-      { lang: 'zh-CN', source: 'LLM', output: '法学硕士', explanation: 'Large Language Model → Master of Laws' },
-      { lang: 'zh-CN', source: 'forks', output: '叉子', explanation: 'Code forks → eating forks' },
-      { lang: 'zh-CN', source: 'game jams', output: '游戏果酱', explanation: 'Game jams (hackathons) → game jam/jelly' },
-      { lang: 'ja', source: 'Play', output: '遊ぶ', explanation: 'Video player "Play" → 遊ぶ (have fun) instead of 再生 (playback)' },
-      { lang: 'es', source: 'Future', output: 'futuro', explanation: 'Artist/brand name treated as common noun → Spanish word for "future"' },
-    ]
-  },
-  {
-    id: 'code_translated',
-    title: 'Code/Technical Identifiers Translated',
-    severity: 'medium',
-    pattern: 'The model does not recognize code-like tokens (hashtags, search operators, cookie names, variable names) and translates them as natural language.',
-    examples: [
-      { lang: 'zh-CN', source: '(II[chr] OR 2[chr]) AND adh*[sym]', output: '(II[chr] 或 2[chr]) 和 adh*[sym]', explanation: 'PubMed boolean operators OR/AND translated' },
-      { lang: 'ja', source: '#jazeektypebeat', output: '#ジャジークタイプビート', explanation: 'Hashtag transliterated — would break search' },
-      { lang: 'es', source: 'test_cookie', output: 'cookie_prueba', explanation: 'Technical cookie name translated' },
-      { lang: 'es', source: 'CookieConsent', output: 'Consentimiento de cookies', explanation: 'Technical identifier translated' },
-    ]
-  },
-  {
-    id: 'acronym_error',
-    title: 'Acronyms Expanded, Corrupted, or Mistranslated',
-    severity: 'medium',
-    pattern: 'Two sub-patterns: (1) last-letter lowering (MCP→MCp, OCR→OCr) — mechanical, and (2) full expansion/translation (API→エディファイ, EC→欧洲, MB→メガバイト) — semantic.',
-    examples: [
-      { lang: 'ja', source: 'API', output: 'エディファイ', explanation: 'API → "edify" — completely wrong translation' },
-      { lang: 'ja', source: '179.5 MB', output: '179.5メガバイト', explanation: 'MB expanded to full word メガバイト' },
-      { lang: 'zh-CN', source: '1.9.3.1[EC]', output: '1.9.3.1[欧洲]', explanation: 'EC (enzyme classification) → 欧洲 (Europe)' },
-      { lang: 'es', source: 'OCR World Champs', output: 'Campeonatos del Mundo OCr', explanation: 'OCR → OCr, last letter lowered' },
-    ]
-  },
-  {
-    id: 'proper_noun_error',
-    title: 'Names Mistranslated or Transliterated',
-    severity: 'high',
-    pattern: 'The model cannot reliably distinguish proper nouns from translatable content. GitHub usernames, YouTube channel names, rapper names, and product names are all at risk.',
-    examples: [
-      { lang: 'zh-CN', source: 'HKUDS', output: '香港统计学硕士', explanation: 'All-caps identifier wrongly expanded → "HK statistics master"' },
-      { lang: 'zh-CN', source: 'DeepTutor', output: '深度导师', explanation: 'Product name → "deep tutor" literally' },
-      { lang: 'ja', source: 'noizy', output: '騒々しい', explanation: 'Channel/handle treated as common word → "noisy" (dictionary meaning)' },
-      { lang: 'es', source: 'Moon Knight', output: 'Caballero de la Luna', explanation: 'Multi-word proper noun literally translated → "Knight of the Moon"' },
-    ]
-  },
-  {
-    id: 'number_changed',
-    title: 'Numbers Altered, Swapped, or Misinterpreted',
-    severity: 'high',
-    pattern: 'The model actively reinterprets numbers: swapping version numbers, misinterpreting magnitude suffixes (M ≠ 万), misreading ratings as dates, and inserting/removing digits.',
-    examples: [
-      { lang: 'zh-CN', source: 'CiteSpace 7.0 Advanced for Windows 11', output: '适用于 Windows 7.0 的 CiteSpace 11 Advanced', explanation: 'Version numbers swapped: CiteSpace 7.0 ↔ Windows 11' },
-      { lang: 'zh-CN', source: '$3.8M-a-year side hustle', output: '每年 3.8 万美元的副业', explanation: '$3.8M (3.8 million) → 3.8万 (38,000) — 100× error' },
-      { lang: 'ja', source: '10/10', output: '10月10日', explanation: 'Rating 10/10 misread as date October 10' },
-      { lang: 'es', source: '4/9/26', output: '09/04/2026', explanation: 'Date format reinterpreted (US → EU format)' },
-    ]
-  },
-  {
-    id: 'url_translated',
-    title: 'URLs, Emails, and Domains Translated',
-    severity: 'high',
-    pattern: 'The model treats URL components as translatable text. Especially dangerous for en→es where even email addresses get translated. URL parameters and anchors are also at risk.',
-    examples: [
-      { lang: 'es', source: 'someone@example.com', output: 'alguien@ejemplo.com', explanation: 'Email address translated' },
-      { lang: 'es', source: 'academic.oup.com', output: 'académico.oup.com', explanation: 'URL subdomain translated' },
-      { lang: 'zh-CN', source: '/automation/cron-jobs#troubleshooting', output: '/automation/cron-jobs#故障排除', explanation: 'URL anchor #troubleshooting translated' },
-      { lang: 'ja', source: 'aha-music.com', output: 'アハミュージック.com', explanation: 'Domain name partially transliterated' },
-    ]
-  },
-  {
-    id: 'spurious_content',
-    title: 'Extra Words/Content Added',
-    severity: 'medium',
-    pattern: 'The model hallucinates additional content, especially for short inputs. Domain extensions get 域名 appended in Chinese, bare numbers get contextual words in Spanish.',
-    examples: [
-      { lang: 'zh-CN', source: '.co.uk', output: '.co.uk 域名', explanation: 'Spurious 域名 (domain name) appended' },
-      { lang: 'ja', source: 'New', output: '新機能', explanation: '"New" → 新機能 (new feature) — extra concept added' },
-      { lang: 'es', source: '676', output: 'Artículo 676', explanation: 'Number → "Article 676" — spurious word added' },
-      { lang: 'zh-CN', source: '.ani', output: '.ani 域名', explanation: '域名 (domain name) added from nowhere' },
-    ]
-  },
-  {
-    id: 'tag_corruption',
-    title: 'HTML/XML Tags Broken',
-    severity: 'medium',
-    pattern: 'The model does not treat HTML tags as opaque tokens. It reorders content across tag boundaries, duplicates closing tags, and converts HTML entities to their rendered form.',
-    examples: [
-      { lang: 'zh-CN', source: '<b10></b10> made their first contribution in <b11>#176</b11>', output: '<b10></b10>在<b11>#176</b11中做出了...贡献</b11>', explanation: 'Extra </b11> appended, breaking tag structure' },
-      { lang: 'es', source: 'Rules &amp; Policies', output: 'Reglas y políticas', explanation: 'HTML entity &amp; not preserved' },
-      { lang: 'ja', source: '<b10>"Fever Dream"</b10> on <b11>YouTube</b11>', output: 'Tag corrupted + YouTtube', explanation: 'Closing tag corrupted + char corruption' },
-    ]
-  },
-  {
-    id: 'missing_content',
-    title: 'Content Dropped from Translation',
-    severity: 'medium',
-    pattern: 'Short words, emojis, and trailing content are most at risk. Non-Latin script content (Russian months, Vietnamese text) is especially prone to being dropped.',
-    examples: [
-      { lang: 'zh-CN', source: '# Works everywhere. Installs everything. You\'re welcome. 🦞', output: '# 无处不在。安装所有内容。不客气。', explanation: 'Lobster emoji 🦞 dropped' },
-      { lang: 'zh-CN', source: '20 окт. 2025', output: '20 2025 年', explanation: 'Month окт. (October) entirely dropped' },
-      { lang: 'es', source: 'Condition: Great clean condition. Batteries included.', output: 'Estado: Excelente estado de limpieza.', explanation: '"Batteries included." entirely missing' },
-      { lang: 'ja', source: 'Bạn mới biết đến Shopee?', output: 'Shopee は?', explanation: 'Most Vietnamese content dropped' },
-    ]
-  },
-];
-
 // ─── Defect-Targeted Test Data ─────────────────────────────────────
 // Per-category pass/fail tests. Each case lists substrings the output
 // MUST contain verbatim and substrings it MUST NOT contain. A single
@@ -2216,62 +2074,8 @@ function evaluateDefectCase(testCase, output) {
   return QualityChecks.evaluate(testCase, output, normalizeNumeric);
 }
 
-// ─── Render Known Issues ─────────────────────────────────────
-
-function renderKnownIssues() {
-  const container = document.getElementById('issuesList');
-  const summary = document.getElementById('issuesSummary');
-
-  // Summary counts
-  const high = KNOWN_ISSUES.filter(i => i.severity === 'high').length;
-  const medium = KNOWN_ISSUES.filter(i => i.severity === 'medium').length;
-  summary.innerHTML = `
-    <div class="issues-stats">
-      <span class="issue-stat"><span class="severity-dot high"></span> ${high} High Severity</span>
-      <span class="issue-stat"><span class="severity-dot medium"></span> ${medium} Medium Severity</span>
-      <span class="issue-stat">${KNOWN_ISSUES.length} Total Categories</span>
-    </div>
-  `;
-
-  // Render each issue as a collapsible section
-  container.innerHTML = KNOWN_ISSUES.map(issue => `
-    <details class="issue-category">
-      <summary class="issue-header">
-        <span class="severity-badge severity-${issue.severity}">${issue.severity}</span>
-        <span class="issue-title">${issue.id}: ${issue.title}</span>
-      </summary>
-      <div class="issue-body">
-        <p class="issue-pattern"><strong>Pattern:</strong> ${escapeHtmlStatic(issue.pattern)}</p>
-        <table class="issue-examples">
-          <thead>
-            <tr><th>Language</th><th>Source</th><th>On-Device Output</th><th>Explanation</th></tr>
-          </thead>
-          <tbody>
-            ${issue.examples.map(ex => `
-              <tr>
-                <td><span class="lang-badge">${escapeHtmlStatic(ex.lang)}</span></td>
-                <td class="text-cell">${escapeHtmlStatic(ex.source)}</td>
-                <td class="text-cell issue-output">${escapeHtmlStatic(ex.output)}</td>
-                <td>${escapeHtmlStatic(ex.explanation)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </details>
-  `).join('');
-}
-
-function escapeHtmlStatic(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   const benchmark = new TranslationQualityBenchmark();
-  renderKnownIssues();
-  // Defect tests UI is wired up in the constructor.
   window.__qualityBenchmark = benchmark;
 });

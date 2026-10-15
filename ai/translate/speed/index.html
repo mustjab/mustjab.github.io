@@ -28,7 +28,7 @@
     </nav>
     <header>
       <h1>Translation Speed Benchmark</h1>
-      <p class="subtitle">Measure translation throughput across language packs and pairs</p>
+      <p class="subtitle">Centralized throughput scorecard for comparing Local Build vs. Edge Canary vs. Chrome</p>
       <div class="api-status" id="apiStatus">
         <span class="status-indicator" id="statusIndicator"></span>
         <span id="statusText">Checking API availability...</span>
@@ -36,32 +36,52 @@
     </header>
 
     <main>
-      <!-- Language Pair Selection -->
       <section class="card">
-        <h2>Language Pair Configuration</h2>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="sourceLanguage">Source Language:</label>
-            <div class="searchable-select-container">
-              <input type="text" id="sourceLanguageSearch" class="searchable-select-input"
-                placeholder="Type to search languages..." autocomplete="off">
-              <div class="searchable-select-dropdown" id="sourceLanguageDropdown" style="display: none;"></div>
-              <input type="hidden" id="sourceLanguage" value="en">
+        <div class="speed-top-bar">
+          <div class="form-row speed-lang-row">
+            <div class="form-group">
+              <label for="sourceLanguage">Source Language</label>
+              <div class="searchable-select-container">
+                <input type="text" id="sourceLanguageSearch" class="searchable-select-input"
+                  placeholder="Type to search languages..." autocomplete="off">
+                <div class="searchable-select-dropdown" id="sourceLanguageDropdown" style="display: none;"></div>
+                <input type="hidden" id="sourceLanguage" value="en">
+              </div>
+            </div>
+            <div class="swap-container">
+              <button type="button" id="swapLanguages" class="btn-swap" title="Swap source and target languages">
+                ⇄
+              </button>
+            </div>
+            <div class="form-group">
+              <label for="targetLanguage">Target Language</label>
+              <div class="searchable-select-container">
+                <input type="text" id="targetLanguageSearch" class="searchable-select-input"
+                  placeholder="Type to search languages..." autocomplete="off">
+                <div class="searchable-select-dropdown" id="targetLanguageDropdown" style="display: none;"></div>
+                <input type="hidden" id="targetLanguage" value="es">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="speedBuildLabel">Current Run Label</label>
+              <input type="text" id="speedBuildLabel" placeholder="e.g. Local Build, Edge Canary, Chrome" value="">
             </div>
           </div>
-          <div class="swap-container">
-            <button type="button" id="swapLanguages" class="btn-swap" title="Swap source and target languages">
-              ⇄
-            </button>
-          </div>
-          <div class="form-group">
-            <label for="targetLanguage">Target Language:</label>
-            <div class="searchable-select-container">
-              <input type="text" id="targetLanguageSearch" class="searchable-select-input"
-                placeholder="Type to search languages..." autocomplete="off">
-              <div class="searchable-select-dropdown" id="targetLanguageDropdown" style="display: none;"></div>
-              <input type="hidden" id="targetLanguage" value="es">
-            </div>
+
+          <div class="bench-controls">
+            <button id="runAll" class="btn btn-primary" disabled>▶ Run Full Speed Benchmark</button>
+            <button id="saveResults" class="btn btn-secondary" disabled title="Copy summary and TSV to clipboard">📋 Copy Results</button>
+            <button id="saveSpeedSnapshot" class="btn btn-secondary" disabled title="Save current run into selected baseline slot">💾 Save as Baseline</button>
+            <select id="baselineSlotSelect" class="slot-select" aria-label="Baseline slot to save into">
+              <option value="canary" selected>Slot: Edge Canary</option>
+              <option value="chrome">Slot: Chrome</option>
+              <option value="custom">Slot: Custom Baseline</option>
+            </select>
+            <button id="compareSpeedSnapshot" class="btn btn-secondary">📊 Compare vs Baselines</button>
+            <button id="exportSpeedRun" class="btn btn-secondary" disabled>⬇ Export JSON</button>
+            <label class="btn btn-secondary file-btn" for="speedSnapshotFile">📂 Import JSON</label>
+            <input type="file" id="speedSnapshotFile" accept=".json,application/json" style="display: none;">
+            <button id="clearSpeedSnapshot" class="btn btn-secondary" title="Clear saved baselines">🗑 Clear Baselines</button>
           </div>
         </div>
 
@@ -72,344 +92,282 @@
           <div class="progress-text" id="progressText">0%</div>
         </div>
         <div id="initResult" class="result-box" style="display: none;"></div>
-      </section>
 
-      <!-- Speed Benchmark Tests -->
-      <section class="card">
-        <h2>Speed Benchmark</h2>
-        <div class="info-banner">
-          <h3>⚡ Translation Throughput Measurement</h3>
-          <p>Measures initialization time, single-text translation speed, and sustained throughput across multiple
-            runs. Results can be copied as tab-separated values for spreadsheet comparison.</p>
+        <!-- Unified Scorecard: 1 Composite Score + 5 Pillar Scores -->
+        <div class="scorecard-grid">
+          <div class="score-item score-item--hero">
+            <div class="score-label">🏆 Overall Speed Score</div>
+            <div class="score-value" id="overallSpeedScore">0</div>
+            <div class="score-sub">chars/sec composite · Init: <span id="initTime">0</span> ms</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">1. Single Call</div>
+            <div class="score-value"><span id="singleScoreCps">0</span></div>
+            <div class="score-sub">chars/sec (<span id="singleLatency">0</span> ms)</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">2. Long Passages</div>
+            <div class="score-value" id="avgThroughput">0</div>
+            <div class="score-sub">chars/sec (5 runs)</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">3. Batched (15×)</div>
+            <div class="score-value" id="batchPrimaryThroughput">0</div>
+            <div class="score-sub">chars/sec (<span id="batchSpeedupBadge">1.00×</span> vs seq)</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">4. Streaming</div>
+            <div class="score-value" id="cmpStreamCps">0</div>
+            <div class="score-sub">1st chunk <span id="cmpFirstChunk">0</span> ms (<span id="highlightSpeedup">-</span>)</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">5. Page Mix</div>
+            <div class="score-value" id="simScoreCps">0</div>
+            <div class="score-sub">chars/sec · Span tax <span id="simSpanTax">-</span></div>
+          </div>
         </div>
 
-        <div class="bench-controls">
-          <button id="runAll" class="btn btn-primary" disabled>Measure All</button>
-          <button id="saveResults" class="btn btn-secondary" disabled title="Copy results to clipboard">📋 Copy
-            Results</button>
-        </div>
+        <!-- Side-by-Side Comparison vs Edge Canary & Chrome -->
+        <div id="speedSnapshotComparison" class="comparison-panel" style="display: none;"></div>
 
-        <!-- Test: Initialization Time -->
+        <!-- Centralized 5-Pillar Table with Expandable Breakdowns -->
         <div class="bench-section">
           <table class="bench-table">
-            <tr>
-              <td class="bench-label">
-                <h3>Translator Initialization</h3>
-                <p>Time to create a Translator instance for the selected language pair. On first use this includes
-                  model download time. On warm start this is session creation time.</p>
-              </td>
-              <td class="bench-value">
-                <span id="initTime" class="metric-value">0</span> <span class="metric-unit">ms</span>
-              </td>
-            </tr>
+            <tbody>
+              <!-- Pillar 1: Single Translation -->
+              <tr>
+                <td class="bench-label">
+                  <h3>1. Single Paragraph Latency
+                    <span class="replay-btn" id="replaySingle" title="Re-run this test">↻</span>
+                  </h3>
+                  <p>Translates a single ~240-character paragraph to measure interactive one-shot response time and cold dispatch overhead.</p>
+                </td>
+                <td class="bench-value">
+                  <div>
+                    <span id="singleCpsMirror" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
+                  </div>
+                  <div class="metric-sub"><span id="singleLatencyMirror">0</span> ms · Init <span id="initTimeMirror">0</span> ms</div>
+                </td>
+              </tr>
 
-            <!-- Test: Single Translation -->
-            <tr>
-              <td class="bench-label">
-                <h3>Single Translation Latency
-                  <span class="replay-btn" id="replaySingle" title="Re-run this test">↻</span>
-                </h3>
-                <p>Translates a ~240 character paragraph. Measures end-to-end latency for a single translate()
-                  call.</p>
-              </td>
-              <td class="bench-value">
-                <span id="singleLatency" class="metric-value">0</span> <span class="metric-unit">ms</span>
-              </td>
-            </tr>
+              <!-- Pillar 2: Sustained Throughput -->
+              <tr>
+                <td class="bench-label">
+                  <h3>2. Long-Passage Throughput (5 lengths)
+                    <span class="replay-btn" id="replayThroughput" title="Re-run this test">↻</span>
+                  </h3>
+                  <p>Translates 5 passages scaling from ~200 to ~2,000 characters to measure sustained decoding speed.</p>
+                  <details class="pillar-details">
+                    <summary>View per-passage breakdown (Runs 1–5)</summary>
+                    <table class="inner-table">
+                      <tr>
+                        <th>Run</th>
+                        <td>1 (~200ch)</td>
+                        <td>2 (~450ch)</td>
+                        <td>3 (~750ch)</td>
+                        <td>4 (~1.2k)</td>
+                        <td>5 (~2.0k)</td>
+                      </tr>
+                      <tr>
+                        <th>chars/sec</th>
+                        <td id="tp1">0</td>
+                        <td id="tp2">0</td>
+                        <td id="tp3">0</td>
+                        <td id="tp4">0</td>
+                        <td id="tp5">0</td>
+                      </tr>
+                      <tr>
+                        <th>ms</th>
+                        <td id="ms1">0</td>
+                        <td id="ms2">0</td>
+                        <td id="ms3">0</td>
+                        <td id="ms4">0</td>
+                        <td id="ms5">0</td>
+                      </tr>
+                    </table>
+                    <div class="scratch-area" id="scratchArea">&nbsp;</div>
+                  </details>
+                </td>
+                <td class="bench-value">
+                  <div>
+                    <span id="avgThroughputMirror" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
+                  </div>
+                  <div class="metric-sub">Mean across 5 passages</div>
+                </td>
+              </tr>
 
-            <!-- Test: Throughput (chars/sec) -->
-            <tr>
-              <td class="bench-label">
-                <h3>Translation Throughput
-                  <span class="replay-btn" id="replayThroughput" title="Re-run this test">↻</span>
-                </h3>
-                <p>Translates 5 texts of increasing length (~200 to ~2000 chars) and measures characters per second.
-                  Higher is better.</p>
-                <table class="inner-table">
-                  <tr>
-                    <th>Run</th>
-                    <td>1</td>
-                    <td>2</td>
-                    <td>3</td>
-                    <td>4</td>
-                    <td>5</td>
-                  </tr>
-                  <tr>
-                    <th>chars/sec</th>
-                    <td id="tp1">0</td>
-                    <td id="tp2">0</td>
-                    <td id="tp3">0</td>
-                    <td id="tp4">0</td>
-                    <td id="tp5">0</td>
-                  </tr>
-                  <tr>
-                    <th>ms</th>
-                    <td id="ms1">0</td>
-                    <td id="ms2">0</td>
-                    <td id="ms3">0</td>
-                    <td id="ms4">0</td>
-                    <td id="ms5">0</td>
-                  </tr>
-                </table>
-                <div class="scratch-area" id="scratchArea">&nbsp;</div>
-              </td>
-              <td class="bench-value">
-                <span id="avgThroughput" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
-              </td>
-            </tr>
+              <!-- Pillar 3: Batch Translation (Sequential vs Concurrent Promise.all) -->
+              <tr>
+                <td class="bench-label">
+                  <h3>3. Batching &amp; Concurrency (15 texts)
+                    <span class="replay-btn" id="replayBatch" title="Re-run this test">↻</span>
+                  </h3>
+                  <p>Runs 15 benchmark texts (~5,500 chars) sequentially (<code>1×15</code>) and then concurrently as a single wave (<code>Promise.all</code>) to measure dynamic batching speedup.</p>
+                  <details class="pillar-details">
+                    <summary>View sequential vs. batched breakdown &amp; concurrency scaling</summary>
+                    <table class="inner-table">
+                      <tr>
+                        <th>Execution Mode</th>
+                        <th>Total Time (ms)</th>
+                        <th>Chars/Sec</th>
+                        <th>Speedup</th>
+                      </tr>
+                      <tr>
+                        <td>Sequential (1×15)</td>
+                        <td id="batchTotalTime">0</td>
+                        <td id="batchThroughput">0</td>
+                        <td>1.00×</td>
+                      </tr>
+                      <tr>
+                        <td>Batched / Concurrent (15×1)</td>
+                        <td id="batchConcTime">0</td>
+                        <td id="batchConcThroughput">0</td>
+                        <td id="batchSpeedup">-</td>
+                      </tr>
+                    </table>
+                    <div style="margin-top: 8px;">
+                      <button id="runConcurrency" class="btn btn-small" type="button" disabled>Run Extended Concurrency Sweep (1, 2, 4, 8 workers)</button>
+                    </div>
+                    <div id="concurrencyResults" style="display: none; margin-top: 8px;">
+                      <table class="inner-table">
+                        <tr>
+                          <th>Workers</th>
+                          <th>Total Time (ms)</th>
+                          <th>Chars/Sec</th>
+                          <th>Speedup</th>
+                        </tr>
+                        <tr><td>1</td><td id="conc1Time">0</td><td id="conc1Cps">0</td><td id="conc1Speedup">-</td></tr>
+                        <tr><td>2</td><td id="conc2Time">0</td><td id="conc2Cps">0</td><td id="conc2Speedup">-</td></tr>
+                        <tr><td>4</td><td id="conc4Time">0</td><td id="conc4Cps">0</td><td id="conc4Speedup">-</td></tr>
+                        <tr><td>8</td><td id="conc8Time">0</td><td id="conc8Cps">0</td><td id="conc8Speedup">-</td></tr>
+                      </table>
+                      <div class="metric-sub">Best speedup: <strong id="concBestSpeedup">-</strong> (<span id="concSegments">0</span> segs) — <span id="concVerdict"></span></div>
+                    </div>
+                  </details>
+                </td>
+                <td class="bench-value">
+                  <div>
+                    <span id="batchConcMirror" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
+                  </div>
+                  <div class="metric-sub">
+                    Seq: <span id="batchSeqSummary">0</span> ms · Batch: <span id="batchConcSummary">0</span> ms
+                  </div>
+                  <div class="metric-highlight" id="batchSpeedupHighlight" style="display: none;">
+                    <span class="highlight-label">Batch Speedup</span>
+                    <span class="highlight-speedup" id="batchSpeedupMirror">1.00×</span>
+                  </div>
+                </td>
+              </tr>
 
-            <!-- Test: Batch Throughput -->
-            <tr>
-              <td class="bench-label">
-                <h3>Batch Translation (15 texts)
-                  <span class="replay-btn" id="replayBatch" title="Re-run this test">↻</span>
-                </h3>
-                <p>Translates 15 standardized benchmark texts (~300-500 chars each, ~5500 total) sequentially.
-                  Measures sustained throughput and total time.</p>
-              </td>
-              <td class="bench-value">
-                <div>
-                  <span id="batchThroughput" class="metric-value">0</span> <span
-                    class="metric-unit">chars/sec</span>
-                </div>
-                <div class="metric-sub">
-                  <span id="batchTotalTime">0</span> ms total
-                </div>
-              </td>
-            </tr>
+              <!-- Pillar 4: Streaming vs Non-Streaming -->
+              <tr>
+                <td class="bench-label">
+                  <h3>4. Streaming Responsiveness
+                    <span class="replay-btn" id="replayStreaming" title="Re-run this test">↻</span>
+                  </h3>
+                  <p>Compares <code>translate()</code> vs <code>translateStreaming()</code> on a multi-sentence passage to measure time-to-first-chunk responsiveness and streaming throughput.</p>
+                  <details class="pillar-details">
+                    <summary>View sync vs. streaming breakdown</summary>
+                    <table class="inner-table">
+                      <tr>
+                        <th>Method</th>
+                        <th>Total Time (ms)</th>
+                        <th>1st Chunk (ms)</th>
+                        <th>Chars/Sec</th>
+                        <th>Chunks</th>
+                      </tr>
+                      <tr>
+                        <td>translate()</td>
+                        <td id="cmpSyncTime">0</td>
+                        <td>-</td>
+                        <td id="cmpSyncCps">0</td>
+                        <td>-</td>
+                      </tr>
+                      <tr>
+                        <td>translateStreaming()</td>
+                        <td id="cmpStreamTime">0</td>
+                        <td id="cmpFirstChunkMirror">0</td>
+                        <td id="cmpStreamCpsMirror">0</td>
+                        <td id="cmpStreamChunks">0</td>
+                      </tr>
+                    </table>
+                  </details>
+                </td>
+                <td class="bench-value">
+                  <div>
+                    <span id="cmpStreamPrimaryCps" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
+                  </div>
+                  <div class="metric-sub">Overhead vs sync: <span id="streamingOverhead">-</span></div>
+                  <div class="metric-highlight" id="firstContentHighlight" style="display: none;">
+                    <span class="highlight-label">1st Chunk</span>
+                    <span class="highlight-compare">
+                      <span id="highlightStreaming">0</span> ms vs <span id="highlightSync">0</span> ms
+                    </span>
+                  </div>
+                </td>
+              </tr>
 
-            <!-- Test: Streaming vs Non-Streaming -->
-            <tr>
-              <td class="bench-label">
-                <h3>Streaming Comparison
-                  <span class="replay-btn" id="replayStreaming" title="Re-run this test">↻</span>
-                </h3>
-                <p>Compares translate() vs translateStreaming() on a ~9000 character multi-paragraph text
-                  to measure streaming overhead and chunk behavior.</p>
-                <table class="inner-table">
-                  <tr>
-                    <th>Method</th>
-                    <th>Time (ms)</th>
-                    <th>1st Chunk (ms)</th>
-                    <th>Chars/Sec</th>
-                    <th>Chunks</th>
-                  </tr>
-                  <tr>
-                    <td>translate()</td>
-                    <td id="cmpSyncTime">0</td>
-                    <td>-</td>
-                    <td id="cmpSyncCps">0</td>
-                    <td>-</td>
-                  </tr>
-                  <tr>
-                    <td>translateStreaming()</td>
-                    <td id="cmpStreamTime">0</td>
-                    <td id="cmpFirstChunk">0</td>
-                    <td id="cmpStreamCps">0</td>
-                    <td id="cmpStreamChunks">0</td>
-                  </tr>
-                </table>
-              </td>
-              <td class="bench-value">
-                <span id="streamingOverhead" class="metric-value">-</span> <span class="metric-unit"></span>
-                <div class="metric-highlight" id="firstContentHighlight" style="display: none;">
-                  <span class="highlight-label">Time to first content</span>
-                  <span class="highlight-compare">
-                    <span id="highlightStreaming">0</span> ms vs <span id="highlightSync">0</span> ms
-                  </span>
-                  <span class="highlight-speedup" id="highlightSpeedup"></span>
-                </div>
-              </td>
-            </tr>
+              <!-- Pillar 5: Real-World Page Mix & Protected-Span Tax -->
+              <tr>
+                <td class="bench-label">
+                  <h3>5. Real-World Page Mix &amp; Span Tax
+                    <span class="replay-btn" id="runPageSim" title="Re-run this test">↻</span>
+                  </h3>
+                  <p>Translates a balanced web-page sample across navigation items, headings, short labels (with numbers, URLs, and emails), and paragraphs to measure real-page throughput and phrase-fix span overhead.</p>
+                  <details class="pillar-details" id="pageSimResults">
+                    <summary>View segment-type &amp; protected-span breakdown (<span id="simSegments">0</span> segs, <span id="simTotalChars">0</span> chars)</summary>
+                    <table class="inner-table">
+                      <tr>
+                        <th>Segment Type</th>
+                        <th>Count</th>
+                        <th>Avg Length</th>
+                        <th>Avg Time (ms)</th>
+                        <th>Total Time (ms)</th>
+                      </tr>
+                      <tr><td>Navigation / Buttons</td><td id="simNavCount">0</td><td id="simNavAvgLen">0</td><td id="simNavAvgTime">0</td><td id="simNavTotal">0</td></tr>
+                      <tr><td>Headings</td><td id="simHeadCount">0</td><td id="simHeadAvgLen">0</td><td id="simHeadAvgTime">0</td><td id="simHeadTotal">0</td></tr>
+                      <tr><td>Short Text / Labels</td><td id="simShortCount">0</td><td id="simShortAvgLen">0</td><td id="simShortAvgTime">0</td><td id="simShortTotal">0</td></tr>
+                      <tr><td>Paragraphs</td><td id="simParaCount">0</td><td id="simParaAvgLen">0</td><td id="simParaAvgTime">0</td><td id="simParaTotal">0</td></tr>
+                    </table>
+                    <table class="inner-table" style="margin-top: 8px;">
+                      <tr>
+                        <th>Span Class</th>
+                        <th>Count</th>
+                        <th>Avg Length</th>
+                        <th>Avg Time (ms)</th>
+                        <th>ms / 100 chars</th>
+                      </tr>
+                      <tr><td>Contains numbers / URLs / emails</td><td id="simSpanCount">0</td><td id="simSpanAvgLen">0</td><td id="simSpanAvgTime">0</td><td id="simSpanPer100">0</td></tr>
+                      <tr><td>Plain prose</td><td id="simNoSpanCount">0</td><td id="simNoSpanAvgLen">0</td><td id="simNoSpanAvgTime">0</td><td id="simNoSpanPer100">0</td></tr>
+                    </table>
+                  </details>
+                  <div class="quality-progress" id="simProgress" style="display: none;">
+                    <div class="quality-progress-bar">
+                      <div class="quality-progress-fill" id="simProgressFill"></div>
+                    </div>
+                    <span class="quality-progress-text" id="simProgressText">0 / 0</span>
+                  </div>
+                </td>
+                <td class="bench-value">
+                  <div>
+                    <span id="simScoreCpsMirror" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
+                  </div>
+                  <div class="metric-sub"><span id="simTotalTime">0</span> ms total · <span id="simAvgPerCall">0</span> ms/seg</div>
+                  <div class="metric-sub">Span tax: <strong id="simSpanTaxMirror">-</strong></div>
+                </td>
+              </tr>
+            </tbody>
           </table>
         </div>
-      </section>
 
-      <!-- Page Simulation Test -->
-      <section class="card">
-        <h2>Page Translation Simulation</h2>
-        <div class="info-banner">
-          <h3>🌐 Real-World Page Translation Latency</h3>
-          <p>Simulates translating a real web page with ~300 text segments (nav items, headings, buttons, labels,
-            paragraphs). The on-device API translates each string individually — no batch inference.
-            This test quantifies the per-call overhead that makes page translation slower than cloud.</p>
-        </div>
-        <button id="runPageSim" class="btn btn-primary" disabled>Run Page Simulation</button>
-
-        <div class="page-sim-results" id="pageSimResults" style="display: none;">
-          <div class="score-grid">
-            <div class="score-item">
-              <div class="score-value" id="simTotalTime">0</div>
-              <div class="score-label">Total Time (ms)</div>
-            </div>
-            <div class="score-item">
-              <div class="score-value" id="simSegments">0</div>
-              <div class="score-label">Segments</div>
-            </div>
-            <div class="score-item">
-              <div class="score-value" id="simAvgPerCall">0</div>
-              <div class="score-label">Avg per Call (ms)</div>
-            </div>
-            <div class="score-item">
-              <div class="score-value" id="simTotalChars">0</div>
-              <div class="score-label">Total Characters</div>
-            </div>
-          </div>
-
-          <!-- Per-segment timing breakdown -->
-          <div class="sim-breakdown">
-            <h3>Segment Timing Breakdown</h3>
-            <table class="inner-table">
-              <tr>
-                <th>Segment Type</th>
-                <th>Count</th>
-                <th>Avg Length</th>
-                <th>Avg Time (ms)</th>
-                <th>Total Time (ms)</th>
-              </tr>
-              <tr>
-                <td>Navigation / Buttons</td>
-                <td id="simNavCount">0</td>
-                <td id="simNavAvgLen">0</td>
-                <td id="simNavAvgTime">0</td>
-                <td id="simNavTotal">0</td>
-              </tr>
-              <tr>
-                <td>Headings</td>
-                <td id="simHeadCount">0</td>
-                <td id="simHeadAvgLen">0</td>
-                <td id="simHeadAvgTime">0</td>
-                <td id="simHeadTotal">0</td>
-              </tr>
-              <tr>
-                <td>Short Text / Labels</td>
-                <td id="simShortCount">0</td>
-                <td id="simShortAvgLen">0</td>
-                <td id="simShortAvgTime">0</td>
-                <td id="simShortTotal">0</td>
-              </tr>
-              <tr>
-                <td>Paragraphs</td>
-                <td id="simParaCount">0</td>
-                <td id="simParaAvgLen">0</td>
-                <td id="simParaAvgTime">0</td>
-                <td id="simParaTotal">0</td>
-              </tr>
-            </table>
-          </div>
-
-          <!-- Protected-span cost, cuts across all segment types -->
-          <div class="sim-breakdown">
-            <h3>Numbers, URLs and Emails</h3>
-            <p>Numbers, URLs and emails are swapped for placeholder markup before the model sees them, and that
-              markup costs one token per character on both the input and the generated output. These segments are
-              spread across every type above, so their cost is invisible in that breakdown. Normalizing by length
-              shows the real penalty.</p>
-            <table class="inner-table">
-              <tr>
-                <th>Segment Class</th>
-                <th>Count</th>
-                <th>Avg Length</th>
-                <th>Avg Time (ms)</th>
-                <th>ms / 100 chars</th>
-              </tr>
-              <tr>
-                <td>Contains numbers / URLs</td>
-                <td id="simSpanCount">0</td>
-                <td id="simSpanAvgLen">0</td>
-                <td id="simSpanAvgTime">0</td>
-                <td id="simSpanPer100">0</td>
-              </tr>
-              <tr>
-                <td>Plain prose</td>
-                <td id="simNoSpanCount">0</td>
-                <td id="simNoSpanAvgLen">0</td>
-                <td id="simNoSpanAvgTime">0</td>
-                <td id="simNoSpanPer100">0</td>
-              </tr>
-            </table>
-            <div class="score-item">
-              <div class="score-value" id="simSpanTax">-</div>
-              <div class="score-label">Protected-span tax (cost per character vs plain prose)</div>
-            </div>
-          </div>
-
-          <!-- Progress during run -->
-          <div class="quality-progress" id="simProgress" style="display: none;">
-            <div class="quality-progress-bar">
-              <div class="quality-progress-fill" id="simProgressFill"></div>
-            </div>
-            <span class="quality-progress-text" id="simProgressText">0 / 0</span>
+        <!-- Benchmark Status -->
+        <div class="bench-footer">
+          <span>Status: <span id="benchStatus" class="status-ready">Ready</span></span>
+          <div class="bench-progress-bar" id="benchProgress" style="display: none;">
+            <div class="bench-progress-fill" id="benchProgressFill"></div>
           </div>
         </div>
       </section>
-
-      <!-- Concurrency Test -->
-      <section class="card">
-        <h2>Concurrency Scaling</h2>
-        <div class="info-banner">
-          <h3>🔀 Can Overlapping Calls Recover the Per-Call Cost?</h3>
-          <p>Every translate() call pays a fixed dispatch cost that does not scale with input length, so short
-            segments are dominated by overhead. This test replays the page corpus through 1, 2, 4 and 8 overlapping
-            calls. A speedup above 1x means that cost is partly recoverable today without batched inference. A flat
-            1x means the API serializes translate() and only true batching will help.</p>
-        </div>
-        <button id="runConcurrency" class="btn btn-primary" disabled>Run Concurrency Test</button>
-
-        <div class="page-sim-results" id="concurrencyResults" style="display: none;">
-          <table class="inner-table">
-            <tr>
-              <th>Parallel Calls</th>
-              <th>Total Time (ms)</th>
-              <th>Chars/Sec</th>
-              <th>Speedup</th>
-            </tr>
-            <tr>
-              <td>1 (sequential)</td>
-              <td id="conc1Time">0</td>
-              <td id="conc1Cps">0</td>
-              <td id="conc1Speedup">-</td>
-            </tr>
-            <tr>
-              <td>2</td>
-              <td id="conc2Time">0</td>
-              <td id="conc2Cps">0</td>
-              <td id="conc2Speedup">-</td>
-            </tr>
-            <tr>
-              <td>4</td>
-              <td id="conc4Time">0</td>
-              <td id="conc4Cps">0</td>
-              <td id="conc4Speedup">-</td>
-            </tr>
-            <tr>
-              <td>8</td>
-              <td id="conc8Time">0</td>
-              <td id="conc8Cps">0</td>
-              <td id="conc8Speedup">-</td>
-            </tr>
-          </table>
-          <div class="score-grid">
-            <div class="score-item">
-              <div class="score-value" id="concBestSpeedup">-</div>
-              <div class="score-label">Best Speedup</div>
-            </div>
-            <div class="score-item">
-              <div class="score-value" id="concSegments">0</div>
-              <div class="score-label">Segments</div>
-            </div>
-          </div>
-          <p id="concVerdict" class="metric-sub"></p>
-        </div>
-      </section>
-
-      <!-- Benchmark Status -->
-      <div class="bench-footer">
-        <span>Status: <span id="benchStatus" class="status-ready">Ready</span></span>
-        <div class="bench-progress-bar" id="benchProgress" style="display: none;">
-          <div class="bench-progress-fill" id="benchProgressFill"></div>
-        </div>
-      </div>
     </main>
 
     <footer>

@@ -287,7 +287,7 @@ test('summary retains the planned denominator after early stop or initialization
   assert.ok(html.includes('Not run: 2.'));
 });
 
-test('focused selection runs only fifteen defect pairs and exports a compatible new baseline', async () => {
+test('focused selection runs only eighteen defect pairs and exports a compatible new baseline', async () => {
   const { bench, elements } = createHarness(async () => null);
   elements.set('sourceLanguage', { value: 'en' });
   elements.set('targetLanguage', { value: 'es' });
@@ -311,8 +311,8 @@ test('focused selection runs only fifteen defect pairs and exports a compatible 
   await bench.runAllTests();
   assert.equal(bench.run.complete, true);
   assert.equal(bench.run.qualityCorpus.length, 0);
-  assert.equal(bench.run.corpus.length, 15);
-  assert.equal(bench.run.requests.length, 30);
+  assert.equal(bench.run.corpus.length, 18);
+  assert.equal(bench.run.requests.length, 36);
   assert.equal(bench.run.harnessVersion, '8');
   assert.equal(bench.run.validatorVersion, require('./checks.js').VERSION);
   assert.equal(elements.get('overallScore').textContent, 'N/A');

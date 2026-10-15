@@ -3,7 +3,7 @@
 
   const VERSION = '1';
   const rules = Object.freeze([
-    'departments', 'passages', 'identity', 'discount', 'decrease',
+    'departments', 'departments14', 'passages', 'identity', 'discount', 'decrease',
     'datetime', 'message', 'budget', 'bank', 'idiom', 'fields',
   ]);
   const targets = ['es', 'ja', 'zh-hans'];
@@ -14,6 +14,18 @@
       source: Array.from({length: 30}, (_, i) => `The parcel for department ${i + 1} arrives on Monday.`).join(' ') +
         ' The final notice confirms cancellation, not delay.',
       expectedInvariant: 'Each department 1-30 has exactly one parcel-arrival-on-Monday association; the final notice confirms cancellation, explicitly not delay.'},
+    {name: 'fourteen-departments', id: 'clause_coverage', regressionRule: 'departments14',
+      source: Array.from({length: 14}, (_, i) => `Parcel for department ${101 + i} arrives on Monday.`).join(' ') +
+        ' The final notice confirms cancellation, not a delay.',
+      expectedInvariant: 'Each department 101-114 has exactly one parcel-arrival-on-Monday association; the final notice confirms cancellation, explicitly not a delay.'},
+    {name: 'url-query-boundary', id: 'opaque_identity', regressionRule: 'identity',
+      source: 'Visit https://example.com/offers?id=15&order=676 and email first@example.com.\n\n' +
+        Array.from({length: 20}, (_, i) => `The parcel for department ${i + 1} arrives on Monday with reference ${100 + i}.`).join(' ') +
+        '\n\nUse /docs/release/2.8.15?id=676 and contact second@example.com.',
+      mustPreserve: ['https://example.com/offers?id=15&order=676', '/docs/release/2.8.15?id=676', 'first@example.com', 'second@example.com'],
+      exactTokens: ['https://example.com/offers?id=15&order=676', '/docs/release/2.8.15?id=676', 'first@example.com', 'second@example.com'],
+      mustNotContain: ['? id='],
+      expectedInvariant: 'Preserve absolute and relative URL query parameters (?id=15&order=676 and /docs/release/2.8.15?id=676) and emails verbatim across multi-sentence segmentation boundaries without inserting spaces after ?.'},
     {name: 'passages', id: 'passage_coverage', regressionRule: 'passages', source: longPassage,
       expectedInvariant: 'Preserve the entire passage, including attention mechanisms and transformer architectures, phrase-based alignment tables, practical applications, and international businesses; keyword coverage alone does not establish completeness.'},
     {name: 'opaque', id: 'opaque_identity', regressionRule: 'identity',
@@ -29,11 +41,16 @@
       expectedInvariant: 'The price decreases by 15%; the 50% decrease is explicitly negated.'},
     {name: 'datetime', id: 'placeholder_integrity', regressionRule: 'datetime',
       source: 'The meeting is scheduled for March 15, 2025, at 2:30 PM.',
+      mustPreserve: ['15', '2025', '2', '30'],
       expectedInvariant: 'Meeting on March 15, 2025 at 2:30 PM (14:30); preserve each value and its date/time role.'},
     {name: 'literal-braces', id: 'literal_identity', regressionRule: 'identity',
       source: 'Keep the exact literal markers {2} and {3 in this example.',
       mustPreserve: ['{2}', '{3'], exactTokens: ['{2}', '{3'],
       expectedInvariant: 'Keep the source literals {2} and {3 exactly, without altering or inventing markers.'},
+    {name: 'literal-collision', id: 'literal_identity', regressionRule: 'identity',
+      source: 'Literal {0} is user text. Count 12. Email qa@example.com.',
+      mustPreserve: ['{0}', '12', 'qa@example.com'], exactTokens: ['{0}', 'qa@example.com'],
+      expectedInvariant: 'Keep literal {0} in user text intact alongside protected number 12 and email qa@example.com without placeholder collision.'},
     {name: 'message', id: 'meaning', regressionRule: 'message',
       source: '1 message remains unread.',
       expectedInvariant: 'Exactly one message remains unread. Keep the message entity; 1 is its quantity, not a detached number or identifier.',
@@ -67,6 +84,7 @@
       ...spec, caseId: `focused:${name}`, sourceLanguage: 'en', lang: target,
       ...(spec.mustPreserve ? {mustPreserve: [...spec.mustPreserve]} : {}),
       ...(spec.exactTokens ? {exactTokens: [...spec.exactTokens]} : {}),
+      ...(spec.mustNotContain ? {mustNotContain: [...spec.mustNotContain]} : {}),
       ...(spec.reviewTopics ? {reviewTopics: [...spec.reviewTopics]} : {}),
     }));
   }
@@ -99,7 +117,7 @@
       final: /(?:最终|最后|最終|最後)[^。\n]{0,120}(?:取消[^。\n]{0,30}(?:不是|而非|而不是)[^。\n]{0,20}(?:延迟|延期|延误|延遲)|(?:不是|并非)[^。\n]{0,20}(?:延迟|延期|延误|延遲)[^。\n]{0,30}取消)/u},
   };
 
-  function departments(lang, output) {
+  function departments(lang, output, startId = 1, endId = 30) {
     const rule = departmentRules[lang];
     const labels = [...output.matchAll(rule.label)];
     const associations = [];
@@ -112,13 +130,13 @@
       }
     }
     const failures = [];
-    for (let id = 1; id <= 30; id++) {
+    for (let id = startId; id <= endId; id++) {
       const count = associations.filter(value => value === id).length;
       if (count !== 1) failures.push(`department_clause_${id}: ${count}`);
     }
     if (labels.some(label => {
       const id = numeral(label[1] || label[2]);
-      return id < 1 || id > 30;
+      return id < startId || id > endId;
     })) failures.push('unexpected_department');
     if (!rule.final.test(output)) failures.push('final_cancellation_negation');
     return failures;
@@ -213,7 +231,11 @@
     const {failures, review} = result;
     switch (test.regressionRule) {
       case 'departments':
-        failures.push(...departments(lang, text));
+        failures.push(...departments(lang, text, 1, 30));
+        review.push('coverage_patterns_are_development_flags_not_accuracy', 'alternative_department_wording_needs_review');
+        break;
+      case 'departments14':
+        failures.push(...departments(lang, text, 101, 114));
         review.push('coverage_patterns_are_development_flags_not_accuracy', 'alternative_department_wording_needs_review');
         break;
       case 'passages':
@@ -264,9 +286,15 @@
         review.push('ordered_status_ready_count12_update_tomorrow_and_no_repeated_content_need_review');
         break;
       }
-      case 'datetime':
+      case 'datetime': {
+        const timeValid = /(?:(?<!\d)(?:2|14)\s*[:：]\s*30(?!\d)|(?:2|二|14|十四)\s*[時时点點]\s*(?:30\s*分?|三十\s*分?|半))/u.test(text);
+        const detachedTrailingDigits = /[.!?。！？]\s*\d+(?:\s+\d+)*\s*$/u.test(text);
+        if (!timeValid || detachedTrailingDigits) {
+          failures.push('datetime_time_corrupted_or_detached');
+        }
         review.push('March15_2025_1430_date_time_values_and_roles_need_review');
         break;
+      }
       case 'identity':
         break;
     }

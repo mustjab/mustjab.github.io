@@ -15,22 +15,22 @@
   --warning-color: #f59e0b;
 
   /* Surfaces */
-  --background: #fafbfc;
-  --surface: #eef2f7;
-  --surface-2: #e5eaf2;
-  --surface-elevated: rgba(250, 251, 252, 0.85);
+  --background: #ffffff;
+  --surface: #f1f5f9;
+  --surface-2: #e2e8f0;
+  --surface-elevated: rgba(255, 255, 255, 0.88);
 
   /* Text */
   --text-primary: #0f172a;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-muted: #64748b;
 
   /* Borders */
   --border: #cbd5e1;
   --border-light: #e2e8f0;
 
   /* Shadows (soft, neutral) */
-  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
   --shadow-md: 0 4px 14px -4px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.04);
   --shadow-lg: 0 20px 40px -12px rgb(15 23 42 / 0.14), 0 8px 16px -8px rgb(15 23 42 / 0.06);
 
@@ -46,26 +46,29 @@
   :root {
     --primary-color: #818cf8;
     --primary-hover: #6366f1;
-    --primary-subtle: rgba(129, 140, 248, 0.14);
+    --primary-subtle: rgba(129, 140, 248, 0.15);
     --accent-color: #38bdf8;
 
     --secondary-color: #94a3b8;
+    --success-color: #34d399;
+    --error-color: #f87171;
+    --warning-color: #fbbf24;
 
-    --background: #0b1220;
-    --surface: #0f172a;
+    --background: #0f172a;
+    --surface: #0b1120;
     --surface-2: #1e293b;
-    --surface-elevated: rgba(15, 23, 42, 0.78);
+    --surface-elevated: rgba(15, 23, 42, 0.85);
 
-    --text-primary: #f1f5f9;
+    --text-primary: #f8fafc;
     --text-secondary: #cbd5e1;
     --text-muted: #94a3b8;
 
-    --border: #1e293b;
-    --border-light: #111827;
+    --border: #334155;
+    --border-light: #1e293b;
 
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-    --shadow-md: 0 4px 14px -4px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-    --shadow-lg: 0 20px 40px -12px rgb(0 0 0 / 0.6), 0 8px 16px -8px rgb(0 0 0 / 0.4);
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.45);
+    --shadow-md: 0 4px 14px -4px rgb(0 0 0 / 0.55), 0 2px 4px -2px rgb(0 0 0 / 0.45);
+    --shadow-lg: 0 20px 40px -12px rgb(0 0 0 / 0.65), 0 8px 16px -8px rgb(0 0 0 / 0.45);
   }
 }
 
@@ -126,8 +129,8 @@ body {
 }
 
 .demo-nav a[aria-current="page"] {
-  background: color-mix(in oklab, var(--primary-color) 12%, var(--surface));
-  border-color: color-mix(in oklab, var(--primary-color) 50%, var(--border));
+  background: color-mix(in oklab, var(--primary-color) 14%, var(--background));
+  border-color: color-mix(in oklab, var(--primary-color) 55%, var(--border));
   color: var(--primary-color);
 }
 
@@ -614,3 +617,94 @@ tr:hover td {
 .searchable-select-no-results {
   color: var(--text-muted) !important;
 }
+
+/* Cross-page dark/light mode polish for banners, footers, logs, and tables */
+.error-banner {
+  background: var(--background) !important;
+  border: 1px solid color-mix(in oklab, var(--error-color) 45%, var(--border)) !important;
+  border-left: 5px solid var(--error-color) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.error-banner__title {
+  color: var(--error-color) !important;
+}
+
+.error-banner__msg {
+  color: var(--text-primary) !important;
+}
+
+.error-banner__details {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-secondary) !important;
+}
+
+.bench-footer {
+  background: var(--background) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.status-ready {
+  color: var(--success-color) !important;
+  font-weight: 600;
+}
+
+.status-running {
+  color: var(--warning-color) !important;
+  font-weight: 600;
+}
+
+.bench-progress-bar {
+  background: var(--surface-2) !important;
+}
+
+.bench-progress-fill {
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color)) !important;
+}
+
+.defect-table td.ok,
+.defect-summary .ok {
+  color: var(--warning-color) !important;
+}
+
+.field-hint,
+.hint {
+  color: var(--text-secondary) !important;
+}
+
+.primary-result,
+.candidate-item,
+.batch-result-item,
+.troubleshooting-box {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.troubleshooting-box summary {
+  background: var(--surface-2) !important;
+  color: var(--text-primary) !important;
+}
+
+footer {
+  margin-top: 2rem;
+  padding: 1rem 0;
+  text-align: center;
+  color: var(--text-secondary) !important;
+  font-size: 0.875rem;
+}
+
+footer a {
+  color: var(--primary-color) !important;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+

@@ -12,14 +12,14 @@ function spec(target, name) {
   return row;
 }
 
-test('UMD exposes version1 and identical stable fifteen-case multilingual public corpora', () => {
+test('UMD exposes version1 and identical stable eighteen-case multilingual public corpora', () => {
   const context = {};
   vm.runInNewContext(fs.readFileSync(require.resolve('./regressions.js'), 'utf8'), context, {timeout: 1000});
   assert.equal(context.QualityRegressions.VERSION, '1');
   const ids = regressions.getCases('es').map(row => row.caseId);
   for (const target of ['es', 'ja', 'zh-hans']) {
     const cases = regressions.getCases(target);
-    assert.equal(cases.length, 15);
+    assert.equal(cases.length, 18);
     assert.deepEqual(cases.map(row => row.caseId), ids);
     assert(cases.every(row => row.sourceLanguage === 'en' && row.lang === target &&
       regressions.rules.includes(row.regressionRule) && row.expectedInvariant));
@@ -28,7 +28,7 @@ test('UMD exposes version1 and identical stable fifteen-case multilingual public
     assert.deepEqual(cases.slice(-3).map(row => row.exactTokens[0]), ['Б', 'Ԁ', 'É']);
   }
   const altered = regressions.getCases('es');
-  altered[2].exactTokens[0] = 'mutated';
+  altered.find(item => item.caseId === 'focused:opaque').exactTokens[0] = 'mutated';
   assert.equal(spec('es', 'opaque').exactTokens[0], 'support@example.com');
   assert.throws(() => regressions.getCases('fr'), /Unsupported/);
   assert.throws(() => regressions.evaluate({regressionRule: 'guess', lang: 'es'}, 'output'), /Unknown/);
@@ -138,9 +138,15 @@ test('bank, idiom, fields and date keep mandatory review and only targeted defec
   assert(regressions.evaluate(spec('es', 'fields'), 'Estado: Listacaba la próxima actualización: mañana. 12').failures.includes('four_field_lines_not_preserved'));
   assert(regressions.evaluate(spec('es', 'fields'), 'Estado\nListo\nReferencia: 12\nPróxima actualización: mañana.').failures.includes('invented_reference_field'));
   assert(regressions.evaluate(spec('es', 'fields'), 'Estado\nListo\nListo\nPróxima actualización: mañana.').failures.includes('repeated_field_line'));
-  for (const name of ['bank', 'idiom', 'fields', 'datetime', 'opaque', 'literal-braces']) {
+  for (const name of ['bank', 'idiom', 'fields', 'datetime', 'opaque', 'literal-braces', 'url-query-boundary', 'literal-collision']) {
     const result = regressions.evaluate(spec('es', name), spec('es', name).source);
     assert(result.review.includes('expected_invariant_requires_human_review'));
     assert.equal('humanVerdict' in result, false);
   }
+  assert.deepEqual(regressions.evaluate(spec('ja', 'datetime'), '会議は2025年3月15日午後2時30分に予定されています。').failures, []);
+  assert(regressions.evaluate(spec('ja', 'datetime'), '会議は 3 月 15 日、2025 の午後 {2 時 3 分に予定されています。 2 30').failures.includes('datetime_time_corrupted_or_detached'));
+  assert(regressions.evaluate(spec('zh-hans', 'datetime'), '会议定于 3 月 15 日 2025 下午 {2:30 举行。 2').failures.includes('datetime_time_corrupted_or_detached'));
+  const clauses14 = Array.from({length: 14}, (_, i) => `部門${101 + i}の小包は月曜日に到着します。`);
+  assert.deepEqual(regressions.evaluate(spec('ja', 'fourteen-departments'), clauses14.join(' ') + '最終通知では遅延ではなくキャンセルを確認します。').failures, []);
+  assert(regressions.evaluate(spec('ja', 'fourteen-departments'), clauses14.slice(1).join(' ') + '最終通知では遅延ではなくキャンセルを確認します。').failures.includes('department_clause_101: 0'));
 });

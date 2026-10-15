@@ -1,17 +1,32 @@
-/* Built-in AI End-to-End Playground
- * - Prompt API (Edge: window.LanguageModel)
- * - Writing Assistance APIs (Summarizer/Writer/Rewriter)
- * - Proofreader API (Chrome origin trial)
- * - Translator API
- * - Language Detector API
+/* Built-in AI End-to-End Pipeline
+ * Runs Language Detector, Proofreader, Summarizer, Rewriter, Writer,
+ * Prompt API (LanguageModel), and Translator from a single unified input.
  */
 
+const PRESETS = {
+    launch: {
+        title: 'Product Launch Draft',
+        text: `We are thrilled to anounce the general availability of Edge On-Device AI Studio v2.8.15 on March 15, 2025 at 2:30 PM! The new release reduces translation latency by 35% while preserving URLs like https://example.com/docs/2.8.15?id=676 and relative paths such as /docs/release/2.8.15?id=676 across sentence boundaries. Enterprise teams with a $42 billion annual cloud budget can now run Summarizer, Rewriter, Writer, and Translator locally with zero cloud round-trips. Contact support@example.com if 1 message remains unread in your onboarding queue.`
+    },
+    release: {
+        title: 'Engineering Release Notes',
+        text: `Release v2.8.15 introduces Neural Phrase Fix (NPF) with deterministic Hard Phrase Fix (HPF) fallback for on-device translation. Multi-sentence segments coalesce up to 4 protected spans within a 240-token budget before falling back to sentence-level splits. In 136 automated regression calls and 9,959 decoding steps, edge-case URL queries (?id=15&order=676) and 30 numbered department clauses were preserved with 0 unexpected errors.`
+    },
+    support: {
+        title: 'Customer Escalation Email',
+        text: `Hi team, our deployment of the translation widget in Department 14 failed yesterday becuase the webhook URL https://api.example.org/v2/hooks?tenant=676 was truncated during batch processing. We have 12 pending tickets and need a root-cause summary, a polished status update for leadership, and a Spanish translation for our regional operations team by Monday.`
+    },
+    multilingual: {
+        title: 'Spanish Customer Feedback',
+        text: `El nuevo servicio de traducción local funciona muy rápido en Windows 11. Hemos probado 15 documentos técnicos con enlaces como https://example.com/offers?id=15 y correos como soporte@example.com, y todos los números y direcciones se conservaron correctamente sin errores.`
+    }
+};
+
 const DEFAULTS = {
-    // Defaults are intentionally task-specific per API (aligned with the Edge playgrounds).
     prompt: {
-        system: 'You are a helpful assistant.',
-        input: '',
-        inputHint: 'Prompt sent to the Prompt API.'
+        system: 'Analyze the user\'s text: extract key takeaways, any numbers/dates/URLs, and 2 recommended next steps.',
+        input: PRESETS.launch.text,
+        inputHint: 'Input sent to all enabled Built-in AI APIs.'
     },
     summarizer: {
         system: 'Summarize the input text. Preserve key facts and numbers.\nOutput concise bullet points unless the text is very short.',
@@ -19,7 +34,7 @@ const DEFAULTS = {
         inputHint: 'Text to summarize.'
     },
     writer: {
-        system: 'Write based on the user input. Be clear, accurate, and well-structured.\nAsk a brief clarifying question only if required.',
+        system: 'Write a concise follow-up announcement or action plan based on this source text:',
         input: '',
         inputHint: 'What should be written (topic, audience, constraints, etc.).'
     },
@@ -46,7 +61,14 @@ function setTextIfPresent(id, text) {
 
 function supportText(state, extra = '') {
     const suffix = extra ? ` ${extra}` : '';
-    return `Support: ${state}${suffix}`;
+    return `${state}${suffix}`;
+}
+
+function setSupportBadge(id, label, stateClass = '') {
+    const el = $(id);
+    if (!el) return;
+    el.textContent = label;
+    el.className = `support-badge${stateClass ? ' ' + stateClass : ''}`;
 }
 
 function safeText(x) {
@@ -502,13 +524,23 @@ class E2EPlayground {
     constructor() {
         this.activeTab = 'prompt';
 
-        // Per-tab UI state (so each feature keeps its own system prompt/input).
         this.tabState = Object.fromEntries(
             Object.entries(DEFAULTS).map(([key, defaults]) => [
                 key,
                 { system: defaults.system, input: defaults.input }
             ])
         );
+
+        this.stageOutputs = {
+            lid: '',
+            proofreader: '',
+            summarizer: '',
+            rewriter: '',
+            writer: '',
+            prompt: '',
+            translator: ''
+        };
+        this.detectedLanguageCode = 'en';
 
         this.promptSession = null;
         this.summarizerSession = null;
@@ -536,11 +568,9 @@ class E2EPlayground {
         this.wireTabs();
         this.wireButtons();
         this.wireTranslateMode();
-
         this.wirePerTabState();
-
         this.loadTabState('prompt', { force: true });
-
+        this.updateInputCounter();
         this.refreshAvailability();
     }
 
@@ -552,32 +582,50 @@ class E2EPlayground {
                 .sort((a, b) => a.name.localeCompare(b.name))
         ];
 
-        this.sourceLanguageSelect = new SearchableLanguageSelect(
-            'sourceLanguageSearch',
-            'sourceLanguageDropdown',
-            'sourceLanguage',
-            languages,
-            $('sourceLanguage')?.value || 'en'
-        );
+        if ($('sourceLanguageSearch') && $('sourceLanguageDropdown') && $('sourceLanguage')) {
+            this.sourceLanguageSelect = new SearchableLanguageSelect(
+                'sourceLanguageSearch',
+                'sourceLanguageDropdown',
+                'sourceLanguage',
+                languages,
+                $('sourceLanguage')?.value || 'auto'
+            );
+        }
 
-        this.targetLanguageSelect = new SearchableLanguageSelect(
-            'targetLanguageSearch',
-            'targetLanguageDropdown',
-            'targetLanguage',
-            languages.filter(l => l.code !== 'auto'),
-            $('targetLanguage')?.value || 'en'
-        );
+        if ($('targetLanguageSearch') && $('targetLanguageDropdown') && $('targetLanguage')) {
+            this.targetLanguageSelect = new SearchableLanguageSelect(
+                'targetLanguageSearch',
+                'targetLanguageDropdown',
+                'targetLanguage',
+                languages.filter(l => l.code !== 'auto'),
+                $('targetLanguage')?.value || 'es'
+            );
+        }
+    }
+
+    updateInputCounter() {
+        const text = ($('inputText')?.value || '');
+        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        setTextIfPresent('inputCounter', `${text.length} chars · ${words} words`);
+    }
+
+    applyPreset(presetKey) {
+        const preset = PRESETS[presetKey];
+        if (!preset || !$('inputText')) return;
+        $('inputText').value = preset.text;
+        this.updateInputCounter();
     }
 
     wirePerTabState() {
-        $('systemPrompt').addEventListener('input', () => {
+        $('systemPrompt')?.addEventListener('input', () => {
             if (!this.tabState[this.activeTab]) this.tabState[this.activeTab] = { system: '', input: '' };
             this.tabState[this.activeTab].system = $('systemPrompt').value;
         });
 
-        $('inputText').addEventListener('input', () => {
+        $('inputText')?.addEventListener('input', () => {
             if (!this.tabState[this.activeTab]) this.tabState[this.activeTab] = { system: '', input: '' };
             this.tabState[this.activeTab].input = $('inputText').value;
+            this.updateInputCounter();
         });
     }
 
@@ -587,126 +635,172 @@ class E2EPlayground {
                 this.setActiveTab(btn.dataset.tab);
             });
         });
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.applyPreset(btn.dataset.preset);
+            });
+        });
     }
 
     wireButtons() {
-        $('runBtn').addEventListener('click', () => this.runTask());
-        $('stopBtn').addEventListener('click', () => this.stopTask());
-        $('clearBtn').addEventListener('click', () => this.clearAll());
+        $('runBtn')?.addEventListener('click', () => this.runAllPipeline());
+        $('stopBtn')?.addEventListener('click', () => this.stopTask());
+        $('clearBtn')?.addEventListener('click', () => this.clearAll());
+        $('copyAllReportBtn')?.addEventListener('click', () => this.copyFullReport());
 
         $('dismissError')?.addEventListener('click', () => this.clearError());
 
-        $('copyOutput').addEventListener('click', async () => {
-            await copyToClipboard(this.lastOutput);
+        $('copyOutput')?.addEventListener('click', async () => {
+            await copyToClipboard(this.stageOutputs.prompt || this.lastOutput);
         });
 
-        $('detectLangBtn').addEventListener('click', () => this.detectLanguageForOutput());
-        $('translateBtn').addEventListener('click', () => this.translateOutput());
-        $('stopTranslateBtn').addEventListener('click', () => this.stopTranslate());
+        $('detectLangBtn')?.addEventListener('click', () => this.runStage('lid'));
+        $('runProofreaderBtn')?.addEventListener('click', () => this.runStage('proofreader'));
+        $('runSummarizerBtn')?.addEventListener('click', () => this.runStage('summarizer'));
+        $('runRewriterBtn')?.addEventListener('click', () => this.runStage('rewriter'));
+        $('runWriterBtn')?.addEventListener('click', () => this.runStage('writer'));
+        $('runPromptBtn')?.addEventListener('click', () => this.runStage('prompt'));
 
-        $('copyTranslated').addEventListener('click', async () => {
-            await copyToClipboard($('translatedOutput').textContent);
+        $('translateBtn')?.addEventListener('click', () => this.runStage('translator'));
+        $('stopTranslateBtn')?.addEventListener('click', () => this.stopTranslate());
+
+        $('copyTranslated')?.addEventListener('click', async () => {
+            await copyToClipboard($('translatedOutput')?.textContent || '');
+        });
+
+        document.querySelectorAll('.copy-stage-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const stage = btn.dataset.stage;
+                const text = this.stageOutputs[stage] || '';
+                if (text) await copyToClipboard(text);
+            });
+        });
+
+        document.querySelectorAll('.use-as-input-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const stage = btn.dataset.stage;
+                const text = this.stageOutputs[stage] || '';
+                if (text && $('inputText')) {
+                    $('inputText').value = text;
+                    this.updateInputCounter();
+                }
+            });
         });
     }
 
     wireTranslateMode() {
-        $('translateMode').addEventListener('change', () => {
-            $('segmentOptions').style.display = $('translateMode').value === 'segmented' ? 'grid' : 'none';
+        $('translateMode')?.addEventListener('change', () => {
+            if ($('segmentOptions')) {
+                $('segmentOptions').style.display = $('translateMode').value === 'segmented' ? 'grid' : 'none';
+            }
         });
     }
 
     setActiveTab(tab) {
-        if (this.activeTab === tab) return;
-
-        // Persist current tab values before switching.
-        this.saveActiveTabState();
-
         this.activeTab = tab;
-
-        document.querySelectorAll('.tab').forEach(b => {
-            const isActive = b.dataset.tab === tab;
-            b.classList.toggle('active', isActive);
-            b.setAttribute('aria-selected', isActive ? 'true' : 'false');
-        });
-
-        this.showOptionsForTab(tab);
-        this.loadTabState(tab);
     }
 
-    saveActiveTabState() {
-        if (!this.tabState[this.activeTab]) {
-            this.tabState[this.activeTab] = { system: '', input: '' };
-        }
-        this.tabState[this.activeTab].system = $('systemPrompt').value;
-        this.tabState[this.activeTab].input = $('inputText').value;
-    }
+    saveActiveTabState() {}
+    showOptionsForTab() {}
 
-    showOptionsForTab(tab) {
-        $('optionsPrompt').style.display = tab === 'prompt' ? 'grid' : 'none';
-        $('optionsSummarizer').style.display = tab === 'summarizer' ? 'grid' : 'none';
-        $('optionsWriter').style.display = tab === 'writer' ? 'grid' : 'none';
-        $('optionsRewriter').style.display = tab === 'rewriter' ? 'grid' : 'none';
-        $('optionsProofreader').style.display = tab === 'proofreader' ? 'grid' : 'none';
-    }
-
-    loadTabState(tab, { force = false } = {}) {
+    loadTabState(tab) {
         const defaults = DEFAULTS[tab];
         if (!defaults) return;
+        if ($('systemPrompt') && !$('systemPrompt').value) $('systemPrompt').value = defaults.system;
+        if ($('inputText') && !$('inputText').value) $('inputText').value = defaults.input;
+        setTextIfPresent('inputHint', defaults.inputHint);
+    }
 
-        if (!this.tabState[tab]) {
-            this.tabState[tab] = { system: defaults.system, input: defaults.input };
+    setStageStatus(stage, statusText, stateClass = '') {
+        const el = $(`status-${stage}`);
+        if (!el) return;
+        el.textContent = statusText;
+        el.className = `stage-status${stateClass ? ' ' + stateClass : ''}`;
+    }
+
+    setStageOutput(stage, text) {
+        const val = safeText(text);
+        this.stageOutputs[stage] = val;
+        if (stage === 'prompt') {
+            this.lastOutput = val;
+            setTextIfPresent('modelOutput', val);
+            if ($('copyOutput')) $('copyOutput').disabled = !val;
+        } else if (stage === 'translator') {
+            setTextIfPresent('translatedOutput', val);
+            if ($('copyTranslated')) $('copyTranslated').disabled = !val;
+        } else if (stage === 'lid') {
+            setTextIfPresent('lidOutput', val);
+        } else {
+            setTextIfPresent(`output-${stage}`, val);
         }
+        document.querySelectorAll(`[data-stage="${stage}"]`).forEach(btn => {
+            btn.disabled = !val;
+        });
+        const anyOutput = Object.values(this.stageOutputs).some(Boolean);
+        if ($('copyAllReportBtn')) $('copyAllReportBtn').disabled = !anyOutput;
+    }
 
-        const nextSystem = this.tabState[tab].system ?? defaults.system;
-        const nextInput = this.tabState[tab].input ?? defaults.input;
-
-        $('systemPrompt').value = nextSystem;
-        $('inputText').value = nextInput;
-        $('inputHint').textContent = defaults.inputHint;
+    updateStageStats(stage, chars, startMs, chunks) {
+        const elapsedMs = Math.max(1, Math.round(nowMs() - startMs));
+        if (stage === 'prompt') {
+            this.updateStats(chars, startMs, chunks);
+            return;
+        }
+        setTextIfPresent(`statChars-${stage}`, String(chars));
+        setTextIfPresent(`statTime-${stage}`, String(elapsedMs));
+        setTextIfPresent(`statChunks-${stage}`, String(chunks));
+        setTextIfPresent(`statThroughput-${stage}`, String(calcThroughput(chars, elapsedMs)));
     }
 
     clearAll() {
-        // Clear UI and per-tab stored values.
-        Object.keys(this.tabState).forEach(k => {
-            this.tabState[k] = { system: '', input: '' };
+        Object.keys(this.stageOutputs).forEach(stage => {
+            this.setStageOutput(stage, '');
+            this.setStageStatus(stage, 'Idle');
+            setTextIfPresent(`statChars-${stage}`, '0');
+            setTextIfPresent(`statTime-${stage}`, '0');
+            setTextIfPresent(`statChunks-${stage}`, '0');
+            setTextIfPresent(`statThroughput-${stage}`, '0');
         });
+        setTextIfPresent('lidOutput', 'Run pipeline to detect language…');
+        setTextIfPresent('lidPrimary', '-');
+        setTextIfPresent('lidConfidence', '-');
+        setTextIfPresent('lidTime', '0');
 
-        $('systemPrompt').value = '';
-        $('inputText').value = '';
+        if ($('proofDetails')) {
+            $('proofDetails').style.display = 'none';
+            $('proofDetails').innerHTML = '';
+        }
 
-        this.setOutput('');
-        $('translatedOutput').textContent = '';
-        $('proofDetails').style.display = 'none';
-        $('proofDetails').innerHTML = '';
-
-        $('detectedLang').textContent = '-';
-        $('translateSegments').textContent = '-';
-        $('translateTime').textContent = '0';
-        $('translateThroughput').textContent = '0';
+        setTextIfPresent('detectedLang', '-');
+        setTextIfPresent('translateDetectedLang', '-');
+        setTextIfPresent('translateSegments', '-');
+        setTextIfPresent('translateTime', '0');
+        setTextIfPresent('translateThroughput', '0');
+        setTextIfPresent('pipelineStatus', 'Ready');
+        setTextIfPresent('pipelineStagesDone', '0 / 0');
+        setTextIfPresent('pipelineTotalTime', '0');
 
         this.clearError();
-
         this.resetStats();
     }
 
     resetStats() {
-        $('statChars').textContent = '0';
-        $('statTime').textContent = '0';
-        $('statChunks').textContent = '0';
-        $('statThroughput').textContent = '0';
+        setTextIfPresent('statChars', '0');
+        setTextIfPresent('statTime', '0');
+        setTextIfPresent('statChunks', '0');
+        setTextIfPresent('statThroughput', '0');
     }
 
     setOutput(text) {
-        this.lastOutput = safeText(text);
-        $('modelOutput').textContent = this.lastOutput;
-        $('copyOutput').disabled = !this.lastOutput;
+        this.setStageOutput('prompt', text);
     }
 
     setProgress(show, loaded = 0) {
+        if (!$('downloadProgress')) return;
         $('downloadProgress').style.display = show ? 'block' : 'none';
         const percent = Math.max(0, Math.min(100, Math.round(loaded * 100)));
-        $('progressFill').style.width = `${percent}%`;
-        $('progressText').textContent = `${percent}%`;
+        if ($('progressFill')) $('progressFill').style.width = `${percent}%`;
+        setTextIfPresent('progressText', `${percent}%`);
     }
 
     /**
@@ -803,7 +897,7 @@ class E2EPlayground {
     async updatePromptAvailability() {
         const has = 'LanguageModel' in window;
         if (!has) {
-            setTextIfPresent('supportPrompt', supportText('Not supported'));
+            setSupportBadge('supportPrompt', 'Not supported', 'is-unavailable');
             return;
         }
 
@@ -817,24 +911,21 @@ class E2EPlayground {
             const info = lm.capabilities
                 ? await lm.capabilities(availabilityOptions)
                 : await lm.availability(availabilityOptions);
-            // Edge returns strings or objects with .available.
             const state = typeof info === 'string' ? info : (info && info.available ? info.available : 'unknown');
 
             if (state === 'available' || state === 'readily') {
-                setTextIfPresent('supportPrompt', supportText('Available'));
+                setSupportBadge('supportPrompt', 'Available', 'is-available');
             } else if (state === 'downloading') {
-                setTextIfPresent('supportPrompt', supportText('Downloading'));
-                // Download already in progress – show progress bar and try to
-                // attach the monitor by eagerly creating a session.
+                setSupportBadge('supportPrompt', 'Downloading', 'is-downloadable');
                 this.setProgress(true, 0);
                 this.monitorOngoingPromptDownload();
             } else if (state === 'downloadable' || state === 'after-download') {
-                setTextIfPresent('supportPrompt', supportText('Downloadable'));
+                setSupportBadge('supportPrompt', 'Downloadable', 'is-downloadable');
             } else {
-                setTextIfPresent('supportPrompt', supportText(safeText(state) || 'Unknown'));
+                setSupportBadge('supportPrompt', safeText(state) || 'Unknown');
             }
         } catch {
-            setTextIfPresent('supportPrompt', supportText('Unknown'));
+            setSupportBadge('supportPrompt', 'Unknown');
         }
     }
 
@@ -846,58 +937,59 @@ class E2EPlayground {
                 : 'supportRewriter';
 
         if (!(globalName in window)) {
-            setTextIfPresent(supportId, supportText('Not supported'));
+            setSupportBadge(supportId, 'Not supported', 'is-unavailable');
             return;
         }
 
         try {
             const api = window[globalName];
             const availability = await api.availability();
-            if (availability === 'available') {
-                setTextIfPresent(supportId, supportText('Available'));
-            } else if (availability === 'downloadable' || availability === 'downloading') {
-                setTextIfPresent(supportId, supportText('Downloadable'));
-            } else if (availability === 'unavailable') {
-                setTextIfPresent(supportId, supportText('Unavailable'));
+            if (availability === 'available' || availability === 'readily') {
+                setSupportBadge(supportId, 'Available', 'is-available');
+            } else if (availability === 'downloadable' || availability === 'downloading' || availability === 'after-download') {
+                setSupportBadge(supportId, 'Downloadable', 'is-downloadable');
+            } else if (availability === 'unavailable' || availability === 'no') {
+                setSupportBadge(supportId, 'Unavailable', 'is-unavailable');
             } else {
-                setTextIfPresent(supportId, supportText(safeText(availability) || 'Unknown'));
+                setSupportBadge(supportId, safeText(availability) || 'Unknown');
             }
         } catch {
-            setTextIfPresent(supportId, supportText('Unknown'));
+            setSupportBadge(supportId, 'Unknown');
         }
     }
 
     async updateProofreaderAvailability() {
         if (!('Proofreader' in window)) {
-            setTextIfPresent('supportProofreader', supportText('Not supported'));
+            setSupportBadge('supportProofreader', 'Not supported', 'is-unavailable');
             return;
         }
 
-        // Chrome doc mentions availability(), but behavior varies across builds.
         try {
             const api = window.Proofreader;
             if (typeof api.availability === 'function') {
                 const a = await api.availability();
-                setTextIfPresent('supportProofreader', supportText(safeText(a) || 'Unknown'));
+                const cls = (a === 'available' || a === 'readily') ? 'is-available'
+                    : (a === 'downloadable' || a === 'after-download') ? 'is-downloadable' : '';
+                setSupportBadge('supportProofreader', safeText(a) || 'Unknown', cls);
             } else {
-                setTextIfPresent('supportProofreader', supportText('Present'));
+                setSupportBadge('supportProofreader', 'Present', 'is-available');
             }
         } catch {
-            setTextIfPresent('supportProofreader', supportText('Unknown'));
+            setSupportBadge('supportProofreader', 'Unknown');
         }
     }
 
     async updateTranslatorAvailability() {
         if (!('Translator' in window)) {
-            setTextIfPresent('supportTranslator', 'Translator support: Not supported');
+            setSupportBadge('supportTranslator', 'Not supported', 'is-unavailable');
             return;
         }
-        setTextIfPresent('supportTranslator', 'Translator support: Available');
+        setSupportBadge('supportTranslator', 'Available', 'is-available');
     }
 
     async updateLIDAvailability() {
         if (!('LanguageDetector' in window)) {
-            setTextIfPresent('supportLID', 'Language Detector support: Not supported');
+            setSupportBadge('supportLID', 'Not supported', 'is-unavailable');
             return;
         }
 
@@ -905,27 +997,26 @@ class E2EPlayground {
             const api = window.LanguageDetector;
             if (typeof api.availability === 'function') {
                 const a = await api.availability();
-                // Chrome uses: "no" | "after-download" | "readily".
                 if (a === 'readily' || a === 'available') {
-                    setTextIfPresent('supportLID', 'Language Detector support: Available');
-                } else if (a === 'after-download') {
-                    setTextIfPresent('supportLID', 'Language Detector support: Downloadable');
+                    setSupportBadge('supportLID', 'Available', 'is-available');
+                } else if (a === 'after-download' || a === 'downloadable' || a === 'downloading') {
+                    setSupportBadge('supportLID', 'Downloadable', 'is-downloadable');
                 } else if (a === 'no' || a === 'unavailable') {
-                    setTextIfPresent('supportLID', 'Language Detector support: Unavailable');
+                    setSupportBadge('supportLID', 'Unavailable', 'is-unavailable');
                 } else {
-                    setTextIfPresent('supportLID', `Language Detector support: ${safeText(a) || 'Unknown'}`);
+                    setSupportBadge('supportLID', safeText(a) || 'Unknown');
                 }
             } else {
-                setTextIfPresent('supportLID', 'Language Detector support: Present');
+                setSupportBadge('supportLID', 'Present', 'is-available');
             }
         } catch {
-            setTextIfPresent('supportLID', 'Language Detector support: Unknown');
+            setSupportBadge('supportLID', 'Unknown');
         }
     }
 
     setBusy(isBusy) {
-        $('runBtn').disabled = isBusy;
-        $('stopBtn').disabled = !isBusy;
+        if ($('runBtn')) $('runBtn').disabled = isBusy;
+        if ($('stopBtn')) $('stopBtn').disabled = !isBusy;
     }
 
     stopTask() {
@@ -941,155 +1032,330 @@ class E2EPlayground {
             } catch { /* noop */ }
         }
 
+        this.stopTranslate();
         this.currentAbortController = null;
         this.currentStream = null;
         this.setBusy(false);
+        setTextIfPresent('pipelineStatus', 'Stopped');
     }
 
-    async runTask() {
-        const systemPrompt = $('systemPrompt').value.trim();
-        const inputText = $('inputText').value.trim();
-        const streaming = true;
+    getEffectiveInputText(stage) {
+        const rawInput = ($('inputText')?.value || '').trim();
+        const chainProofread = $('chainProofread')?.checked;
+        if (chainProofread && stage !== 'lid' && stage !== 'proofreader' && this.stageOutputs.proofreader) {
+            return this.stageOutputs.proofreader;
+        }
+        return rawInput;
+    }
 
-        $('proofDetails').style.display = 'none';
-        $('proofDetails').innerHTML = '';
-
-        this.resetStats();
-        this.setOutput('');
-        this.clearError();
-
-        if (!inputText) {
-            this.showError(new Error('Please enter input text.'), 'Input');
-            return;
+    async runStage(stage, sharedSignal = null) {
+        const rawInput = ($('inputText')?.value || '').trim();
+        if (!rawInput) {
+            this.showError(new Error('Please enter source text first.'), 'Input');
+            return false;
         }
 
-        this.setBusy(true);
+        const singleRun = !sharedSignal;
+        if (singleRun) {
+            this.clearError();
+            this.currentAbortController = new AbortController();
+            sharedSignal = this.currentAbortController.signal;
+            this.setBusy(true);
+        }
 
         const start = nowMs();
-        let chunks = 0;
-        let output = '';
-
-        this.currentAbortController = new AbortController();
+        this.setStageStatus(stage, 'Running…', 'is-running');
 
         try {
-            switch (this.activeTab) {
-                case 'prompt': {
-                    const session = await this.getOrCreatePromptSession(systemPrompt);
-                    if (!session) throw new Error('Prompt session not available.');
+            if (stage === 'lid') {
+                const detector = await this.ensureLanguageDetector();
+                if (!detector) {
+                    this.setStageStatus('lid', 'Unavailable', 'is-error');
+                    this.setStageOutput('lid', 'Language Detector API is not available in this browser.');
+                    return false;
+                }
+                const results = await detector.detect(rawInput);
+                const elapsed = Math.max(1, Math.round(nowMs() - start));
+                setTextIfPresent('lidTime', String(elapsed));
+                if (!results || !results.length) {
+                    this.setStageStatus('lid', 'Done', 'is-done');
+                    this.setStageOutput('lid', 'No language candidates returned.');
+                    return true;
+                }
+                const best = results[0];
+                const code = best.detectedLanguage || best.language || best.code || 'en';
+                const pct = best.confidence !== undefined ? `${Math.round(best.confidence * 100)}%` : '-';
+                this.detectedLanguageCode = code;
+                const langName = LANGUAGE_NAMES[code] || code;
+                setTextIfPresent('lidPrimary', `${langName} (${code})`);
+                setTextIfPresent('lidConfidence', pct);
+                setTextIfPresent('detectedLang', `${code} (${pct})`);
+                const topList = results.slice(0, 4).map(r => {
+                    const c = r.detectedLanguage || r.language || r.code;
+                    const p = r.confidence !== undefined ? `${(r.confidence * 100).toFixed(1)}%` : '';
+                    return `${LANGUAGE_NAMES[c] || c} [${c}]: ${p}`;
+                }).join('\n');
+                this.setStageOutput('lid', topList);
+                this.setStageStatus('lid', 'Done', 'is-done');
+                return true;
+            }
 
-                    const requestOptions = { signal: this.currentAbortController.signal };
-                    let stream;
-                    try {
-                        stream = session.promptStreaming(inputText, requestOptions);
-                    } catch (e) {
-                        // Retry with minimal options.
-                        stream = session.promptStreaming(inputText, { signal: this.currentAbortController.signal });
-                    }
+            if (stage === 'proofreader') {
+                if ($('proofDetails')) {
+                    $('proofDetails').style.display = 'none';
+                    $('proofDetails').innerHTML = '';
+                }
+                const expectedInputLanguages = await this.getExpectedProofreaderLanguages(rawInput);
+                const proofreader = await this.getOrCreateProofreader(expectedInputLanguages);
+                if (!proofreader) {
+                    this.setStageStatus('proofreader', 'Unavailable', 'is-error');
+                    this.setStageOutput('proofreader', 'Proofreader API is not available in this browser.');
+                    return false;
+                }
+                const result = await proofreader.proofread(rawInput);
+                const output = result.correctedInput || result.correction || rawInput;
+                const correctionsCount = result?.corrections?.length ?? 0;
+                this.setStageOutput('proofreader', output);
+                this.updateStageStats('proofreader', output.length, start, correctionsCount);
+                this.renderProofDetails(result);
+                this.setStageStatus('proofreader', 'Done', 'is-done');
+                return true;
+            }
 
+            if (stage === 'summarizer') {
+                const input = this.getEffectiveInputText('summarizer');
+                const session = await this.getOrCreateSummarizerSession();
+                if (!session) {
+                    this.setStageStatus('summarizer', 'Unavailable', 'is-error');
+                    this.setStageOutput('summarizer', 'Summarizer API is not available in this browser.');
+                    return false;
+                }
+                let output = '';
+                let chunks = 0;
+                if (session.summarizeStreaming) {
+                    const stream = session.summarizeStreaming(input, { signal: sharedSignal });
                     this.currentStream = stream;
                     for await (const chunk of stream) {
                         output += chunk;
                         chunks++;
-                        this.setOutput(output);
-                        this.updateStats(output.length, start, chunks);
+                        this.setStageOutput('summarizer', output);
+                        this.updateStageStats('summarizer', output.length, start, chunks);
                     }
-                    break;
-                }
-
-                case 'summarizer': {
-                    const session = await this.getOrCreateSummarizerSession();
-                    if (!session) throw new Error('Summarizer session not available.');
-
-                    if (streaming && session.summarizeStreaming) {
-                        const stream = session.summarizeStreaming(inputText, { signal: this.currentAbortController.signal });
-                        this.currentStream = stream;
-                        for await (const chunk of stream) {
-                            output += chunk;
-                            chunks++;
-                            this.setOutput(output);
-                            this.updateStats(output.length, start, chunks);
-                        }
-                    } else {
-                        output = await session.summarize(inputText, { signal: this.currentAbortController.signal });
-                        chunks = 1;
-                        this.setOutput(output);
-                        this.updateStats(output.length, start, chunks);
-                    }
-                    break;
-                }
-
-                case 'writer': {
-                    const session = await this.getOrCreateWriterSession();
-                    if (!session) throw new Error('Writer session not available.');
-
-                    if (streaming && session.writeStreaming) {
-                        const stream = session.writeStreaming(inputText, { signal: this.currentAbortController.signal });
-                        this.currentStream = stream;
-                        for await (const chunk of stream) {
-                            output += chunk;
-                            chunks++;
-                            this.setOutput(output);
-                            this.updateStats(output.length, start, chunks);
-                        }
-                    } else {
-                        output = await session.write(inputText, { signal: this.currentAbortController.signal });
-                        chunks = 1;
-                        this.setOutput(output);
-                        this.updateStats(output.length, start, chunks);
-                    }
-                    break;
-                }
-
-                case 'rewriter': {
-                    const session = await this.getOrCreateRewriterSession();
-                    if (!session) throw new Error('Rewriter session not available.');
-
-                    if (streaming && session.rewriteStreaming) {
-                        const stream = session.rewriteStreaming(inputText, { signal: this.currentAbortController.signal });
-                        this.currentStream = stream;
-                        for await (const chunk of stream) {
-                            output += chunk;
-                            chunks++;
-                            this.setOutput(output);
-                            this.updateStats(output.length, start, chunks);
-                        }
-                    } else {
-                        output = await session.rewrite(inputText, { signal: this.currentAbortController.signal });
-                        chunks = 1;
-                        this.setOutput(output);
-                        this.updateStats(output.length, start, chunks);
-                    }
-                    break;
-                }
-
-                case 'proofreader': {
-                    const expectedInputLanguages = await this.getExpectedProofreaderLanguages(inputText);
-                    const proofreader = await this.getOrCreateProofreader(expectedInputLanguages);
-                    if (!proofreader) throw new Error('Proofreader not available.');
-
-                    const result = await proofreader.proofread(inputText);
-                    output = result.correctedInput || result.correction || '';
+                } else {
+                    output = await session.summarize(input, { signal: sharedSignal });
                     chunks = 1;
-                    this.setOutput(output);
-                    this.updateStats(output.length, start, chunks);
-                    this.renderProofDetails(result);
-                    break;
+                    this.setStageOutput('summarizer', output);
+                    this.updateStageStats('summarizer', output.length, start, chunks);
                 }
-
-                default:
-                    throw new Error('Unknown tab');
+                this.setStageStatus('summarizer', 'Done', 'is-done');
+                return true;
             }
 
+            if (stage === 'rewriter') {
+                const input = this.getEffectiveInputText('rewriter');
+                const session = await this.getOrCreateRewriterSession();
+                if (!session) {
+                    this.setStageStatus('rewriter', 'Unavailable', 'is-error');
+                    this.setStageOutput('rewriter', 'Rewriter API is not available in this browser.');
+                    return false;
+                }
+                let output = '';
+                let chunks = 0;
+                if (session.rewriteStreaming) {
+                    const stream = session.rewriteStreaming(input, { signal: sharedSignal });
+                    this.currentStream = stream;
+                    for await (const chunk of stream) {
+                        output += chunk;
+                        chunks++;
+                        this.setStageOutput('rewriter', output);
+                        this.updateStageStats('rewriter', output.length, start, chunks);
+                    }
+                } else {
+                    output = await session.rewrite(input, { signal: sharedSignal });
+                    chunks = 1;
+                    this.setStageOutput('rewriter', output);
+                    this.updateStageStats('rewriter', output.length, start, chunks);
+                }
+                this.setStageStatus('rewriter', 'Done', 'is-done');
+                return true;
+            }
+
+            if (stage === 'writer') {
+                const baseInput = this.getEffectiveInputText('writer');
+                const directive = ($('writerTaskPrompt')?.value || '').trim();
+                const writerInput = directive ? `${directive}\n\n${baseInput}` : baseInput;
+                const session = await this.getOrCreateWriterSession();
+                if (!session) {
+                    this.setStageStatus('writer', 'Unavailable', 'is-error');
+                    this.setStageOutput('writer', 'Writer API is not available in this browser.');
+                    return false;
+                }
+                let output = '';
+                let chunks = 0;
+                if (session.writeStreaming) {
+                    const stream = session.writeStreaming(writerInput, { signal: sharedSignal });
+                    this.currentStream = stream;
+                    for await (const chunk of stream) {
+                        output += chunk;
+                        chunks++;
+                        this.setStageOutput('writer', output);
+                        this.updateStageStats('writer', output.length, start, chunks);
+                    }
+                } else {
+                    output = await session.write(writerInput, { signal: sharedSignal });
+                    chunks = 1;
+                    this.setStageOutput('writer', output);
+                    this.updateStageStats('writer', output.length, start, chunks);
+                }
+                this.setStageStatus('writer', 'Done', 'is-done');
+                return true;
+            }
+
+            if (stage === 'prompt') {
+                const input = this.getEffectiveInputText('prompt');
+                const systemPrompt = ($('systemPrompt')?.value || '').trim();
+                const session = await this.getOrCreatePromptSession(systemPrompt);
+                if (!session) {
+                    this.setStageStatus('prompt', 'Unavailable', 'is-error');
+                    this.setStageOutput('prompt', 'Prompt API (LanguageModel) is not available in this browser.');
+                    return false;
+                }
+                let output = '';
+                let chunks = 0;
+                if (session.promptStreaming) {
+                    let stream;
+                    try {
+                        stream = session.promptStreaming(input, { signal: sharedSignal });
+                    } catch {
+                        stream = session.promptStreaming(input);
+                    }
+                    this.currentStream = stream;
+                    for await (const chunk of stream) {
+                        output += chunk;
+                        chunks++;
+                        this.setStageOutput('prompt', output);
+                        this.updateStageStats('prompt', output.length, start, chunks);
+                    }
+                } else {
+                    output = await session.prompt(input, { signal: sharedSignal });
+                    chunks = 1;
+                    this.setStageOutput('prompt', output);
+                    this.updateStageStats('prompt', output.length, start, chunks);
+                }
+                this.setStageStatus('prompt', 'Done', 'is-done');
+                return true;
+            }
+
+            if (stage === 'translator') {
+                await this.translateOutput();
+                return true;
+            }
+
+            return false;
         } catch (e) {
             const message = e && e.message ? e.message : String(e);
-            this.setOutput(`Error: ${message}`);
-            this.showError(e, `Task: ${this.activeTab}`);
-            console.error(e);
+            this.setStageStatus(stage, 'Error', 'is-error');
+            this.setStageOutput(stage, `Error: ${message}`);
+            return false;
+        } finally {
+            if (singleRun) {
+                this.currentStream = null;
+                this.currentAbortController = null;
+                this.setBusy(false);
+            }
+        }
+    }
+
+    async runAllPipeline() {
+        const inputText = ($('inputText')?.value || '').trim();
+        if (!inputText) {
+            this.showError(new Error('Please enter source text first.'), 'Pipeline');
+            return;
+        }
+
+        const stageConfig = [
+            { id: 'lid', checkbox: 'enableLid' },
+            { id: 'proofreader', checkbox: 'enableProofreader' },
+            { id: 'summarizer', checkbox: 'enableSummarizer' },
+            { id: 'rewriter', checkbox: 'enableRewriter' },
+            { id: 'writer', checkbox: 'enableWriter' },
+            { id: 'prompt', checkbox: 'enablePrompt' },
+            { id: 'translator', checkbox: 'enableTranslator' }
+        ];
+
+        const enabledStages = stageConfig
+            .filter(s => !$(s.checkbox) || $(s.checkbox).checked)
+            .map(s => s.id);
+
+        if (!enabledStages.length) {
+            this.showError(new Error('Enable at least one API stage to run the pipeline.'), 'Pipeline');
+            return;
+        }
+
+        this.clearError();
+        this.setBusy(true);
+        this.currentAbortController = new AbortController();
+        const signal = this.currentAbortController.signal;
+
+        const pipelineStart = nowMs();
+        let completed = 0;
+        setTextIfPresent('pipelineStatus', 'Running…');
+        setTextIfPresent('pipelineStagesDone', `0 / ${enabledStages.length}`);
+
+        stageConfig.forEach(s => {
+            if (!enabledStages.includes(s.id)) {
+                this.setStageStatus(s.id, 'Skipped');
+            } else {
+                this.setStageStatus(s.id, 'Queued');
+            }
+        });
+
+        try {
+            for (const stage of enabledStages) {
+                if (signal.aborted) break;
+                setTextIfPresent('pipelineStatus', `Running ${stage}…`);
+                await this.runStage(stage, signal);
+                completed++;
+                setTextIfPresent('pipelineStagesDone', `${completed} / ${enabledStages.length}`);
+                setTextIfPresent('pipelineTotalTime', String(Math.round(nowMs() - pipelineStart)));
+            }
+            if (!signal.aborted) {
+                setTextIfPresent('pipelineStatus', 'Complete');
+            }
         } finally {
             this.currentStream = null;
             this.currentAbortController = null;
             this.setBusy(false);
         }
+    }
+
+    async runTask() {
+        await this.runAllPipeline();
+    }
+
+    async copyFullReport() {
+        const input = ($('inputText')?.value || '').trim();
+        const lines = [
+            'Built-in AI End-to-End Pipeline Report',
+            '═'.repeat(50),
+            `Input (${input.length} chars):`,
+            input,
+            ''
+        ];
+        for (const [stage, label] of [
+            ['lid', 'Language Detector'],
+            ['proofreader', 'Proofreader'],
+            ['summarizer', 'Summarizer'],
+            ['rewriter', 'Rewriter'],
+            ['writer', 'Writer'],
+            ['prompt', 'Prompt API'],
+            ['translator', 'Translator']
+        ]) {
+            if (this.stageOutputs[stage]) {
+                lines.push(`── ${label} ──`, this.stageOutputs[stage], '');
+            }
+        }
+        await copyToClipboard(lines.join('\n'));
     }
 
     updateStats(chars, startMs, chunks) {
@@ -1415,56 +1681,47 @@ class E2EPlayground {
     }
 
     getTextForTranslateAndDetect() {
-        const outputText = (this.lastOutput || '').trim();
-        if (outputText) {
+        const selectedStage = ($('translateSourceStage')?.value || 'all');
+        const effectiveInput = this.getEffectiveInputText('translator');
+
+        if (selectedStage === 'all') {
+            const sections = [];
+            if (effectiveInput) sections.push({ label: 'Source Input', text: effectiveInput });
+            if (this.stageOutputs.summarizer && !this.stageOutputs.summarizer.startsWith('Error:') && !this.stageOutputs.summarizer.includes('not available')) {
+                sections.push({ label: 'Summary', text: this.stageOutputs.summarizer });
+            }
+            if (this.stageOutputs.rewriter && !this.stageOutputs.rewriter.startsWith('Error:') && !this.stageOutputs.rewriter.includes('not available')) {
+                sections.push({ label: 'Rewritten', text: this.stageOutputs.rewriter });
+            }
+            if (this.stageOutputs.writer && !this.stageOutputs.writer.startsWith('Error:') && !this.stageOutputs.writer.includes('not available')) {
+                sections.push({ label: 'Writer Draft', text: this.stageOutputs.writer });
+            }
+            if (sections.length <= 1) {
+                return { source: 'input', label: 'Source Input', text: effectiveInput, sections };
+            }
+            const combined = sections.map(s => `[${s.label}]\n${s.text}`).join('\n\n');
+            return { source: 'all', label: 'All Available Outputs', text: combined, sections };
+        }
+
+        if (selectedStage !== 'input' && this.stageOutputs[selectedStage]) {
             return {
-                source: 'output',
-                label: 'Model output',
-                text: outputText
+                source: selectedStage,
+                label: selectedStage,
+                text: this.stageOutputs[selectedStage],
+                sections: [{ label: selectedStage, text: this.stageOutputs[selectedStage] }]
             };
         }
 
-        const inputText = ($('inputText')?.value || '').trim();
         return {
             source: 'input',
-            label: 'Input',
-            text: inputText
+            label: 'Source Input',
+            text: effectiveInput,
+            sections: effectiveInput ? [{ label: 'Source Input', text: effectiveInput }] : []
         };
     }
 
     async detectLanguageForOutput() {
-        const { text, label } = this.getTextForTranslateAndDetect();
-        if (!text) {
-            this.showError(new Error('No text to detect. Add input text or generate model output.'), 'Language detection');
-            return;
-        }
-
-        try {
-            const detector = await this.ensureLanguageDetector();
-            if (!detector) {
-                this.showError(new Error('Language Detector API is not available in this browser.'), 'Language detection');
-                return;
-            }
-
-            const results = await detector.detect(text);
-            if (!results || !results.length) {
-                $('detectedLang').textContent = '-';
-                return;
-            }
-
-            const best = results[0];
-            const code = best.detectedLanguage || best.language || best.code || '-';
-            const confidence = best.confidence !== undefined ? ` (${Math.round(best.confidence * 100)}%)` : '';
-
-            $('detectedLang').textContent = `${code}${confidence}`;
-            if (this.sourceLanguageSelect) this.sourceLanguageSelect.setValue(code);
-            else if ($('sourceLanguage')) $('sourceLanguage').value = code;
-        } catch (e) {
-            console.error(e);
-            this.showError(e, 'Language detection');
-        } finally {
-            this.setProgress(false);
-        }
+        await this.runStage('lid');
     }
 
     stopTranslate() {
@@ -1482,57 +1739,60 @@ class E2EPlayground {
 
         this.translateAbortController = null;
         this.translateStream = null;
-        $('stopTranslateBtn').disabled = true;
-        $('translateBtn').disabled = false;
+        if ($('stopTranslateBtn')) $('stopTranslateBtn').disabled = true;
+        if ($('translateBtn')) $('translateBtn').disabled = false;
     }
 
     async translateOutput() {
-        const { text, label } = this.getTextForTranslateAndDetect();
+        const { text, sections } = this.getTextForTranslateAndDetect();
         if (!text) {
-            this.showError(new Error('No text to translate. Add input text or generate model output.'), 'Translate');
+            this.showError(new Error('No text to translate. Add source input text first.'), 'Translate');
             return;
         }
 
         if (!('Translator' in window)) {
-            this.showError(new Error('Translator API is not available in this browser.'), 'Translate');
+            this.setStageStatus('translator', 'Unavailable', 'is-error');
+            this.setStageOutput('translator', 'Translator API is not available in this browser.');
             return;
         }
 
-        this.clearError();
+        this.setStageStatus('translator', 'Running…', 'is-running');
+        this.setStageOutput('translator', '');
 
-        $('translatedOutput').textContent = '';
-        $('copyTranslated').disabled = true;
+        if ($('translateBtn')) $('translateBtn').disabled = true;
+        if ($('stopTranslateBtn')) $('stopTranslateBtn').disabled = false;
 
-        $('translateBtn').disabled = true;
-        $('stopTranslateBtn').disabled = false;
+        setTextIfPresent('translateSegments', '-');
+        setTextIfPresent('translateTime', '0');
+        setTextIfPresent('translateThroughput', '0');
 
-        $('translateSegments').textContent = '-';
-        $('translateTime').textContent = '0';
-        $('translateThroughput').textContent = '0';
-
-        const mode = $('translateMode').value;
+        const mode = $('translateMode')?.value || 'whole';
         const source = ($('sourceLanguage')?.value || '').trim();
         const target = ($('targetLanguage')?.value || '').trim();
 
         try {
             let sourceLang = source;
             if (!sourceLang || sourceLang.toLowerCase() === 'auto') {
-                const detector = await this.ensureLanguageDetector();
-                if (detector) {
-                    const results = await detector.detect(text);
-                    if (results && results.length) {
-                        sourceLang = results[0].detectedLanguage;
-                        $('detectedLang').textContent = `${sourceLang} (${Math.round(results[0].confidence * 100)}%)`;
+                if (this.detectedLanguageCode && this.detectedLanguageCode !== '-') {
+                    sourceLang = this.detectedLanguageCode;
+                } else {
+                    const detector = await this.ensureLanguageDetector();
+                    if (detector) {
+                        const results = await detector.detect(text);
+                        if (results && results.length) {
+                            sourceLang = results[0].detectedLanguage || results[0].language || results[0].code;
+                            const pct = results[0].confidence !== undefined ? ` (${Math.round(results[0].confidence * 100)}%)` : '';
+                            setTextIfPresent('detectedLang', `${sourceLang}${pct}`);
+                        }
                     }
                 }
-
                 if (!sourceLang || sourceLang.toLowerCase() === 'auto') {
-                    // Fallback: default to English if unknown.
                     sourceLang = 'en';
                 }
             }
 
             const targetLang = target || 'es';
+            setTextIfPresent('translateDetectedLang', `${sourceLang} → ${targetLang}`);
 
             const translator = await this.getOrCreateTranslator(sourceLang, targetLang);
             if (!translator) throw new Error('Could not create translator session.');
@@ -1540,15 +1800,27 @@ class E2EPlayground {
             this.translateAbortController = new AbortController();
             const start = nowMs();
 
-            if (mode === 'whole') {
+            if (sections && sections.length > 1 && mode === 'whole') {
+                // Translate all sections concurrently so browser batching can coalesce them
+                setTextIfPresent('translateSegments', `${sections.length} sections`);
+                const translatedParts = await Promise.all(
+                    sections.map(sec => translator.translate(sec.text, { signal: this.translateAbortController.signal }))
+                );
+                const combinedOut = sections
+                    .map((sec, idx) => `[${sec.label}]\n${translatedParts[idx]}`)
+                    .join('\n\n');
+                this.setStageOutput('translator', combinedOut);
+                const elapsed = Math.max(1, Math.round(nowMs() - start));
+                setTextIfPresent('translateTime', String(elapsed));
+                setTextIfPresent('translateThroughput', String(calcThroughput(text.length, elapsed)));
+            } else if (mode === 'whole') {
                 const translated = await translator.translate(text, { signal: this.translateAbortController.signal });
-                $('translatedOutput').textContent = translated;
-                $('copyTranslated').disabled = !translated;
+                this.setStageOutput('translator', translated);
 
-                const elapsed = Math.round(nowMs() - start);
-                $('translateTime').textContent = String(elapsed);
-                $('translateThroughput').textContent = String(calcThroughput(text.length, elapsed));
-                $('translateSegments').textContent = '1';
+                const elapsed = Math.max(1, Math.round(nowMs() - start));
+                setTextIfPresent('translateTime', String(elapsed));
+                setTextIfPresent('translateThroughput', String(calcThroughput(text.length, elapsed)));
+                setTextIfPresent('translateSegments', '1');
             } else if (mode === 'stream') {
                 let out = '';
                 let chunks = 0;
@@ -1558,18 +1830,16 @@ class E2EPlayground {
                 for await (const chunk of stream) {
                     out += chunk;
                     chunks++;
-                    $('translatedOutput').textContent = out;
-                    const elapsed = Math.round(nowMs() - start);
-                    $('translateTime').textContent = String(elapsed);
-                    $('translateThroughput').textContent = String(calcThroughput(text.length, elapsed));
-                    $('translateSegments').textContent = `${chunks} chunks`;
+                    this.setStageOutput('translator', out);
+                    const elapsed = Math.max(1, Math.round(nowMs() - start));
+                    setTextIfPresent('translateTime', String(elapsed));
+                    setTextIfPresent('translateThroughput', String(calcThroughput(text.length, elapsed)));
+                    setTextIfPresent('translateSegments', `${chunks} chunks`);
                 }
-
-                $('copyTranslated').disabled = !out;
             } else {
-                const by = $('segmentBy').value;
-                const joiner = $('segmentJoin').value === 'newline' ? '\n\n' : ' ';
-                const size = Math.max(50, Number($('segmentChars').value) || 500);
+                const by = $('segmentBy')?.value || 'sentence';
+                const joiner = ($('segmentJoin')?.value === 'newline') ? '\n\n' : ' ';
+                const size = Math.max(50, Number($('segmentChars')?.value) || 500);
 
                 let segments = [];
                 if (by === 'sentence') segments = splitBySentence(text);
@@ -1578,32 +1848,32 @@ class E2EPlayground {
 
                 if (!segments.length) segments = [text];
 
-                $('translateSegments').textContent = String(segments.length);
+                setTextIfPresent('translateSegments', String(segments.length));
 
                 let out = '';
                 for (let i = 0; i < segments.length; i++) {
                     const part = segments[i];
                     const translated = await translator.translate(part, { signal: this.translateAbortController.signal });
                     out += (i === 0 ? '' : joiner) + translated;
-                    $('translatedOutput').textContent = out;
+                    this.setStageOutput('translator', out);
 
-                    const elapsed = Math.round(nowMs() - start);
-                    $('translateTime').textContent = String(elapsed);
-                    $('translateThroughput').textContent = String(calcThroughput(text.length, elapsed));
+                    const elapsed = Math.max(1, Math.round(nowMs() - start));
+                    setTextIfPresent('translateTime', String(elapsed));
+                    setTextIfPresent('translateThroughput', String(calcThroughput(text.length, elapsed)));
                 }
-
-                $('copyTranslated').disabled = !out;
             }
 
+            this.setStageStatus('translator', 'Done', 'is-done');
         } catch (e) {
             console.error(e);
-            $('translatedOutput').textContent = `Error: ${e.message || String(e)}`;
+            this.setStageStatus('translator', 'Error', 'is-error');
+            this.setStageOutput('translator', `Error: ${e.message || String(e)}`);
             this.showError(e, 'Translate');
         } finally {
             this.translateAbortController = null;
             this.translateStream = null;
-            $('stopTranslateBtn').disabled = true;
-            $('translateBtn').disabled = false;
+            if ($('stopTranslateBtn')) $('stopTranslateBtn').disabled = true;
+            if ($('translateBtn')) $('translateBtn').disabled = false;
         }
     }
 
@@ -1649,9 +1919,15 @@ class E2EPlayground {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    window.__e2ePlayground = new E2EPlayground();
-});
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+        window.__e2ePlayground = new E2EPlayground();
+    });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { E2EPlayground, PRESETS, DEFAULTS };
+}
 
 // Forward console warnings/errors into the on-page banner so devs don't have to keep DevTools open.
 (function installConsoleForwarding() {

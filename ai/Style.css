@@ -19,22 +19,22 @@
   --warning-color: #f59e0b;
 
   /* Surfaces */
-  --background: #fafbfc;
-  --surface: #eef2f7;
-  --surface-2: #e5eaf2;
-  --surface-elevated: rgba(250, 251, 252, 0.85);
+  --background: #ffffff;
+  --surface: #f1f5f9;
+  --surface-2: #e2e8f0;
+  --surface-elevated: rgba(255, 255, 255, 0.88);
 
   /* Text */
   --text-primary: #0f172a;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-muted: #64748b;
 
   /* Borders */
   --border: #cbd5e1;
   --border-light: #e2e8f0;
 
   /* Shadows (soft, neutral) */
-  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
   --shadow-md: 0 4px 14px -4px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.04);
   --shadow-lg: 0 20px 40px -12px rgb(15 23 42 / 0.14), 0 8px 16px -8px rgb(15 23 42 / 0.06);
 
@@ -50,26 +50,29 @@
   :root {
     --primary-color: #818cf8;
     --primary-hover: #6366f1;
-    --primary-subtle: rgba(129, 140, 248, 0.14);
+    --primary-subtle: rgba(129, 140, 248, 0.15);
     --accent-color: #38bdf8;
 
     --secondary-color: #94a3b8;
+    --success-color: #34d399;
+    --error-color: #f87171;
+    --warning-color: #fbbf24;
 
-    --background: #0b1220;
-    --surface: #0f172a;
+    --background: #0f172a;
+    --surface: #0b1120;
     --surface-2: #1e293b;
-    --surface-elevated: rgba(15, 23, 42, 0.78);
+    --surface-elevated: rgba(15, 23, 42, 0.85);
 
-    --text-primary: #f1f5f9;
+    --text-primary: #f8fafc;
     --text-secondary: #cbd5e1;
     --text-muted: #94a3b8;
 
-    --border: #1e293b;
-    --border-light: #111827;
+    --border: #334155;
+    --border-light: #1e293b;
 
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-    --shadow-md: 0 4px 14px -4px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-    --shadow-lg: 0 20px 40px -12px rgb(0 0 0 / 0.6), 0 8px 16px -8px rgb(0 0 0 / 0.4);
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.45);
+    --shadow-md: 0 4px 14px -4px rgb(0 0 0 / 0.55), 0 2px 4px -2px rgb(0 0 0 / 0.45);
+    --shadow-lg: 0 20px 40px -12px rgb(0 0 0 / 0.65), 0 8px 16px -8px rgb(0 0 0 / 0.45);
   }
 }
 
@@ -267,6 +270,12 @@ body {
   box-shadow: var(--shadow-md);
   background: var(--primary-subtle);
   border-color: color-mix(in oklab, var(--primary-color) 40%, var(--border));
+}
+
+.demo-link[aria-current="page"] {
+  background: color-mix(in oklab, var(--primary-color) 14%, var(--background));
+  border-color: color-mix(in oklab, var(--primary-color) 55%, var(--border));
+  color: var(--primary-color);
 }
 
 /* Configuration Panel — always visible, matches chat/input width */

@@ -43,10 +43,13 @@
   }
 
   function placeholderLeaks(source, output) {
-    const pattern = /\{\s*\d+(?:\s*\})?|\d+\s*\}/gu;
+    const pattern = /\{\s*\d+(?:\s*\})?|\d+\s*\}|\(\s*#?\s*phrasefix\s*\)|\(\s*#\s*\d+\s*\)|<\[>|<=>|<\]>/giu;
     const counts = text => {
       const result = new Map();
-      for (const token of text.match(pattern) || []) result.set(token, (result.get(token) || 0) + 1);
+      for (const token of text.match(pattern) || []) {
+        const key = token.replace(/\s+/gu, '').toLowerCase();
+        result.set(key, (result.get(key) || 0) + 1);
+      }
       return result;
     };
     const original = counts(source);
@@ -119,7 +122,7 @@
     const coverageFailures = regression.failures.filter(value =>
       value.startsWith('department_') || value.startsWith('unexpected_department') ||
       value.startsWith('final_cancellation') || value.startsWith('passage_'));
-    const coverage = ['departments', 'passages'].includes(test.regressionRule) ?
+    const coverage = ['departments', 'departments14', 'passages'].includes(test.regressionRule) ?
       { pass: coverageFailures.length === 0, failures: coverageFailures } : null;
     const status = failures.length ? 'fail' : 'needs_review';
     return { pass: failures.length === 0, status, failures: [...new Set(failures)],

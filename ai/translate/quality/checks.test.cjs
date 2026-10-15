@@ -146,12 +146,20 @@ test('focused JSON imports only cases and never stale verdicts or timings', () =
   assert.throws(() => checks.importCorpus({ ...source, cases: [{ ...source.cases[0], mustPreserve: '1' }] }), /mustPreserve/);
 });
 
-test('detects leaked brace markers without rejecting literal source markers', () => {
+test('detects leaked brace and phrase-fix markers without rejecting literal source markers', () => {
   const spec = { source: 'Visit https://example.com.' };
-  for (const output of ['Visite {0} https://example.com.', 'Visite { 0 } https://example.com.']) {
+  for (const output of [
+    'Visite {0} https://example.com.',
+    'Visite { 0 } https://example.com.',
+    'Visite (phrasefix)(#0)(#1)(#phrasefix) https://example.com.',
+    'Visite (#0)(#1) https://example.com.',
+    'Visite <[>https://example.com<=>https://example.com<]>.',
+    'Visite <[>https://example.com<]>.',
+  ]) {
     assert.ok(checks.evaluate(spec, output).failures.includes('synthetic_placeholder_leak'));
   }
   assert.equal(checks.evaluate({ source: 'Keep {0}.' }, 'Mantenga {0}.').pass, true);
+  assert.equal(checks.evaluate({ source: 'Keep <[>literal<]>.' }, 'Mantenga <[>literal<]>.').pass, true);
 });
 
 test('detects partial and duplicated brace markers without rejecting literal incomplete source markers', () => {
@@ -170,7 +178,7 @@ test('focused imports retain trusted rule/invariant metadata but reject unknown 
   const source = { schemaVersion: 1, kind: 'translation-quality-corpus',
     source: 'en', target: 'es', cases: regressions.getCases('es') };
   const imported = checks.importCorpus(source).cases;
-  assert.equal(imported.length, 15);
+  assert.equal(imported.length, 18);
   assert.ok(imported.every(row => row.regressionRule && row.expectedInvariant));
   assert.deepEqual(imported.map(row => row.regressionRule), source.cases.map(row => row.regressionRule));
   assert.throws(() => checks.importCorpus({ ...source,

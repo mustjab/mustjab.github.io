@@ -1,5 +1,101 @@
 /* Quality benchmark specific styles */
 
+.quality-top-row {
+  grid-template-columns: 0.9fr auto 0.9fr 1.3fr 1.1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.quality-options-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+}
+
+.quality-toggles {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stage-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stage-pill input[type="checkbox"] {
+  width: 15px !important;
+  height: 15px !important;
+  margin: 0;
+  accent-color: var(--primary-color);
+}
+
+.quality-suite-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.file-btn {
+  margin: 0 !important;
+}
+
+.advanced-drawer {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--surface);
+}
+
+.advanced-drawer summary {
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.advanced-drawer__body {
+  padding: 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.score-item--hero {
+  background: color-mix(in oklab, var(--primary-color) 10%, var(--surface)) !important;
+  border-color: color-mix(in oklab, var(--primary-color) 45%, var(--border)) !important;
+}
+
+.score-sub {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  margin-top: 4px;
+}
+
+@media (max-width: 1024px) {
+  .quality-top-row {
+    grid-template-columns: 1fr auto 1fr;
+  }
+}
+
 .form-group input:not([type="hidden"]):not([type="checkbox"]),
 .form-group select {
   box-sizing: border-box;
@@ -13,10 +109,8 @@
 }
 
 .form-group { min-width: 0; }
-.field-hint { margin: 8px 0 0; font-size: 0.85rem; color: #555; }
-label[for="compareStreaming"] { display: flex; align-items: center; gap: 8px; }
-#compareStreaming { width: 16px; height: 16px; flex: 0 0 16px; margin: 0; }
-#corpusStatus { margin-bottom: 16px; overflow-wrap: anywhere; }
+.field-hint { margin: 8px 0 0; font-size: 0.85rem; color: var(--text-secondary); }
+#corpusStatus { margin-bottom: 0; overflow-wrap: anywhere; }
 #snapshotComparison { max-height: 480px; overflow: auto; }
 #snapshotComparison details { border-bottom: 1px solid var(--border-light); padding: 8px 0; }
 #snapshotComparison pre { white-space: pre-wrap; overflow-wrap: anywhere; }
