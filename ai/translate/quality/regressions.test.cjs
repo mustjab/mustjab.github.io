@@ -12,14 +12,14 @@ function spec(target, name) {
   return row;
 }
 
-test('UMD exposes version1 and identical stable eighteen-case multilingual public corpora', () => {
+test('UMD exposes version1 and identical stable twenty-two-case multilingual public corpora', () => {
   const context = {};
   vm.runInNewContext(fs.readFileSync(require.resolve('./regressions.js'), 'utf8'), context, {timeout: 1000});
   assert.equal(context.QualityRegressions.VERSION, '1');
   const ids = regressions.getCases('es').map(row => row.caseId);
   for (const target of ['es', 'ja', 'zh-hans']) {
     const cases = regressions.getCases(target);
-    assert.equal(cases.length, 18);
+    assert.equal(cases.length, 22);
     assert.deepEqual(cases.map(row => row.caseId), ids);
     assert(cases.every(row => row.sourceLanguage === 'en' && row.lang === target &&
       regressions.rules.includes(row.regressionRule) && row.expectedInvariant));
