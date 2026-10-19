@@ -773,8 +773,6 @@ class TranslationSpeedBenchmark {
     ];
 
     const totalChars = segments.reduce((s, seg) => s + seg.text.length, 0);
-    let translatedChars = 0;
-    const failedSegments = [];
     document.getElementById('simSegments').textContent = segments.length;
     document.getElementById('simTotalChars').textContent = totalChars.toLocaleString();
 
@@ -800,25 +798,17 @@ class TranslationSpeedBenchmark {
       for (let i = 0; i < segments.length; i++) {
         const seg = segments[i];
         const start = performance.now();
-        try {
-          await this.translator.translate(seg.text);
-          const elapsed = performance.now() - start;
-          translatedChars += seg.text.length;
+        await this.translator.translate(seg.text);
+        const elapsed = performance.now() - start;
 
-          byType[seg.type].count++;
-          byType[seg.type].totalLen += seg.text.length;
-          byType[seg.type].totalTime += elapsed;
+        byType[seg.type].count++;
+        byType[seg.type].totalLen += seg.text.length;
+        byType[seg.type].totalTime += elapsed;
 
-          const spanBucket = PROTECTED_SPAN_RE.test(seg.text) ? bySpan.withSpans : bySpan.noSpans;
-          spanBucket.count++;
-          spanBucket.totalLen += seg.text.length;
-          spanBucket.totalTime += elapsed;
-        } catch (error) {
-          failedSegments.push({ index: i, type: seg.type, text: seg.text, error: error.message });
-          if (typeof console.warn === 'function') {
-            console.warn(`Page simulation segment [${i}] (${seg.type}) ${JSON.stringify(seg.text)} failed: ${error.message}`);
-          }
-        }
+        const spanBucket = PROTECTED_SPAN_RE.test(seg.text) ? bySpan.withSpans : bySpan.noSpans;
+        spanBucket.count++;
+        spanBucket.totalLen += seg.text.length;
+        spanBucket.totalTime += elapsed;
 
         // Update progress
         const pct = Math.round(((i + 1) / segments.length) * 100);
@@ -827,12 +817,10 @@ class TranslationSpeedBenchmark {
       }
 
       const totalTime = performance.now() - overallStart;
-      const completedCount = segments.length - failedSegments.length;
 
       // Summary
       document.getElementById('simTotalTime').textContent = totalTime.toFixed(0);
-      document.getElementById('simAvgPerCall').textContent =
-        completedCount > 0 ? (totalTime / completedCount).toFixed(1) : '0.0';
+      document.getElementById('simAvgPerCall').textContent = (totalTime / segments.length).toFixed(1);
 
       // Per-type breakdown
       const typeMap = {
@@ -851,16 +839,7 @@ class TranslationSpeedBenchmark {
       }
 
       // Store for copy
-      this.pageSimResult = {
-        totalTime,
-        segments: segments.length,
-        completedSegments: completedCount,
-        failedSegments,
-        totalChars,
-        translatedChars,
-        avgPerCall: completedCount > 0 ? totalTime / completedCount : 0,
-        byType,
-      };
+      this.pageSimResult = { totalTime, segments: segments.length, totalChars, avgPerCall: totalTime / segments.length, byType };
 
       // Protected-span split, normalized per 100 chars so the comparison is not
       // just a restatement of segment length.
@@ -883,7 +862,7 @@ class TranslationSpeedBenchmark {
       document.getElementById('simSpanTax').textContent = taxStr;
       const taxMirror = document.getElementById('simSpanTaxMirror');
       if (taxMirror) taxMirror.textContent = taxStr;
-      const simCps = totalTime > 0 ? Math.round((translatedChars / totalTime) * 1000) : 0;
+      const simCps = totalTime > 0 ? Math.round((totalChars / totalTime) * 1000) : 0;
       const simScoreEl = document.getElementById('simScoreCps');
       if (simScoreEl) simScoreEl.textContent = String(simCps);
       const simScoreMirror = document.getElementById('simScoreCpsMirror');
@@ -891,15 +870,10 @@ class TranslationSpeedBenchmark {
       this.pageSimResult.spanTax = { withPer100, noPer100, bySpan };
       this.pageSimResult.cps = simCps;
 
-      this.enableResultActions();
-      if (failedSegments.length > 0) {
-        const sample = failedSegments.slice(0, 3).map(f => `"${f.text}"`).join(', ');
-        this.showStatus(`Completed (${completedCount}/${segments.length} segments; ${failedSegments.length} failed: ${sample})`);
-      } else {
-        this.showStatus('Ready');
-      }
-    } finally {
       progressEl.style.display = 'none';
+      this.enableResultActions();
+      this.showStatus('Ready');
+    } finally {
       btn.disabled = false;
       if (btn.tagName === 'BUTTON') btn.textContent = 'Run Page Simulation';
       else btn.textContent = '↻';
@@ -1012,13 +986,7 @@ class TranslationSpeedBenchmark {
       await this.measurePageSimulation();
 
       this.setProgress(100);
-      if (this.pageSimResult?.failedSegments?.length > 0) {
-        const failed = this.pageSimResult.failedSegments;
-        const sample = failed.slice(0, 3).map(f => `"${f.text}"`).join(', ');
-        this.showStatus(`Complete (${this.pageSimResult.completedSegments}/${this.pageSimResult.segments} page segments; ${failed.length} failed: ${sample})`);
-      } else {
-        this.showStatus('Complete');
-      }
+      this.showStatus('Complete');
       this.enableResultActions();
       if (this.hasAnyBaseline()) {
         this.compareSnapshot();

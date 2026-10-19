@@ -193,7 +193,7 @@ test('measurePageSimulation computes per-type timings and normalized protected-s
   assert.ok(Number(harness.getElement('simNoSpanCount').textContent) > 0);
 });
 
-test('measurePageSimulation continues past individual segment failures and restores replay icon cleanly', async () => {
+test('measurePageSimulation propagates segment failure and restores replay icon cleanly', async () => {
   let harness;
   const translator = {
     async translate(text) {
@@ -206,14 +206,9 @@ test('measurePageSimulation continues past individual segment failures and resto
   };
   harness = createSpeedHarness(translator);
 
-  await harness.bench.measurePageSimulation();
-
-  assert.equal(harness.bench.pageSimResult.failedSegments.length, 1);
-  assert.equal(harness.bench.pageSimResult.failedSegments[0].text, 'Cart (0)');
-  assert.equal(harness.bench.pageSimResult.completedSegments, 186);
-  assert.ok(Number(harness.getElement('simScoreCps').textContent) > 0);
+  await assert.rejects(() => harness.bench.measurePageSimulation(), /Other generic failures occurred\./);
   assert.equal(harness.getElement('runPageSim').textContent, '↻');
-  assert.equal(harness.getElement('simProgress').style.display, 'none');
+  assert.equal(harness.getElement('simProgressText').textContent, '14 / 187');
 });
 
 test('measureConcurrency evaluates 1, 2, 4, and 8 parallel workers and reports speedup verdict', async () => {
