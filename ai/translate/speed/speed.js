@@ -742,6 +742,7 @@ class TranslationSpeedBenchmark {
       document.getElementById('highlightSpeedup').textContent = `${speedup}x faster first content`;
     }
 
+    this.enableResultActions();
     this.showStatus('Ready');
   }
 
@@ -752,7 +753,11 @@ class TranslationSpeedBenchmark {
 
     const btn = document.getElementById('runPageSim');
     btn.disabled = true;
-    btn.innerHTML = '<div class="loading"></div> Translating page...';
+    if (btn.tagName === 'BUTTON') {
+      btn.innerHTML = '<div class="loading"></div> Translating page...';
+    } else {
+      btn.textContent = '⏳';
+    }
 
     const resultsEl = document.getElementById('pageSimResults');
     resultsEl.style.display = 'block';
@@ -768,6 +773,8 @@ class TranslationSpeedBenchmark {
     ];
 
     const totalChars = segments.reduce((s, seg) => s + seg.text.length, 0);
+    let translatedChars = 0;
+    const failedSegments = [];
     document.getElementById('simSegments').textContent = segments.length;
     document.getElementById('simTotalChars').textContent = totalChars.toLocaleString();
 
@@ -789,87 +796,114 @@ class TranslationSpeedBenchmark {
     this.showStatus('Running page simulation...', true);
     const overallStart = performance.now();
 
-    for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i];
-      const start = performance.now();
-      await this.translator.translate(seg.text);
-      const elapsed = performance.now() - start;
+    try {
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        const start = performance.now();
+        try {
+          await this.translator.translate(seg.text);
+          const elapsed = performance.now() - start;
+          translatedChars += seg.text.length;
 
-      byType[seg.type].count++;
-      byType[seg.type].totalLen += seg.text.length;
-      byType[seg.type].totalTime += elapsed;
+          byType[seg.type].count++;
+          byType[seg.type].totalLen += seg.text.length;
+          byType[seg.type].totalTime += elapsed;
 
-      const spanBucket = PROTECTED_SPAN_RE.test(seg.text) ? bySpan.withSpans : bySpan.noSpans;
-      spanBucket.count++;
-      spanBucket.totalLen += seg.text.length;
-      spanBucket.totalTime += elapsed;
+          const spanBucket = PROTECTED_SPAN_RE.test(seg.text) ? bySpan.withSpans : bySpan.noSpans;
+          spanBucket.count++;
+          spanBucket.totalLen += seg.text.length;
+          spanBucket.totalTime += elapsed;
+        } catch (error) {
+          failedSegments.push({ index: i, type: seg.type, text: seg.text, error: error.message });
+          if (typeof console.warn === 'function') {
+            console.warn(`Page simulation segment [${i}] (${seg.type}) ${JSON.stringify(seg.text)} failed: ${error.message}`);
+          }
+        }
 
-      // Update progress
-      const pct = Math.round(((i + 1) / segments.length) * 100);
-      document.getElementById('simProgressFill').style.width = pct + '%';
-      document.getElementById('simProgressText').textContent = `${i + 1} / ${segments.length}`;
+        // Update progress
+        const pct = Math.round(((i + 1) / segments.length) * 100);
+        document.getElementById('simProgressFill').style.width = pct + '%';
+        document.getElementById('simProgressText').textContent = `${i + 1} / ${segments.length}`;
+      }
+
+      const totalTime = performance.now() - overallStart;
+      const completedCount = segments.length - failedSegments.length;
+
+      // Summary
+      document.getElementById('simTotalTime').textContent = totalTime.toFixed(0);
+      document.getElementById('simAvgPerCall').textContent =
+        completedCount > 0 ? (totalTime / completedCount).toFixed(1) : '0.0';
+
+      // Per-type breakdown
+      const typeMap = {
+        nav: { countEl: 'simNavCount', lenEl: 'simNavAvgLen', avgEl: 'simNavAvgTime', totalEl: 'simNavTotal' },
+        heading: { countEl: 'simHeadCount', lenEl: 'simHeadAvgLen', avgEl: 'simHeadAvgTime', totalEl: 'simHeadTotal' },
+        short: { countEl: 'simShortCount', lenEl: 'simShortAvgLen', avgEl: 'simShortAvgTime', totalEl: 'simShortTotal' },
+        paragraph: { countEl: 'simParaCount', lenEl: 'simParaAvgLen', avgEl: 'simParaAvgTime', totalEl: 'simParaTotal' },
+      };
+
+      for (const [type, els] of Object.entries(typeMap)) {
+        const d = byType[type];
+        document.getElementById(els.countEl).textContent = d.count;
+        document.getElementById(els.lenEl).textContent = d.count > 0 ? Math.round(d.totalLen / d.count) : 0;
+        document.getElementById(els.avgEl).textContent = d.count > 0 ? (d.totalTime / d.count).toFixed(1) : 0;
+        document.getElementById(els.totalEl).textContent = d.totalTime.toFixed(0);
+      }
+
+      // Store for copy
+      this.pageSimResult = {
+        totalTime,
+        segments: segments.length,
+        completedSegments: completedCount,
+        failedSegments,
+        totalChars,
+        translatedChars,
+        avgPerCall: completedCount > 0 ? totalTime / completedCount : 0,
+        byType,
+      };
+
+      // Protected-span split, normalized per 100 chars so the comparison is not
+      // just a restatement of segment length.
+      const spanMap = { withSpans: 'simSpan', noSpans: 'simNoSpan' };
+      for (const [key, prefix] of Object.entries(spanMap)) {
+        const d = bySpan[key];
+        const avgLen = d.count > 0 ? d.totalLen / d.count : 0;
+        const avgTime = d.count > 0 ? d.totalTime / d.count : 0;
+        document.getElementById(prefix + 'Count').textContent = d.count;
+        document.getElementById(prefix + 'AvgLen').textContent = Math.round(avgLen);
+        document.getElementById(prefix + 'AvgTime').textContent = avgTime.toFixed(1);
+        document.getElementById(prefix + 'Per100').textContent =
+          avgLen > 0 ? (avgTime / avgLen * 100).toFixed(1) : '0';
+      }
+      const withPer100 = bySpan.withSpans.totalLen > 0
+        ? (bySpan.withSpans.totalTime / bySpan.withSpans.totalLen * 100) : 0;
+      const noPer100 = bySpan.noSpans.totalLen > 0
+        ? (bySpan.noSpans.totalTime / bySpan.noSpans.totalLen * 100) : 0;
+      const taxStr = noPer100 > 0 ? (withPer100 / noPer100).toFixed(2) + '\u00d7' : '-';
+      document.getElementById('simSpanTax').textContent = taxStr;
+      const taxMirror = document.getElementById('simSpanTaxMirror');
+      if (taxMirror) taxMirror.textContent = taxStr;
+      const simCps = totalTime > 0 ? Math.round((translatedChars / totalTime) * 1000) : 0;
+      const simScoreEl = document.getElementById('simScoreCps');
+      if (simScoreEl) simScoreEl.textContent = String(simCps);
+      const simScoreMirror = document.getElementById('simScoreCpsMirror');
+      if (simScoreMirror) simScoreMirror.textContent = String(simCps);
+      this.pageSimResult.spanTax = { withPer100, noPer100, bySpan };
+      this.pageSimResult.cps = simCps;
+
+      this.enableResultActions();
+      if (failedSegments.length > 0) {
+        const sample = failedSegments.slice(0, 3).map(f => `"${f.text}"`).join(', ');
+        this.showStatus(`Completed (${completedCount}/${segments.length} segments; ${failedSegments.length} failed: ${sample})`);
+      } else {
+        this.showStatus('Ready');
+      }
+    } finally {
+      progressEl.style.display = 'none';
+      btn.disabled = false;
+      if (btn.tagName === 'BUTTON') btn.textContent = 'Run Page Simulation';
+      else btn.textContent = '↻';
     }
-
-    const totalTime = performance.now() - overallStart;
-
-    // Summary
-    document.getElementById('simTotalTime').textContent = totalTime.toFixed(0);
-    document.getElementById('simAvgPerCall').textContent = (totalTime / segments.length).toFixed(1);
-
-    // Per-type breakdown
-    const typeMap = {
-      nav: { countEl: 'simNavCount', lenEl: 'simNavAvgLen', avgEl: 'simNavAvgTime', totalEl: 'simNavTotal' },
-      heading: { countEl: 'simHeadCount', lenEl: 'simHeadAvgLen', avgEl: 'simHeadAvgTime', totalEl: 'simHeadTotal' },
-      short: { countEl: 'simShortCount', lenEl: 'simShortAvgLen', avgEl: 'simShortAvgTime', totalEl: 'simShortTotal' },
-      paragraph: { countEl: 'simParaCount', lenEl: 'simParaAvgLen', avgEl: 'simParaAvgTime', totalEl: 'simParaTotal' },
-    };
-
-    for (const [type, els] of Object.entries(typeMap)) {
-      const d = byType[type];
-      document.getElementById(els.countEl).textContent = d.count;
-      document.getElementById(els.lenEl).textContent = d.count > 0 ? Math.round(d.totalLen / d.count) : 0;
-      document.getElementById(els.avgEl).textContent = d.count > 0 ? (d.totalTime / d.count).toFixed(1) : 0;
-      document.getElementById(els.totalEl).textContent = d.totalTime.toFixed(0);
-    }
-
-    // Store for copy
-    this.pageSimResult = { totalTime, segments: segments.length, totalChars, avgPerCall: totalTime / segments.length, byType };
-
-    // Protected-span split, normalized per 100 chars so the comparison is not
-    // just a restatement of segment length.
-    const spanMap = { withSpans: 'simSpan', noSpans: 'simNoSpan' };
-    for (const [key, prefix] of Object.entries(spanMap)) {
-      const d = bySpan[key];
-      const avgLen = d.count > 0 ? d.totalLen / d.count : 0;
-      const avgTime = d.count > 0 ? d.totalTime / d.count : 0;
-      document.getElementById(prefix + 'Count').textContent = d.count;
-      document.getElementById(prefix + 'AvgLen').textContent = Math.round(avgLen);
-      document.getElementById(prefix + 'AvgTime').textContent = avgTime.toFixed(1);
-      document.getElementById(prefix + 'Per100').textContent =
-        avgLen > 0 ? (avgTime / avgLen * 100).toFixed(1) : '0';
-    }
-    const withPer100 = bySpan.withSpans.totalLen > 0
-      ? (bySpan.withSpans.totalTime / bySpan.withSpans.totalLen * 100) : 0;
-    const noPer100 = bySpan.noSpans.totalLen > 0
-      ? (bySpan.noSpans.totalTime / bySpan.noSpans.totalLen * 100) : 0;
-    const taxStr = noPer100 > 0 ? (withPer100 / noPer100).toFixed(2) + '\u00d7' : '-';
-    document.getElementById('simSpanTax').textContent = taxStr;
-    const taxMirror = document.getElementById('simSpanTaxMirror');
-    if (taxMirror) taxMirror.textContent = taxStr;
-    const simCps = totalTime > 0 ? Math.round((totalChars / totalTime) * 1000) : 0;
-    const simScoreEl = document.getElementById('simScoreCps');
-    if (simScoreEl) simScoreEl.textContent = String(simCps);
-    const simScoreMirror = document.getElementById('simScoreCpsMirror');
-    if (simScoreMirror) simScoreMirror.textContent = String(simCps);
-    this.pageSimResult.spanTax = { withPer100, noPer100, bySpan };
-    this.pageSimResult.cps = simCps;
-
-    progressEl.style.display = 'none';
-    btn.disabled = false;
-    if (btn.tagName === 'BUTTON') btn.textContent = 'Run Page Simulation';
-    else btn.textContent = '↻';
-    this.enableResultActions();
-    this.showStatus('Ready');
   }
 
   // ── Concurrency ───────────────────────────────────────────────
@@ -978,7 +1012,13 @@ class TranslationSpeedBenchmark {
       await this.measurePageSimulation();
 
       this.setProgress(100);
-      this.showStatus('Complete');
+      if (this.pageSimResult?.failedSegments?.length > 0) {
+        const failed = this.pageSimResult.failedSegments;
+        const sample = failed.slice(0, 3).map(f => `"${f.text}"`).join(', ');
+        this.showStatus(`Complete (${this.pageSimResult.completedSegments}/${this.pageSimResult.segments} page segments; ${failed.length} failed: ${sample})`);
+      } else {
+        this.showStatus('Complete');
+      }
       this.enableResultActions();
       if (this.hasAnyBaseline()) {
         this.compareSnapshot();
