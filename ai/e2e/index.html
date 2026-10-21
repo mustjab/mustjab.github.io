@@ -22,6 +22,7 @@
       <a href="../">← Home</a>
       <a href="../e2e/" aria-current="page">End-to-End Playground</a>
       <a href="../decisions/">Decisions API</a>
+      <a href="../tools/">Tool Calling</a>
       <a href="../translate/">Translator API</a>
       <a href="../lid/">Language Detection API</a>
       <a href="../translate/speed/">Translation Speed</a>
@@ -29,7 +30,7 @@
     </nav>
     <header>
       <h1>Built-in AI End-to-End Pipeline</h1>
-      <p class="subtitle">Enter text once and run Language Detection, Proofreader, Summarizer, Rewriter, Writer, Prompt, Decisions API, and Translator automatically</p>
+      <p class="subtitle">Enter text once and run Language Detection, Proofreader, Summarizer, Rewriter, Writer, Prompt, Tool Calling, Decisions API, and Translator automatically</p>
     </header>
 
     <div class="error-banner" id="errorBanner" role="alert" aria-live="assertive" style="display:none;">
@@ -74,6 +75,7 @@
             <label class="stage-pill"><input type="checkbox" id="enableRewriter" checked> <span>✨ Rewriter</span></label>
             <label class="stage-pill"><input type="checkbox" id="enableWriter" checked> <span>✍️ Writer</span></label>
             <label class="stage-pill"><input type="checkbox" id="enablePrompt" checked> <span>🤖 Prompt API</span></label>
+            <label class="stage-pill"><input type="checkbox" id="enableTools" checked> <span>🛠️ Tool Calling</span></label>
             <label class="stage-pill"><input type="checkbox" id="enableDecisions" checked> <span>⚖️ Decisions API</span></label>
             <label class="stage-pill"><input type="checkbox" id="enableTranslator" checked> <span>🌐 Translator</span></label>
           </div>
@@ -373,7 +375,50 @@
           </div>
         </section>
 
-        <!-- Stage 7: Decisions API -->
+        <!-- Stage 7: Tool Calling (LanguageModel Tools) -->
+        <section class="card stage-card stage-card--span2" id="card-tools">
+          <div class="stage-card__header">
+            <div class="stage-card__title">
+              <h3>🛠️ Tool Calling</h3>
+              <span class="support-badge" id="supportTools">Checking…</span>
+            </div>
+            <div class="stage-card__actions">
+              <span class="stage-status" id="status-tools">Idle</span>
+              <button type="button" class="btn btn-small" id="runToolsBtn" title="Run Tool Calling only">↻ Run</button>
+            </div>
+          </div>
+          <div class="options-row compact-options" id="optionsTools">
+            <div class="option">
+              <label for="toolsMode">Execution Mode</label>
+              <select id="toolsMode">
+                <option value="multi_turn" selected>2-Turn Multi-Tool (Turn 1: Extract + Status + Ticket → Turn 2: Follow-up Tool Calls)</option>
+                <option value="single_turn">Single-Turn Multi-Tool (Extract Entities + Service Status + Action Ticket)</option>
+              </select>
+            </div>
+            <div class="option" style="grid-column: span 2;">
+              <label for="toolsDirective">Tool Calling Instruction</label>
+              <input id="toolsDirective" type="text" value="Use multiple tools (extractEntities, lookupServiceStatus, and createActionTicket) to inspect the input text and create a tracked follow-up item." />
+            </div>
+          </div>
+          <div class="result-meta">
+            <div class="stat"><span class="k">Tools Invoked:</span> <span id="toolsPrimary">-</span></div>
+            <div class="stat"><span class="k">Turns:</span> <span id="toolsTurns">0</span></div>
+            <div class="stat"><span class="k">Tool Calls:</span> <span id="statChunks-tools">0</span></div>
+            <div class="stat"><span class="k">Time:</span> <span id="statTime-tools">0</span> ms</div>
+          </div>
+          <div class="output">
+            <div class="output-header">
+              <h4>Tool Calls &amp; Synthesized Output</h4>
+              <div class="output-btn-group">
+                <button type="button" class="btn btn-small copy-stage-btn" data-stage="tools" disabled>Copy</button>
+              </div>
+            </div>
+            <pre id="output-tools" class="text-output text-output--compact" aria-live="polite"></pre>
+            <div id="toolsDetails" class="proof-details" style="display:none;"></div>
+          </div>
+        </section>
+
+        <!-- Stage 8: Decisions API -->
         <section class="card stage-card stage-card--span2" id="card-decisions">
           <div class="stage-card__header">
             <div class="stage-card__title">

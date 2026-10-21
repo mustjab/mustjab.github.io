@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Browser Built-in AI Prompt API Tool Calling Demo">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Browser Tool Calling Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../theme.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../../icon.png">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation">
+      <a href="../">← Home</a>
+      <a href="../e2e/">End-to-End Playground</a>
+      <a href="../decisions/">Decisions API</a>
+      <a href="../tools/" aria-current="page">Tool Calling</a>
+      <a href="../translate/">Translator API</a>
+      <a href="../lid/">Language Detection API</a>
+      <a href="../translate/speed/">Translation Speed</a>
+      <a href="../translate/quality/">Translation Quality</a>
+    </nav>
+
+    <header>
+      <h1>Prompt API Tool Calling Demo</h1>
+      <p class="subtitle">Multi-tool &amp; multi-turn function calling with on-device <code>LanguageModel</code></p>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator checking" id="statusIndicator"></span>
+        <span id="statusText">Checking tool-use availability...</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="section-header-row">
+          <h2>Invoke Tools with LanguageModel</h2>
+          <div class="preset-pills" role="group" aria-label="Preset tool scenarios">
+            <span class="preset-label">Presets:</span>
+            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="weatherTime">🌤️ Weather + Time (2 Tools)</button>
+            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="commerce">🛒 Catalog + FX + Shipping (3 Tools)</button>
+            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="incident">📊 Incident Triage (2 Tools)</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="userPrompt">User Prompt (Turn 1)</label>
+          <textarea id="userPrompt" rows="2" placeholder="Ask a question that requires one or more tools..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="followUpPrompt">Follow-up Prompt on Same Session (Turn 2 — tests multi-turn tool calling)</label>
+          <input id="followUpPrompt" type="text" placeholder="Optional second turn on the same LanguageModel session..." />
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="systemPrompt">System Prompt (<code>initialPrompts</code>)</label>
+            <input id="systemPrompt" type="text" value="You are a helpful assistant. Please answer the user queries by using tools when appropriate." />
+          </div>
+          <div class="form-group">
+            <label>Session Info</label>
+            <div class="session-badge-row" id="sessionInfoBox">No active session (created on first run)</div>
+          </div>
+        </div>
+
+        <details class="tools-schema-details">
+          <summary>Tool Declarations (<code>options.tools</code> — 6 local tools registered)</summary>
+          <textarea id="toolsSchemaInput" rows="10" spellcheck="false"></textarea>
+        </details>
+
+        <div class="button-group">
+          <button type="button" id="runSingleTurnBtn" class="btn btn-primary">▶ Run Turn 1</button>
+          <button type="button" id="runFollowUpBtn" class="btn btn-secondary">➕ Run Turn 2 on Same Session</button>
+          <button type="button" id="runTwoTurnBtn" class="btn btn-secondary">🔁 Run Turn 1 → Turn 2 Sequence</button>
+          <button type="button" id="resetSessionBtn" class="btn btn-secondary">🔄 Reset Session</button>
+          <button type="button" id="copyResultsBtn" class="btn btn-secondary" disabled>📋 Copy JSON</button>
+          <span class="timing-meta" id="timingMeta"></span>
+        </div>
+
+        <div id="playgroundStatus" class="result-box"></div>
+
+        <!-- Turn Results -->
+        <div id="turnResultsSection" class="turn-results-section" style="display: none;">
+          <div id="turnCards" class="turn-cards-stack"></div>
+
+          <details class="raw-json-box" id="rawJsonDetails">
+            <summary>Raw Transcript JSON</summary>
+            <pre id="rawJsonOutput" class="json-pre"></pre>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Built with Microsoft Edge &amp; Chromium On-Device Prompt API Tool Use | <a href="../">Back to AI Demos</a></p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>

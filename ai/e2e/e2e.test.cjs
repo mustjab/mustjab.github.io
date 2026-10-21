@@ -32,6 +32,8 @@ function createE2EHarness() {
         translateMode: 'whole',
         decisionsPreset: 'general',
         decisionsContext: 'Classify the input text.',
+        toolsMode: 'multi_turn',
+        toolsDirective: 'Use multiple tools to inspect the input text.',
       };
       elements.set(id, {
         id,
@@ -156,9 +158,34 @@ function createE2EHarness() {
     },
   };
 
+  context.window.LanguageModelToolSuccess = class {
+    constructor(init) { Object.assign(this, init); }
+  };
+
   context.window.LanguageModel = {
     async availability() { return 'available'; },
-    async create() {
+    async create(options) {
+      if (options && Array.isArray(options.tools) && options.tools.length > 0) {
+        return {
+          destroy() {},
+          async prompt(input) {
+            calls.push({ api: 'tools', input });
+            if (typeof input === 'string' && input.includes('London')) {
+              return [
+                { type: 'tool-call', value: { callId: 'tc-3', name: 'getWeather', arguments: { location: 'London' } } },
+                { type: 'tool-call', value: { callId: 'tc-4', name: 'getLocalTime', arguments: { location: 'Dublin' } } },
+              ];
+            }
+            if (typeof input === 'string') {
+              return [
+                { type: 'tool-call', value: { callId: 'tc-1', name: 'extractEntities', arguments: { version: 'v2.8.15', primaryMetric: '35%' } } },
+                { type: 'tool-call', value: { callId: 'tc-2', name: 'createActionTicket', arguments: { title: 'Verify v2.8.15 rollout', priority: 'P1' } } },
+              ];
+            }
+            return [{ type: 'text', value: 'Completed tool execution and verified rollout status.' }];
+          },
+        };
+      }
       return {
         async *promptStreaming(input) {
           calls.push({ api: 'prompt', input });
@@ -229,7 +256,7 @@ test('single input runs all 8 Built-in AI APIs end-to-end and chains Proofreader
   await pg.runAllPipeline();
 
   assert.equal(getElement('pipelineStatus').textContent, 'Complete');
-  assert.equal(getElement('pipelineStagesDone').textContent, '8 / 8');
+  assert.equal(getElement('pipelineStagesDone').textContent, '9 / 9');
   assert.equal(pg.detectedLanguageCode, 'en');
   assert.equal(pg.stageOutputs.proofreader, 'We are thrilled to announce v2.8.15 today.');
 
@@ -240,6 +267,10 @@ test('single input runs all 8 Built-in AI APIs end-to-end and chains Proofreader
   assert.equal(pg.stageOutputs.rewriter, 'Polished: We are thrilled to announce v2.8.15 today.');
   assert.match(pg.stageOutputs.writer, /Action plan for: We are thrilled to announce v2\.8\.15 today\./);
   assert.equal(pg.stageOutputs.prompt, 'Takeaways for: We are thrilled to announce v2.8.15 today.');
+  assert.match(pg.stageOutputs.tools, /extractEntities/);
+  assert.match(pg.stageOutputs.tools, /createActionTicket/);
+  assert.match(pg.stageOutputs.tools, /getWeather/);
+  assert.equal(getElement('toolsTurns').textContent, '2');
   const decisionsCall = calls.find(c => c.api === 'decisions');
   assert.equal(decisionsCall.input, 'We are thrilled to announce v2.8.15 today.');
   assert.match(pg.stageOutputs.decisions, /actionable: true/);

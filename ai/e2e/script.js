@@ -38,7 +38,18 @@ const DECISION_SCHEMAS = {
                     { label: 'feedback', description: 'User review or sentiment' }
                 ]
             },
-            { id: 'priority', prompt: 'Rate priority or impact from 1 (minimal) to 5 (critical).', type: 'score' }
+            {
+                id: 'priority',
+                prompt: 'Rate priority or impact from 1 (minimal) to 5 (critical).',
+                type: 'score',
+                options: [
+                    { label: '1', description: 'Minimal priority' },
+                    { label: '2', description: 'Low priority' },
+                    { label: '3', description: 'Moderate priority' },
+                    { label: '4', description: 'High priority' },
+                    { label: '5', description: 'Critical priority' }
+                ]
+            }
         ]
     },
     support: {
@@ -56,7 +67,18 @@ const DECISION_SCHEMAS = {
                     { label: 'account', description: 'Login or permissions issue' }
                 ]
             },
-            { id: 'severity', prompt: 'Rate customer impact from 1 (low) to 5 (critical).', type: 'score' }
+            {
+                id: 'severity',
+                prompt: 'Rate customer impact from 1 (low) to 5 (critical).',
+                type: 'score',
+                options: [
+                    { label: '1', description: 'Low impact' },
+                    { label: '2', description: 'Moderately low impact' },
+                    { label: '3', description: 'Medium impact' },
+                    { label: '4', description: 'High impact' },
+                    { label: '5', description: 'Critical impact' }
+                ]
+            }
         ]
     },
     release: {
@@ -74,8 +96,111 @@ const DECISION_SCHEMAS = {
                     { label: 'ux', description: 'Interface or user experience polish' }
                 ]
             },
-            { id: 'confidence_rating', prompt: 'Rate release readiness confidence from 1 (low) to 5 (high).', type: 'score' }
+            {
+                id: 'confidence_rating',
+                prompt: 'Rate release readiness confidence from 1 (low) to 5 (high).',
+                type: 'score',
+                options: [
+                    { label: '1', description: 'Very low confidence' },
+                    { label: '2', description: 'Low confidence' },
+                    { label: '3', description: 'Moderate confidence' },
+                    { label: '4', description: 'High confidence' },
+                    { label: '5', description: 'Very high confidence' }
+                ]
+            }
         ]
+    }
+};
+
+const E2E_TOOLS = [
+    {
+        name: 'extractEntities',
+        description: 'Extract versions, URLs, emails, and key metrics from text.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                version: { type: 'string', description: 'Detected version string or release identifier.' },
+                primaryMetric: { type: 'string', description: 'Key numeric metric or count in the text.' }
+            },
+            required: ['version']
+        }
+    },
+    {
+        name: 'lookupServiceStatus',
+        description: 'Check deployment health and active ticket count for a service or component.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                service: { type: 'string', description: 'Service, product, or department name to check.' }
+            },
+            required: ['service']
+        }
+    },
+    {
+        name: 'createActionTicket',
+        description: 'Create a tracked engineering or support action item.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                title: { type: 'string', description: 'Short summary of the follow-up action.' },
+                priority: { type: 'string', description: 'Priority level (P1, P2, P3).' }
+            },
+            required: ['title', 'priority']
+        }
+    },
+    {
+        name: 'getWeather',
+        description: 'Get the current weather for a city.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                location: { type: 'string', description: 'City name.' }
+            },
+            required: ['location']
+        }
+    },
+    {
+        name: 'getLocalTime',
+        description: 'Get the current local time for a city.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                location: { type: 'string', description: 'City name.' }
+            },
+            required: ['location']
+        }
+    }
+];
+
+const E2E_TOOL_EXECUTORS = {
+    async extractEntities(args = {}) {
+        return {
+            extractedVersion: args.version || 'v2.8.15',
+            primaryMetric: args.primaryMetric || '35% latency reduction',
+            verifiedUrls: 2
+        };
+    },
+    async lookupServiceStatus({ service = 'edge-ai-studio' } = {}) {
+        return {
+            service,
+            status: 'healthy',
+            uptimePct: 99.98,
+            openTickets: 1
+        };
+    },
+    async createActionTicket({ title = 'Follow-up review', priority = 'P2' } = {}) {
+        return {
+            ticketId: 'AI-4821',
+            title,
+            priority,
+            status: 'created'
+        };
+    },
+    async getWeather({ location = 'Seattle' } = {}) {
+        return { location, temperatureC: 16, condition: 'Partly cloudy' };
+    },
+    async getLocalTime({ location = 'Dublin' } = {}) {
+        return { location, localTime: '11:30 UTC+1' };
     }
 };
 
@@ -595,12 +720,14 @@ class E2EPlayground {
             rewriter: '',
             writer: '',
             prompt: '',
+            tools: '',
             decisions: '',
             translator: ''
         };
         this.detectedLanguageCode = 'en';
 
         this.promptSession = null;
+        this.toolsSession = null;
         this.summarizerSession = null;
         this.writerSession = null;
         this.rewriterSession = null;
@@ -719,6 +846,7 @@ class E2EPlayground {
         $('runRewriterBtn')?.addEventListener('click', () => this.runStage('rewriter'));
         $('runWriterBtn')?.addEventListener('click', () => this.runStage('writer'));
         $('runPromptBtn')?.addEventListener('click', () => this.runStage('prompt'));
+        $('runToolsBtn')?.addEventListener('click', () => this.runStage('tools'));
         $('runDecisionsBtn')?.addEventListener('click', () => this.runStage('decisions'));
         $('decisionsPreset')?.addEventListener('change', () => {
             const preset = DECISION_SCHEMAS[$('decisionsPreset').value];
@@ -842,6 +970,12 @@ class E2EPlayground {
         }
         setTextIfPresent('decisionsPrimary', '-');
         setTextIfPresent('decisionsScore', '-');
+        if ($('toolsDetails')) {
+            $('toolsDetails').style.display = 'none';
+            $('toolsDetails').innerHTML = '';
+        }
+        setTextIfPresent('toolsPrimary', '-');
+        setTextIfPresent('toolsTurns', '0');
 
         setTextIfPresent('detectedLang', '-');
         setTextIfPresent('translateDetectedLang', '-');
@@ -957,6 +1091,7 @@ class E2EPlayground {
     async refreshAvailability() {
         await Promise.all([
             this.updatePromptAvailability(),
+            this.updateToolsAvailability(),
             this.updateWritingAvailability('Summarizer', 'summarizer'),
             this.updateWritingAvailability('Writer', 'writer'),
             this.updateWritingAvailability('Rewriter', 'rewriter'),
@@ -965,6 +1100,30 @@ class E2EPlayground {
             this.updateTranslatorAvailability(),
             this.updateLIDAvailability()
         ]);
+    }
+
+    async updateToolsAvailability() {
+        if (!('LanguageModel' in window)) {
+            setSupportBadge('supportTools', 'Not supported', 'is-unavailable');
+            return;
+        }
+
+        try {
+            const lm = window.LanguageModel;
+            const status = await lm.availability({
+                expectedInputs: [{ type: 'tool-response' }],
+                expectedOutputs: [{ type: 'text' }, { type: 'tool-call' }]
+            });
+            if (status === 'available' || status === 'readily') {
+                setSupportBadge('supportTools', 'Available', 'is-available');
+            } else if (status === 'downloadable' || status === 'downloading' || status === 'after-download') {
+                setSupportBadge('supportTools', 'Downloadable', 'is-downloadable');
+            } else {
+                setSupportBadge('supportTools', safeText(status) || 'Unavailable', 'is-unavailable');
+            }
+        } catch {
+            setSupportBadge('supportTools', 'Unavailable', 'is-unavailable');
+        }
     }
 
     async updatePromptAvailability() {
@@ -1346,6 +1505,49 @@ class E2EPlayground {
                 return true;
             }
 
+            if (stage === 'tools') {
+                if ($('toolsDetails')) {
+                    $('toolsDetails').style.display = 'none';
+                    $('toolsDetails').innerHTML = '';
+                }
+                const input = this.getEffectiveInputText('tools');
+                const mode = $('toolsMode')?.value || 'multi_turn';
+                const directive = ($('toolsDirective')?.value || '').trim();
+                const session = await this.getOrCreateToolsSession();
+                if (!session) {
+                    this.setStageStatus('tools', 'Unavailable', 'is-error');
+                    this.setStageOutput('tools', 'Prompt API Tool Calling is not available in this browser.');
+                    return false;
+                }
+
+                const turn1Prompt = directive ? `${directive}\n\nInput:\n${input}` : input;
+                const turns = [];
+                turns.push(await this.executeToolTurnOnSession(session, turn1Prompt, 1));
+
+                if (mode === 'multi_turn') {
+                    const turn2Prompt = 'Now also check the weather in London and the local time in Dublin using your tools.';
+                    turns.push(await this.executeToolTurnOnSession(session, turn2Prompt, 2));
+                }
+
+                const allToolCalls = turns.flatMap(t => t.toolCalls);
+                const toolNames = allToolCalls.map(tc => tc.name);
+                const hasLeak = turns.some(t => t.leakedDelimiter);
+
+                setTextIfPresent('toolsPrimary', toolNames.length ? toolNames.join(', ') : 'None');
+                setTextIfPresent('toolsTurns', String(turns.length));
+
+                const formattedLines = turns.map(t => {
+                    const callSummary = t.toolCalls.map(tc => `${tc.name}(${JSON.stringify(tc.arguments)})`).join(', ') || 'none';
+                    return `[Turn ${t.turn}] Tools (${t.toolCalls.length}): ${callSummary}\nAnswer: ${t.finalAnswer}`;
+                });
+                const outputText = formattedLines.join('\n\n');
+                this.setStageOutput('tools', outputText);
+                this.updateStageStats('tools', outputText.length, start, allToolCalls.length);
+                this.renderToolsDetails(turns);
+                this.setStageStatus('tools', hasLeak ? 'Warning' : 'Done', hasLeak ? 'is-error' : 'is-done');
+                return !hasLeak;
+            }
+
             if (stage === 'decisions') {
                 if ($('decisionsDetails')) {
                     $('decisionsDetails').style.display = 'none';
@@ -1418,6 +1620,7 @@ class E2EPlayground {
             { id: 'rewriter', checkbox: 'enableRewriter' },
             { id: 'writer', checkbox: 'enableWriter' },
             { id: 'prompt', checkbox: 'enablePrompt' },
+            { id: 'tools', checkbox: 'enableTools' },
             { id: 'decisions', checkbox: 'enableDecisions' },
             { id: 'translator', checkbox: 'enableTranslator' }
         ];
@@ -1488,6 +1691,7 @@ class E2EPlayground {
             ['rewriter', 'Rewriter'],
             ['writer', 'Writer'],
             ['prompt', 'Prompt API'],
+            ['tools', 'Tool Calling'],
             ['decisions', 'Decisions API'],
             ['translator', 'Translator']
         ]) {
@@ -1877,6 +2081,141 @@ class E2EPlayground {
         container.appendChild(grid);
     }
 
+    async getOrCreateToolsSession() {
+        if (!('LanguageModel' in window)) return null;
+
+        if (this.toolsSession && this.toolsSession.destroy) {
+            try { this.toolsSession.destroy(); } catch { /* noop */ }
+        }
+        this.toolsSession = null;
+
+        const session = await window.LanguageModel.create({
+            temperature: 0.001,
+            topK: 1,
+            tools: E2E_TOOLS,
+            expectedInputs: [{ type: 'tool-response' }],
+            expectedOutputs: [{ type: 'text' }, { type: 'tool-call' }],
+            initialPrompts: [{
+                role: 'system',
+                content: 'You are a helpful assistant. Use the provided tools when appropriate to inspect the input and perform requested actions.'
+            }],
+            monitor: (m) => {
+                m.addEventListener('downloadprogress', (e) => {
+                    if (typeof e.loaded === 'number') {
+                        this.setProgress(true, e.loaded);
+                    }
+                    if (e.total && e.loaded >= e.total) {
+                        this.setProgress(false);
+                    }
+                });
+            }
+        });
+        this.toolsSession = session;
+        this.setProgress(false);
+        return session;
+    }
+
+    normalizeToolPromptResult(result) {
+        if (typeof result === 'string') {
+            return { text: result, toolCalls: [] };
+        }
+        const parts = Array.isArray(result) ? result : [];
+        const textParts = [];
+        const toolCalls = [];
+        for (const part of parts) {
+            if (part?.type === 'text') {
+                textParts.push(String(part.value ?? ''));
+            } else if (part?.type === 'tool-call' && part.value) {
+                toolCalls.push({
+                    callId: part.value.callId || `call-${toolCalls.length + 1}`,
+                    name: part.value.name,
+                    arguments: part.value.arguments || {}
+                });
+            }
+        }
+        return { text: textParts.join(''), toolCalls };
+    }
+
+    async executeToolTurnOnSession(session, promptText, turnNumber) {
+        const firstResult = await session.prompt(promptText);
+        const firstNorm = this.normalizeToolPromptResult(firstResult);
+        const executedCalls = [];
+        let finalAnswer = firstNorm.text || '';
+
+        if (firstNorm.toolCalls.length > 0) {
+            for (const tc of firstNorm.toolCalls) {
+                const fn = E2E_TOOL_EXECUTORS[tc.name];
+                const payload = fn ? await fn(tc.arguments) : { status: 'ok' };
+                const responseVal = typeof window.LanguageModelToolSuccess === 'function'
+                    ? new window.LanguageModelToolSuccess({
+                        callId: tc.callId,
+                        name: tc.name,
+                        result: [{ type: 'object', value: payload }]
+                    })
+                    : { callId: tc.callId, name: tc.name, result: [{ type: 'object', value: payload }] };
+                executedCalls.push({ ...tc, output: payload, toolResponse: responseVal });
+            }
+
+            const followUp = await session.prompt([{
+                role: 'user',
+                content: executedCalls.map(item => ({
+                    type: 'tool-response',
+                    value: item.toolResponse
+                }))
+            }]);
+            const secondNorm = this.normalizeToolPromptResult(followUp);
+            finalAnswer = secondNorm.text || JSON.stringify(followUp);
+        }
+
+        const leakedDelimiter = /<\|?\/?tool_call\|?>/.test(finalAnswer);
+        return {
+            turn: turnNumber,
+            toolCalls: executedCalls.map(({ callId, name, arguments: args, output }) => ({
+                callId,
+                name,
+                arguments: args,
+                output
+            })),
+            finalAnswer,
+            leakedDelimiter
+        };
+    }
+
+    renderToolsDetails(turns) {
+        const container = $('toolsDetails');
+        if (!container || !Array.isArray(turns) || !turns.length) return;
+
+        container.style.display = 'block';
+        container.innerHTML = '';
+
+        const grid = document.createElement('div');
+        grid.className = 'decisions-prob-grid';
+
+        for (const t of turns) {
+            const card = document.createElement('div');
+            card.className = 'decision-mini-card';
+
+            const header = document.createElement('div');
+            header.className = 'decision-mini-header';
+            const statusLabel = t.leakedDelimiter
+                ? '⚠️ Leaked Delimiter'
+                : `${t.toolCalls.length} Tool Call(s)`;
+            header.innerHTML = `<span>Turn ${t.turn}</span><span>${safeText(statusLabel)}</span>`;
+            card.appendChild(header);
+
+            for (const tc of t.toolCalls) {
+                const row = document.createElement('div');
+                row.className = 'hint';
+                row.innerHTML = `<code>${safeText(tc.name)}(${safeText(JSON.stringify(tc.arguments))})</code> → <code>${safeText(JSON.stringify(tc.output))}</code>`;
+                card.appendChild(row);
+            }
+
+            grid.appendChild(card);
+        }
+
+        container.appendChild(grid);
+    }
+
     async ensureLanguageDetector() {
         if (!('LanguageDetector' in window)) return null;
         if (this.languageDetector) return this.languageDetector;
@@ -2149,7 +2488,7 @@ if (typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { E2EPlayground, PRESETS, DEFAULTS, DECISION_SCHEMAS };
+    module.exports = { E2EPlayground, PRESETS, DEFAULTS, DECISION_SCHEMAS, E2E_TOOLS };
 }
 
 // Forward console warnings/errors into the on-page banner so devs don't have to keep DevTools open.
