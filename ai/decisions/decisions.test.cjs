@@ -75,75 +75,39 @@ function createDecisionsHarness() {
   });
 
   context.window = context;
-  context.window.isSecureContext = true;
 
   context.window.DecisionModel = {
     async availability() {
       return 'available';
     },
     async create(options) {
-      if (!options || !Array.isArray(options.questions) || options.questions.length === 0) {
-        throw new TypeError('At least one question is required.');
-      }
-      let destroyed = false;
-      const isStrict = (options.context || '').includes("Always classify requests mentioning 'refund' as urgent=true");
       return {
-        preference: 'default',
-        destroy() {
-          destroyed = true;
-        },
+        destroy() {},
         async decide(_input) {
-          if (destroyed) {
-            const err = new Error('Session has been destroyed.');
-            err.name = 'InvalidStateError';
-            throw err;
-          }
           const out = {};
           for (const q of options.questions) {
             if (q.type === 'boolean') {
-              const pTrue = isStrict ? 0.96 : 0.82;
-              const pFalse = Number((1 - pTrue).toFixed(4));
               out[q.id] = {
                 id: q.id,
-                label: pTrue >= 0.5 ? 'true' : 'false',
-                confidence: Math.max(pTrue, pFalse),
-                probabilities: { true: pTrue, false: pFalse },
+                label: 'true',
+                confidence: 0.85,
+                probabilities: { true: 0.85, false: 0.15 },
               };
             } else if (q.type === 'choice') {
               const opts = q.options || [{ label: 'a' }, { label: 'b' }];
-              const probs = {};
-              const topProb = 0.75;
-              const rem = opts.length > 1 ? 0.25 / (opts.length - 1) : 0;
-              opts.forEach((o, idx) => {
-                probs[o.label] = idx === 0 ? topProb : rem;
-              });
               out[q.id] = {
                 id: q.id,
                 label: opts[0].label,
-                confidence: topProb,
-                probabilities: probs,
+                confidence: 0.75,
+                probabilities: { [opts[0].label]: 0.75, [opts[1].label]: 0.25 },
               };
             } else if (q.type === 'score') {
-              const opts = q.options || [
-                { label: '1' },
-                { label: '2' },
-                { label: '3' },
-                { label: '4' },
-                { label: '5' },
-              ];
-              const probs = {};
-              const pEach = 1 / opts.length;
-              let expectedScore = 0;
-              opts.forEach((o) => {
-                probs[o.label] = pEach;
-                expectedScore += Number(o.label) * pEach;
-              });
               out[q.id] = {
                 id: q.id,
-                label: opts[opts.length - 1].label,
-                confidence: pEach,
-                expectedScore,
-                probabilities: probs,
+                label: '4',
+                confidence: 0.5,
+                expectedScore: 4.1,
+                probabilities: { '1': 0.05, '2': 0.05, '3': 0.15, '4': 0.5, '5': 0.25 },
               };
             }
           }
@@ -161,16 +125,11 @@ function createDecisionsHarness() {
   return { demo, getElement, getClipboard: () => clipboardText, DECISION_PRESETS };
 }
 
-test('DecisionsDemo loads presets, runs createAndDecide, and executes full E2E validation suite', async () => {
+test('DecisionsDemo loads presets and runs createAndDecide', async () => {
   const { demo, getElement } = createDecisionsHarness();
 
   await demo.createAndDecide();
-  assert.equal(getElement('metricQuestions').textContent, '3');
+  assert.match(getElement('timingMeta').textContent, /3 questions/);
   assert.match(getElement('rawJsonOutput').textContent, /"urgent"/);
   assert.match(getElement('rawJsonOutput').textContent, /"expectedScore"/);
-
-  await demo.runValidationSuite();
-  assert.equal(getElement('suitePassed').textContent, '5');
-  assert.equal(getElement('suiteFailed').textContent, '0');
-  assert.match(getElement('suiteSummaryBox').textContent, /All 5\/5 E2E validation checks passed/);
 });

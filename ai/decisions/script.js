@@ -1,4 +1,4 @@
-// Browser Built-in AI Decisions API Demo & Validation Suite
+// Browser Built-in AI Decisions API Demo
 
 const DECISION_PRESETS = {
   support: {
@@ -158,15 +158,14 @@ async function copyTextWithFeedback(text, buttonEl) {
 class DecisionsDemo {
   constructor() {
     this.activeSession = null;
+    this.activeSessionKey = '';
     this.lastResultsJson = '';
-    this.lastSuiteReport = '';
     this.init();
   }
 
   init() {
     this.wireEvents();
     this.loadPreset('support');
-    this.updateEnvironmentStatus();
     this.checkAvailability();
   }
 
@@ -175,36 +174,10 @@ class DecisionsDemo {
       btn.addEventListener('click', () => this.loadPreset(btn.dataset.preset));
     });
 
-    $('formatSchemaBtn')?.addEventListener('click', () => this.formatSchemaJson());
-    $('checkAvailabilityBtn')?.addEventListener('click', () => this.checkAvailability());
     $('createAndDecideBtn')?.addEventListener('click', () => this.createAndDecide());
-    $('reuseDecideBtn')?.addEventListener('click', () => this.reuseDecide());
-    $('destroySessionBtn')?.addEventListener('click', () => this.destroySession());
-
-    $('copyLaunchCmdBtn')?.addEventListener('click', (e) => {
-      copyTextWithFeedback($('launchCmd')?.textContent || '', e.currentTarget);
-    });
     $('copyResultsBtn')?.addEventListener('click', (e) => {
       copyTextWithFeedback(this.lastResultsJson, e.currentTarget);
     });
-    $('copyRawJsonBtn')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      copyTextWithFeedback(this.lastResultsJson, e.currentTarget);
-    });
-
-    $('runSuiteBtn')?.addEventListener('click', () => this.runValidationSuite());
-    $('copySuiteBtn')?.addEventListener('click', (e) => {
-      copyTextWithFeedback(this.lastSuiteReport, e.currentTarget);
-    });
-    $('clearSuiteBtn')?.addEventListener('click', () => this.clearSuiteResults());
-  }
-
-  updateEnvironmentStatus() {
-    const isSecure = typeof window !== 'undefined' && Boolean(window.isSecureContext);
-    setText('envSecure', isSecure ? 'Yes (SecureContext)' : 'No (Insecure)');
-
-    const hasApi = typeof window !== 'undefined' && typeof window.DecisionModel !== 'undefined';
-    setText('envApi', hasApi ? 'Exposed' : 'Missing (enable flag)');
   }
 
   setApiStatusBadge(state, text) {
@@ -238,30 +211,15 @@ class DecisionsDemo {
     if ($('decideInput')) $('decideInput').value = preset.input;
   }
 
-  formatSchemaJson() {
-    const el = $('schemaQuestions');
-    if (!el) return;
-    try {
-      const parsed = JSON.parse(el.value);
-      el.value = JSON.stringify(parsed, null, 2);
-      this.setBoxStatus('playgroundStatus', '', 'info');
-    } catch (err) {
-      this.setBoxStatus('playgroundStatus', `Invalid JSON in Questions Schema: ${err.message}`, 'error');
-    }
-  }
-
   async checkAvailability() {
-    this.updateEnvironmentStatus();
     if (typeof window === 'undefined' || typeof window.DecisionModel === 'undefined') {
-      setText('envAvailability', 'Unavailable (API not exposed)');
-      this.setApiStatusBadge('unavailable', 'DecisionModel API not exposed — enable edge://flags/#edge-llm-decisions-api-for-default');
+      this.setApiStatusBadge('unavailable', 'DecisionModel API unavailable');
       return null;
     }
 
     this.setApiStatusBadge('checking', 'Checking DecisionModel.availability()...');
     try {
       const availability = await window.DecisionModel.availability();
-      setText('envAvailability', availability);
       if (availability === 'available' || availability === 'readily') {
         this.setApiStatusBadge('available', `DecisionModel Ready (${availability})`);
       } else if (availability === 'downloadable' || availability === 'downloading' || availability === 'after-download') {
@@ -271,8 +229,7 @@ class DecisionsDemo {
       }
       return availability;
     } catch (err) {
-      setText('envAvailability', `Error: ${err.message}`);
-      this.setApiStatusBadge('unavailable', `Error checking availability: ${err.message}`);
+      this.setApiStatusBadge('unavailable', `Unavailable (${err.message})`);
       return null;
     }
   }
@@ -327,7 +284,7 @@ class DecisionsDemo {
       if (typeof dec.expectedScore === 'number') {
         const scoreBadge = document.createElement('span');
         scoreBadge.className = 'decision-pill decision-pill--score';
-        scoreBadge.textContent = `expectedScore: ${dec.expectedScore.toFixed(2)}`;
+        scoreBadge.textContent = `score: ${dec.expectedScore.toFixed(2)}`;
         badges.appendChild(scoreBadge);
       }
 
@@ -372,11 +329,7 @@ class DecisionsDemo {
 
   async createAndDecide() {
     if (typeof window === 'undefined' || typeof window.DecisionModel === 'undefined') {
-      this.setBoxStatus(
-        'playgroundStatus',
-        'window.DecisionModel is not available. Enable edge://flags/#edge-llm-decisions-api-for-default first.',
-        'error'
-      );
+      this.setBoxStatus('playgroundStatus', 'window.DecisionModel is not available in this browser.', 'error');
       return;
     }
 
@@ -395,303 +348,42 @@ class DecisionsDemo {
       return;
     }
 
-    this.destroySession({ silent: true });
-    this.setBoxStatus('playgroundStatus', 'Creating DecisionModel session and scoring options...', 'info');
+    if ($('createAndDecideBtn')) $('createAndDecideBtn').disabled = true;
+    this.setBoxStatus('playgroundStatus', '', 'info');
+    setText('timingMeta', 'Running decide()...');
 
     try {
+      const schemaKey = JSON.stringify({ context, questions });
       const t0 = performance.now();
-      const createOpts = { questions };
-      if (context) createOpts.context = context;
 
-      this.activeSession = await window.DecisionModel.create(this.attachDownloadMonitor(createOpts));
+      if (!this.activeSession || this.activeSessionKey !== schemaKey) {
+        if (this.activeSession) {
+          try { this.activeSession.destroy(); } catch { /* noop */ }
+        }
+        const createOpts = { questions };
+        if (context) createOpts.context = context;
+        this.activeSession = await window.DecisionModel.create(this.attachDownloadMonitor(createOpts));
+        this.activeSessionKey = schemaKey;
+      }
+
       const t1 = performance.now();
-
       const result = await this.activeSession.decide(input);
       const t2 = performance.now();
       this.setProgress(false);
 
-      const createMs = (t1 - t0).toFixed(1);
-      const decideMs = (t2 - t1).toFixed(1);
+      const decideMs = (t2 - t1).toFixed(0);
+      const totalMs = (t2 - t0).toFixed(0);
       const qCount = Object.keys(result || {}).length;
 
-      if ($('playgroundMetrics')) $('playgroundMetrics').style.display = 'grid';
-      setText('metricCreateMs', `${createMs} ms`);
-      setText('metricDecideMs', `${decideMs} ms`);
-      setText('metricQuestions', String(qCount));
-      setText('metricPreference', this.activeSession.preference || 'default');
-      setText('envSessionState', `Active (${qCount} question${qCount === 1 ? '' : 's'})`);
-
-      if ($('reuseDecideBtn')) $('reuseDecideBtn').disabled = false;
-      if ($('destroySessionBtn')) $('destroySessionBtn').disabled = false;
-
-      this.setBoxStatus(
-        'playgroundStatus',
-        `Scored ${qCount} question${qCount === 1 ? '' : 's'} in ${decideMs} ms (session create: ${createMs} ms).`,
-        'success'
-      );
+      setText('timingMeta', `${qCount} question${qCount === 1 ? '' : 's'} · ${decideMs} ms (total ${totalMs} ms)`);
       this.renderDecisionCards(result);
     } catch (err) {
       this.setProgress(false);
+      setText('timingMeta', '');
       this.setBoxStatus('playgroundStatus', `${err.name || 'Error'}: ${err.message}`, 'error');
-    }
-  }
-
-  async reuseDecide() {
-    if (!this.activeSession) return;
-    const input = ($('decideInput')?.value || '').trim();
-    if (!input) {
-      this.setBoxStatus('playgroundStatus', 'Please enter input text to classify.', 'warning');
-      return;
-    }
-
-    try {
-      const t0 = performance.now();
-      const result = await this.activeSession.decide(input);
-      const decideMs = (performance.now() - t0).toFixed(1);
-      const qCount = Object.keys(result || {}).length;
-
-      setText('metricDecideMs', `${decideMs} ms (reused)`);
-      setText('metricQuestions', String(qCount));
-      this.setBoxStatus(
-        'playgroundStatus',
-        `Re-ran decide() on active session in ${decideMs} ms.`,
-        'success'
-      );
-      this.renderDecisionCards(result);
-    } catch (err) {
-      this.setBoxStatus('playgroundStatus', `${err.name || 'Error'}: ${err.message}`, 'error');
-    }
-  }
-
-  destroySession({ silent = false } = {}) {
-    if (this.activeSession) {
-      try {
-        this.activeSession.destroy();
-      } catch {
-        /* noop */
-      }
-      this.activeSession = null;
-    }
-    if ($('reuseDecideBtn')) $('reuseDecideBtn').disabled = true;
-    if ($('destroySessionBtn')) $('destroySessionBtn').disabled = true;
-    setText('envSessionState', 'None');
-    if (!silent) {
-      this.setBoxStatus('playgroundStatus', 'Active DecisionModel session destroyed.', 'info');
-    }
-  }
-
-  clearSuiteResults() {
-    this.lastSuiteReport = '';
-    if ($('suiteResultsContainer')) $('suiteResultsContainer').style.display = 'none';
-    if ($('suiteResultsList')) $('suiteResultsList').innerHTML = '';
-    if ($('copySuiteBtn')) $('copySuiteBtn').disabled = true;
-    if ($('clearSuiteBtn')) $('clearSuiteBtn').disabled = true;
-    this.setBoxStatus('suiteSummaryBox', '', 'info');
-  }
-
-  async runValidationSuite() {
-    const listEl = $('suiteResultsList');
-    const containerEl = $('suiteResultsContainer');
-    if (listEl) listEl.innerHTML = '';
-    if (containerEl) containerEl.style.display = 'block';
-
-    const reportLines = [];
-    let passed = 0;
-    let failed = 0;
-    const suiteStart = performance.now();
-
-    const recordCheck = (name, ok, detail) => {
-      if (ok) passed++;
-      else failed++;
-      reportLines.push(`[${ok ? 'PASS' : 'FAIL'}] ${name} — ${detail}`);
-
-      if (listEl) {
-        const item = document.createElement('div');
-        item.className = 'batch-result-item';
-        const left = document.createElement('div');
-        left.innerHTML = `<strong>${name}</strong><div class="hint">${detail}</div>`;
-        const badge = document.createElement('span');
-        badge.className = `check-status-badge ${ok ? 'pass' : 'fail'}`;
-        badge.textContent = ok ? 'PASS' : 'FAIL';
-        item.appendChild(left);
-        item.appendChild(badge);
-        listEl.appendChild(item);
-      }
-    };
-
-    this.setBoxStatus('suiteSummaryBox', 'Running automated E2E validation checks...', 'info');
-
-    // Check 1: availability()
-    const avail = await this.checkAvailability();
-    const availOk = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'downloading';
-    recordCheck('1. DecisionModel.availability()', availOk, `availability() returned "${avail}"`);
-
-    if (!availOk) {
-      const elapsed = Math.round(performance.now() - suiteStart);
-      setText('suitePassed', String(passed));
-      setText('suiteFailed', String(failed));
-      setText('suiteTotalTime', `${elapsed} ms`);
-      this.setBoxStatus('suiteSummaryBox', `Suite stopped: DecisionModel is not available (${avail}).`, 'error');
-      this.lastSuiteReport = reportLines.join('\n');
-      if ($('copySuiteBtn')) $('copySuiteBtn').disabled = false;
-      if ($('clearSuiteBtn')) $('clearSuiteBtn').disabled = false;
-      return;
-    }
-
-    // Check 2 & 3: Multi-question schema + determinism
-    let model = null;
-    try {
-      const schema = {
-        context: 'Customer support ticket triage',
-        questions: [
-          { id: 'urgent', prompt: 'Is this ticket urgent?', type: 'boolean' },
-          {
-            id: 'area',
-            prompt: 'Which area is affected?',
-            type: 'choice',
-            options: [
-              { label: 'checkout', description: 'Cart, payment, or billing' },
-              { label: 'profile', description: 'Account settings or avatar' },
-              { label: 'sync', description: 'Bookmarks or history sync' },
-            ],
-          },
-          { id: 'impact', prompt: 'Rate severity from 1 (low) to 5 (critical).', type: 'score' },
-          {
-            id: 'priority_weight',
-            prompt: 'Select priority weight (10, 50, or 100).',
-            type: 'score',
-            options: [
-              { label: '10', description: 'Low' },
-              { label: '50', description: 'Medium' },
-              { label: '100', description: 'High' },
-            ],
-          },
-        ],
-      };
-
-      const t0 = performance.now();
-      model = await window.DecisionModel.create(this.attachDownloadMonitor(schema));
-      const res1 = await model.decide('Production checkout is failing with HTTP 500 for all customers.');
-      const elapsed = (performance.now() - t0).toFixed(1);
-
-      const sumProbs = (probs) => Object.values(probs || {}).reduce((a, b) => a + b, 0);
-      const urgent = res1.urgent;
-      const area = res1.area;
-      const impact = res1.impact;
-      const weight = res1.priority_weight;
-
-      const urgentOk =
-        urgent &&
-        (urgent.label === 'true' || urgent.label === 'false') &&
-        Math.abs(sumProbs(urgent.probabilities) - 1.0) < 1e-3;
-      const areaOk =
-        area &&
-        ['checkout', 'profile', 'sync'].includes(area.label) &&
-        Math.abs(sumProbs(area.probabilities) - 1.0) < 1e-3;
-      const impactOk =
-        impact && typeof impact.expectedScore === 'number' && impact.expectedScore >= 1.0 && impact.expectedScore <= 5.0;
-      const weightOk =
-        weight &&
-        typeof weight.expectedScore === 'number' &&
-        weight.expectedScore >= 10.0 &&
-        weight.expectedScore <= 100.0;
-
-      recordCheck(
-        '2. Multi-question schema (boolean, choice, score, weighted score)',
-        Boolean(urgentOk && areaOk && impactOk && weightOk),
-        `urgent=${urgent?.label} (${((urgent?.confidence || 0) * 100).toFixed(1)}%), area=${area?.label}, impact=${impact?.expectedScore?.toFixed(2)}, priority_weight=${weight?.expectedScore?.toFixed(2)} [${elapsed} ms]`
-      );
-
-      const res2 = await model.decide('Production checkout is failing with HTTP 500 for all customers.');
-      const areaDrift = Math.abs((res1.area?.probabilities?.checkout || 0) - (res2.area?.probabilities?.checkout || 0));
-      const impactDrift = Math.abs((res1.impact?.expectedScore || 0) - (res2.impact?.expectedScore || 0));
-      const urgentDrift = Math.abs((res1.urgent?.probabilities?.true || 0) - (res2.urgent?.probabilities?.true || 0));
-      // Question 1 (`urgent`) uses a cold full-sequence prefill on run1 and a
-      // prefix-rewound prefill on run2 (~1.5e-2 FP16/INT4 shader reduction diff
-      // on WebGPU), while subsequent questions (`area`, `impact`) use the same
-      // prefix-rewind path on both runs with 0.00e+0 drift.
-      const determinismOk = areaDrift < 1e-4 && impactDrift < 1e-4 && urgentDrift < 2.5e-2 && res1.urgent?.label === res2.urgent?.label;
-      recordCheck(
-        '3. Repeated decide() determinism & clone isolation',
-        determinismOk,
-        `area diff=${areaDrift.toExponential(2)}, impact diff=${impactDrift.toExponential(2)}, urgent diff=${urgentDrift.toExponential(2)}`
-      );
-    } catch (err) {
-      recordCheck('2/3. Multi-question decide()', false, `${err.name}: ${err.message}`);
     } finally {
-      if (model) {
-        try { model.destroy(); } catch { /* noop */ }
-      }
+      if ($('createAndDecideBtn')) $('createAndDecideBtn').disabled = false;
     }
-
-    // Check 4: Custom context sensitivity
-    try {
-      const mStrict = await window.DecisionModel.create({
-        context: "Policy: Always classify requests mentioning 'refund' as urgent=true.",
-        questions: [{ id: 'urgent', prompt: 'Is this urgent under the policy?', type: 'boolean' }],
-      });
-      const mLenient = await window.DecisionModel.create({
-        context: 'Policy: Requests about refunds are routine and never urgent (urgent=false).',
-        questions: [{ id: 'urgent', prompt: 'Is this urgent under the policy?', type: 'boolean' }],
-      });
-      const rStrict = await mStrict.decide("Customer asks for a refund on last month's subscription.");
-      const rLenient = await mLenient.decide("Customer asks for a refund on last month's subscription.");
-      mStrict.destroy();
-      mLenient.destroy();
-
-      const pStrict = rStrict.urgent?.probabilities?.true ?? 0;
-      const pLenient = rLenient.urgent?.probabilities?.true ?? 0;
-      recordCheck(
-        '4. Custom context & prompt sensitivity',
-        Math.abs(pStrict - pLenient) > 1e-4,
-        `P(true | strict context)=${pStrict.toFixed(4)} vs P(true | lenient context)=${pLenient.toFixed(4)}`
-      );
-    } catch (err) {
-      recordCheck('4. Custom context & prompt sensitivity', false, `${err.name}: ${err.message}`);
-    }
-
-    // Check 5: Schema validation & destroy() lifecycle
-    try {
-      let rejectedEmpty = false;
-      try {
-        await window.DecisionModel.create({ questions: [] });
-      } catch (e) {
-        rejectedEmpty = e instanceof TypeError || e.name === 'TypeError';
-      }
-
-      const tempModel = await window.DecisionModel.create({
-        questions: [{ id: 'q', prompt: 'Is valid?', type: 'boolean' }],
-      });
-      tempModel.destroy();
-      let rejectedAfterDestroy = false;
-      try {
-        await tempModel.decide('test');
-      } catch (e) {
-        rejectedAfterDestroy = e.name === 'InvalidStateError';
-      }
-
-      recordCheck(
-        '5. Schema TypeError validation & destroy() InvalidStateError',
-        Boolean(rejectedEmpty && rejectedAfterDestroy),
-        `empty questions TypeError=${rejectedEmpty}, decide() after destroy() InvalidStateError=${rejectedAfterDestroy}`
-      );
-    } catch (err) {
-      recordCheck('5. Schema validation & destroy()', false, `${err.name}: ${err.message}`);
-    }
-
-    const totalMs = Math.round(performance.now() - suiteStart);
-    setText('suitePassed', String(passed));
-    setText('suiteFailed', String(failed));
-    setText('suiteTotalTime', `${totalMs} ms`);
-
-    const summaryMsg =
-      failed === 0
-        ? `All ${passed}/${passed} E2E validation checks passed in ${totalMs} ms!`
-        : `${failed} check(s) failed, ${passed} passed (${totalMs} ms).`;
-    this.setBoxStatus('suiteSummaryBox', summaryMsg, failed === 0 ? 'success' : 'error');
-    this.lastSuiteReport = `${summaryMsg}\n${reportLines.join('\n')}`;
-    if ($('copySuiteBtn')) $('copySuiteBtn').disabled = false;
-    if ($('clearSuiteBtn')) $('clearSuiteBtn').disabled = false;
   }
 }
 

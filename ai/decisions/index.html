@@ -4,8 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description"
-    content="Interactive demo and end-to-end validation suite for the Browser Built-in AI Decisions API (window.DecisionModel)">
+  <meta name="description" content="Browser Built-in AI Decisions API Demo">
   <meta name="theme-color" content="#4f46e5">
   <title>Browser Decisions API Demo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,8 +29,7 @@
 
     <header>
       <h1>Browser Decisions API Demo</h1>
-      <p class="subtitle">Structured boolean, categorical choice, and weighted score classification with on-device
-        <code>window.DecisionModel</code></p>
+      <p class="subtitle">Structured boolean, choice, and score classification with on-device <code>DecisionModel</code></p>
       <div class="api-status" id="apiStatus">
         <span class="status-indicator checking" id="statusIndicator"></span>
         <span id="statusText">Checking API availability...</span>
@@ -39,94 +37,37 @@
     </header>
 
     <main>
-      <!-- Environment & Setup Card -->
-      <section class="card">
-        <h2>1. Environment &amp; Readiness</h2>
-        <div class="stats-grid env-grid">
-          <div class="stat-item">
-            <label>Secure Context</label>
-            <div id="envSecure">Checking...</div>
-          </div>
-          <div class="stat-item">
-            <label>window.DecisionModel</label>
-            <div id="envApi">Checking...</div>
-          </div>
-          <div class="stat-item">
-            <label>DecisionModel.availability()</label>
-            <div id="envAvailability">Checking...</div>
-          </div>
-          <div class="stat-item">
-            <label>Active Session</label>
-            <div id="envSessionState">None</div>
-          </div>
-        </div>
-
-        <details class="troubleshooting-box" style="margin-top: 12px;">
-          <summary>⚙️ How to Enable in Microsoft Edge Canary / Dev (<code>edge://flags</code>)</summary>
-          <div class="troubleshooting-content">
-            <p>Enable <code>edge://flags/#edge-llm-decisions-api-for-default</code> and restart the browser, or launch
-              Edge from the command line:</p>
-            <pre id="launchCmd">msedge.exe --enable-features="AIDecisionModelAPI,OptimizationGuideManifestBroker" https://mustjab.github.io/ai/decisions/</pre>
-            <div class="button-group" style="margin-top: 8px;">
-              <button type="button" id="copyLaunchCmdBtn" class="btn btn-secondary btn-small">📋 Copy Launch Command</button>
-              <button type="button" id="checkAvailabilityBtn" class="btn btn-secondary btn-small">↻ Re-check availability()</button>
-            </div>
-          </div>
-        </details>
-      </section>
-
-      <!-- Interactive Schema & Classification Playground -->
       <section class="card">
         <div class="section-header-row">
-          <div>
-            <h2>2. Interactive Schema &amp; Classification Playground</h2>
-            <p class="section-description">Define a multi-question schema (<code>boolean</code>, <code>choice</code>,
-              and <code>score</code>) with an optional shared rubric (<code>context</code>) and classify any input text
-              using next-token logit probabilities.</p>
-          </div>
+          <h2>Classify Input with DecisionModel</h2>
           <div class="preset-pills" role="group" aria-label="Preset scenarios">
             <span class="preset-label">Presets:</span>
             <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="support">💬 Support Triage</button>
-            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="security">🛡️ Security Rubric</button>
+            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="security">🛡️ Security Risk</button>
             <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="moderation">⭐ Product Feedback</button>
             <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="release">🚀 Release Readiness</button>
           </div>
         </div>
 
-        <div class="info-banner">
-          <h3>⚖️ How On-Device Decisions Scoring Works</h3>
-          <p><code>DecisionModel</code> compiles each question's candidate options into single-token keys
-            (<code>"A"</code>..<code>"Z"</code>), prefills the shared prompt prefix once, and scores each option's
-            next-token logit using max-shifted softmax
-            (<code>P(t) = exp(z_t - z_max) / sum_j exp(z_j - z_max)</code>). For <code>score</code> questions, it also
-            computes the probability-weighted <code>expectedScore</code>.</p>
+        <div class="form-group">
+          <label for="decideInput">Input Text (<code>model.decide(input)</code>)</label>
+          <textarea id="decideInput" rows="3" placeholder="Enter text to classify..."></textarea>
         </div>
 
         <div class="form-group">
-          <label for="schemaContext">Shared Context / Classification Rubric (<code>options.context</code>):</label>
-          <textarea id="schemaContext" rows="2"
-            placeholder="Optional instructions or rubric applied across all questions in the schema..."></textarea>
+          <label for="schemaContext">Shared Context / Rubric (<code>options.context</code>)</label>
+          <input id="schemaContext" type="text" placeholder="Optional instructions applied across all questions..." />
         </div>
 
         <div class="form-group">
-          <div class="label-row">
-            <label for="schemaQuestions">Questions Schema JSON (<code>options.questions</code>):</label>
-            <button type="button" id="formatSchemaBtn" class="btn btn-secondary btn-small">Format JSON</button>
-          </div>
-          <textarea id="schemaQuestions" rows="11" spellcheck="false"></textarea>
-        </div>
-
-        <div class="form-group">
-          <label for="decideInput">Input Text to Classify (<code>model.decide(input)</code>):</label>
-          <textarea id="decideInput" rows="3"
-            placeholder="Enter the user input or document to classify..."></textarea>
+          <label for="schemaQuestions">Questions Schema (<code>options.questions</code>)</label>
+          <textarea id="schemaQuestions" rows="10" spellcheck="false"></textarea>
         </div>
 
         <div class="button-group">
-          <button type="button" id="createAndDecideBtn" class="btn btn-primary">▶ Create Session &amp; Decide</button>
-          <button type="button" id="reuseDecideBtn" class="btn btn-secondary" disabled>↻ Re-run decide() on Active Session</button>
-          <button type="button" id="destroySessionBtn" class="btn btn-secondary" disabled>🗑 Destroy Session</button>
-          <button type="button" id="copyResultsBtn" class="btn btn-secondary" disabled>📋 Copy Results JSON</button>
+          <button type="button" id="createAndDecideBtn" class="btn btn-primary">▶ Decide</button>
+          <button type="button" id="copyResultsBtn" class="btn btn-secondary" disabled>📋 Copy JSON</button>
+          <span class="timing-meta" id="timingMeta"></span>
         </div>
 
         <div class="progress-container" id="downloadProgress" style="display: none;">
@@ -138,72 +79,14 @@
 
         <div id="playgroundStatus" class="result-box"></div>
 
-        <!-- Performance & Session Metrics -->
-        <div id="playgroundMetrics" class="stats-grid metrics-grid" style="display: none;">
-          <div class="stat-item">
-            <label>create() Time</label>
-            <div id="metricCreateMs">-</div>
-          </div>
-          <div class="stat-item">
-            <label>decide() Time</label>
-            <div id="metricDecideMs">-</div>
-          </div>
-          <div class="stat-item">
-            <label>Questions Scored</label>
-            <div id="metricQuestions">0</div>
-          </div>
-          <div class="stat-item">
-            <label>Session Preference</label>
-            <div id="metricPreference">-</div>
-          </div>
-        </div>
-
         <!-- Visual Decision Cards -->
         <div id="decisionResultsSection" class="decision-results-section" style="display: none;">
-          <h3>Classification Decisions</h3>
           <div id="decisionCards" class="decision-cards-grid"></div>
 
           <details class="raw-json-box" id="rawJsonDetails">
-            <summary>
-              <span>Raw <code>decide()</code> JSON Output</span>
-              <button type="button" id="copyRawJsonBtn" class="btn btn-secondary btn-small">📋 Copy Raw JSON</button>
-            </summary>
+            <summary>Raw JSON Output</summary>
             <pre id="rawJsonOutput" class="json-pre"></pre>
           </details>
-        </div>
-      </section>
-
-      <!-- Automated E2E Validation Suite -->
-      <section class="card">
-        <h2>3. Automated E2E Validation Suite</h2>
-        <p class="section-description">Run automated end-to-end checks verifying availability, multi-question probability
-          normalization, repeated <code>decide()</code> determinism across cloned sessions, custom context sensitivity,
-          and error handling.</p>
-
-        <div class="button-group">
-          <button type="button" id="runSuiteBtn" class="btn btn-primary">▶ Run Automated Validation Suite</button>
-          <button type="button" id="copySuiteBtn" class="btn btn-secondary" disabled>📋 Copy Suite Results</button>
-          <button type="button" id="clearSuiteBtn" class="btn btn-secondary" disabled>Clear Results</button>
-        </div>
-
-        <div id="suiteSummaryBox" class="result-box"></div>
-
-        <div id="suiteResultsContainer" style="display: none;">
-          <div class="stats-grid suite-stats-grid">
-            <div class="stat-item">
-              <label>Passed Checks</label>
-              <div id="suitePassed">0</div>
-            </div>
-            <div class="stat-item">
-              <label>Failed Checks</label>
-              <div id="suiteFailed">0</div>
-            </div>
-            <div class="stat-item">
-              <label>Total Suite Time</label>
-              <div id="suiteTotalTime">0 ms</div>
-            </div>
-          </div>
-          <div id="suiteResultsList" class="suite-results-list"></div>
         </div>
       </section>
     </main>
