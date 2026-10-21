@@ -22,6 +22,63 @@ const PRESETS = {
     }
 };
 
+const DECISION_SCHEMAS = {
+    general: {
+        context: 'Classify the input text by whether it requires action, its primary category, and its priority score from 1 (low) to 5 (critical).',
+        questions: [
+            { id: 'actionable', prompt: 'Does this text require follow-up action?', type: 'boolean' },
+            {
+                id: 'category',
+                prompt: 'Which category best fits this text?',
+                type: 'choice',
+                options: [
+                    { label: 'announcement', description: 'Product launch, news, or general update' },
+                    { label: 'engineering', description: 'Release notes, technical metrics, or architecture' },
+                    { label: 'support', description: 'Customer issue, bug report, or escalation' },
+                    { label: 'feedback', description: 'User review or sentiment' }
+                ]
+            },
+            { id: 'priority', prompt: 'Rate priority or impact from 1 (minimal) to 5 (critical).', type: 'score' }
+        ]
+    },
+    support: {
+        context: 'You are triaging incoming customer support escalations. Treat outages, broken URLs, and billing issues as urgent.',
+        questions: [
+            { id: 'urgent', prompt: 'Does this escalation require immediate attention?', type: 'boolean' },
+            {
+                id: 'area',
+                prompt: 'Which area is primarily affected?',
+                type: 'choice',
+                options: [
+                    { label: 'bug', description: 'Crash, broken webhook, or technical failure' },
+                    { label: 'billing', description: 'Payment, invoice, or pricing issue' },
+                    { label: 'localization', description: 'Translation or regional language request' },
+                    { label: 'account', description: 'Login or permissions issue' }
+                ]
+            },
+            { id: 'severity', prompt: 'Rate customer impact from 1 (low) to 5 (critical).', type: 'score' }
+        ]
+    },
+    release: {
+        context: 'Evaluate engineering release notes for production readiness and primary quality pillar.',
+        questions: [
+            { id: 'ready_to_ship', prompt: 'Does the evidence indicate this release is ready to ship?', type: 'boolean' },
+            {
+                id: 'pillar',
+                prompt: 'Which engineering pillar is the primary focus?',
+                type: 'choice',
+                options: [
+                    { label: 'performance', description: 'Latency, speed, or memory improvements' },
+                    { label: 'reliability', description: 'Regression coverage, error rate, or stability' },
+                    { label: 'compliance', description: 'Security, privacy, or policy' },
+                    { label: 'ux', description: 'Interface or user experience polish' }
+                ]
+            },
+            { id: 'confidence_rating', prompt: 'Rate release readiness confidence from 1 (low) to 5 (high).', type: 'score' }
+        ]
+    }
+};
+
 const DEFAULTS = {
     prompt: {
         system: 'Analyze the user\'s text: extract key takeaways, any numbers/dates/URLs, and 2 recommended next steps.',
@@ -538,6 +595,7 @@ class E2EPlayground {
             rewriter: '',
             writer: '',
             prompt: '',
+            decisions: '',
             translator: ''
         };
         this.detectedLanguageCode = 'en';
@@ -547,6 +605,7 @@ class E2EPlayground {
         this.writerSession = null;
         this.rewriterSession = null;
         this.proofreader = null;
+        this.decisionsSession = null;
 
         this.translatorSession = null;
         this.languageDetector = null;
@@ -660,6 +719,13 @@ class E2EPlayground {
         $('runRewriterBtn')?.addEventListener('click', () => this.runStage('rewriter'));
         $('runWriterBtn')?.addEventListener('click', () => this.runStage('writer'));
         $('runPromptBtn')?.addEventListener('click', () => this.runStage('prompt'));
+        $('runDecisionsBtn')?.addEventListener('click', () => this.runStage('decisions'));
+        $('decisionsPreset')?.addEventListener('change', () => {
+            const preset = DECISION_SCHEMAS[$('decisionsPreset').value];
+            if (preset && $('decisionsContext')) {
+                $('decisionsContext').value = preset.context;
+            }
+        });
 
         $('translateBtn')?.addEventListener('click', () => this.runStage('translator'));
         $('stopTranslateBtn')?.addEventListener('click', () => this.stopTranslate());
@@ -770,6 +836,12 @@ class E2EPlayground {
             $('proofDetails').style.display = 'none';
             $('proofDetails').innerHTML = '';
         }
+        if ($('decisionsDetails')) {
+            $('decisionsDetails').style.display = 'none';
+            $('decisionsDetails').innerHTML = '';
+        }
+        setTextIfPresent('decisionsPrimary', '-');
+        setTextIfPresent('decisionsScore', '-');
 
         setTextIfPresent('detectedLang', '-');
         setTextIfPresent('translateDetectedLang', '-');
@@ -889,6 +961,7 @@ class E2EPlayground {
             this.updateWritingAvailability('Writer', 'writer'),
             this.updateWritingAvailability('Rewriter', 'rewriter'),
             this.updateProofreaderAvailability(),
+            this.updateDecisionsAvailability(),
             this.updateTranslatorAvailability(),
             this.updateLIDAvailability()
         ]);
@@ -955,6 +1028,33 @@ class E2EPlayground {
             }
         } catch {
             setSupportBadge(supportId, 'Unknown');
+        }
+    }
+
+    async updateDecisionsAvailability() {
+        if (!('DecisionModel' in window)) {
+            setSupportBadge('supportDecisions', 'Not supported', 'is-unavailable');
+            return;
+        }
+
+        try {
+            const api = window.DecisionModel;
+            if (typeof api.availability === 'function') {
+                const a = await api.availability();
+                if (a === 'available' || a === 'readily') {
+                    setSupportBadge('supportDecisions', 'Available', 'is-available');
+                } else if (a === 'downloadable' || a === 'downloading' || a === 'after-download') {
+                    setSupportBadge('supportDecisions', 'Downloadable', 'is-downloadable');
+                } else if (a === 'unavailable' || a === 'no') {
+                    setSupportBadge('supportDecisions', 'Unavailable', 'is-unavailable');
+                } else {
+                    setSupportBadge('supportDecisions', safeText(a) || 'Unknown');
+                }
+            } else {
+                setSupportBadge('supportDecisions', 'Present', 'is-available');
+            }
+        } catch {
+            setSupportBadge('supportDecisions', 'Unknown');
         }
     }
 
@@ -1246,6 +1346,44 @@ class E2EPlayground {
                 return true;
             }
 
+            if (stage === 'decisions') {
+                if ($('decisionsDetails')) {
+                    $('decisionsDetails').style.display = 'none';
+                    $('decisionsDetails').innerHTML = '';
+                }
+                const input = this.getEffectiveInputText('decisions');
+                const session = await this.getOrCreateDecisionsSession();
+                if (!session) {
+                    this.setStageStatus('decisions', 'Unavailable', 'is-error');
+                    this.setStageOutput('decisions', 'Decisions API (DecisionModel) is not available in this browser.');
+                    return false;
+                }
+                const result = await session.decide(input);
+                const entries = Object.entries(result || {});
+                const summaryParts = [];
+                let expectedScoreText = '-';
+                const formattedLines = [];
+
+                for (const [qId, dec] of entries) {
+                    const confPct = typeof dec.confidence === 'number' ? `${(dec.confidence * 100).toFixed(1)}%` : '-';
+                    summaryParts.push(`${qId}: ${dec.label} (${confPct})`);
+                    if (typeof dec.expectedScore === 'number') {
+                        expectedScoreText = `${qId} = ${dec.expectedScore.toFixed(2)}`;
+                    }
+                    const scoreSuffix = typeof dec.expectedScore === 'number' ? ` | expectedScore=${dec.expectedScore.toFixed(2)}` : '';
+                    formattedLines.push(`${qId}: ${dec.label} (confidence ${confPct}${scoreSuffix})`);
+                }
+
+                setTextIfPresent('decisionsPrimary', summaryParts.join(' · ') || '-');
+                setTextIfPresent('decisionsScore', expectedScoreText);
+                const outputText = formattedLines.join('\n');
+                this.setStageOutput('decisions', outputText);
+                this.updateStageStats('decisions', outputText.length, start, entries.length);
+                this.renderDecisionsDetails(result);
+                this.setStageStatus('decisions', 'Done', 'is-done');
+                return true;
+            }
+
             if (stage === 'translator') {
                 await this.translateOutput();
                 return true;
@@ -1280,6 +1418,7 @@ class E2EPlayground {
             { id: 'rewriter', checkbox: 'enableRewriter' },
             { id: 'writer', checkbox: 'enableWriter' },
             { id: 'prompt', checkbox: 'enablePrompt' },
+            { id: 'decisions', checkbox: 'enableDecisions' },
             { id: 'translator', checkbox: 'enableTranslator' }
         ];
 
@@ -1349,6 +1488,7 @@ class E2EPlayground {
             ['rewriter', 'Rewriter'],
             ['writer', 'Writer'],
             ['prompt', 'Prompt API'],
+            ['decisions', 'Decisions API'],
             ['translator', 'Translator']
         ]) {
             if (this.stageOutputs[stage]) {
@@ -1583,6 +1723,7 @@ class E2EPlayground {
             try { await this.proofreader.destroy(); } catch { /* noop */ }
         }
         this.proofreader = null;
+        this.decisionsSession = null;
 
         const options = {
             expectedInputLanguages: normalized,
@@ -1652,6 +1793,88 @@ class E2EPlayground {
             row.appendChild(right);
             container.appendChild(row);
         });
+    }
+
+    async getOrCreateDecisionsSession() {
+        if (!('DecisionModel' in window)) return null;
+
+        const presetKey = $('decisionsPreset')?.value || 'general';
+        const preset = DECISION_SCHEMAS[presetKey] || DECISION_SCHEMAS.general;
+        const customContext = ($('decisionsContext')?.value || '').trim();
+        const context = customContext || preset.context;
+        const questions = preset.questions;
+
+        const key = JSON.stringify({ presetKey, context });
+        if (this.decisionsSession && this.decisionsSession.__key === key) {
+            return this.decisionsSession;
+        }
+
+        if (this.decisionsSession && this.decisionsSession.destroy) {
+            try { this.decisionsSession.destroy(); } catch { /* noop */ }
+        }
+        this.decisionsSession = null;
+
+        const session = await window.DecisionModel.create({
+            context,
+            questions,
+            monitor: (m) => {
+                m.addEventListener('downloadprogress', (e) => {
+                    if (typeof e.loaded === 'number' && typeof e.total === 'number' && e.total > 0) {
+                        this.setProgress(true, e.loaded / e.total);
+                    } else if (typeof e.loaded === 'number') {
+                        this.setProgress(true, e.loaded);
+                    }
+                    if (e.total && e.loaded >= e.total) {
+                        this.setProgress(false);
+                    }
+                });
+            }
+        });
+        session.__key = key;
+        this.decisionsSession = session;
+        this.setProgress(false);
+        return session;
+    }
+
+    renderDecisionsDetails(result) {
+        const container = $('decisionsDetails');
+        if (!container) return;
+        const entries = Object.entries(result || {});
+        if (!entries.length) return;
+
+        container.style.display = 'block';
+        container.innerHTML = '';
+
+        const grid = document.createElement('div');
+        grid.className = 'decisions-prob-grid';
+
+        for (const [qId, dec] of entries) {
+            const card = document.createElement('div');
+            card.className = 'decision-mini-card';
+
+            const header = document.createElement('div');
+            header.className = 'decision-mini-header';
+            const scoreStr = typeof dec.expectedScore === 'number' ? ` (score ${dec.expectedScore.toFixed(2)})` : '';
+            header.innerHTML = `<span>${safeText(qId)}</span><span>${safeText(dec.label)}${scoreStr}</span>`;
+            card.appendChild(header);
+
+            if (dec.probabilities && typeof dec.probabilities === 'object') {
+                for (const [optLabel, prob] of Object.entries(dec.probabilities)) {
+                    const pct = Math.max(0, Math.min(100, Number(prob) * 100));
+                    const row = document.createElement('div');
+                    row.className = 'decision-mini-row';
+                    row.innerHTML = `
+                        <div><code>${safeText(optLabel)}</code></div>
+                        <div class="decision-mini-track"><div class="decision-mini-fill" style="width:${pct.toFixed(1)}%"></div></div>
+                        <div style="text-align:right">${pct.toFixed(1)}%</div>
+                    `;
+                    card.appendChild(row);
+                }
+            }
+            grid.appendChild(card);
+        }
+
+        container.appendChild(grid);
     }
 
     async ensureLanguageDetector() {
@@ -1926,7 +2149,7 @@ if (typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { E2EPlayground, PRESETS, DEFAULTS };
+    module.exports = { E2EPlayground, PRESETS, DEFAULTS, DECISION_SCHEMAS };
 }
 
 // Forward console warnings/errors into the on-page banner so devs don't have to keep DevTools open.

@@ -30,6 +30,8 @@ function createE2EHarness() {
         sourceLanguage: 'auto',
         targetLanguage: 'es',
         translateMode: 'whole',
+        decisionsPreset: 'general',
+        decisionsContext: 'Classify the input text.',
       };
       elements.set(id, {
         id,
@@ -166,6 +168,39 @@ function createE2EHarness() {
     },
   };
 
+  context.window.DecisionModel = {
+    async availability() { return 'available'; },
+    async create(options) {
+      return {
+        destroy() {},
+        async decide(input) {
+          calls.push({ api: 'decisions', input, context: options?.context });
+          return {
+            actionable: {
+              id: 'actionable',
+              label: 'true',
+              confidence: 0.91,
+              probabilities: { true: 0.91, false: 0.09 },
+            },
+            category: {
+              id: 'category',
+              label: 'announcement',
+              confidence: 0.84,
+              probabilities: { announcement: 0.84, engineering: 0.10, support: 0.04, feedback: 0.02 },
+            },
+            priority: {
+              id: 'priority',
+              label: '4',
+              confidence: 0.52,
+              expectedScore: 4.15,
+              probabilities: { '1': 0.02, '2': 0.06, '3': 0.15, '4': 0.52, '5': 0.25 },
+            },
+          };
+        },
+      };
+    },
+  };
+
   context.window.Translator = {
     async availability() { return 'available'; },
     async create({ sourceLanguage, targetLanguage }) {
@@ -187,14 +222,14 @@ function createE2EHarness() {
   return { pg, getElement, calls, getClipboard: () => clipboardText, PRESETS };
 }
 
-test('single input runs all 7 Built-in AI APIs end-to-end and chains Proofreader output', async () => {
+test('single input runs all 8 Built-in AI APIs end-to-end and chains Proofreader output', async () => {
   const { pg, getElement, calls, getClipboard } = createE2EHarness();
 
   getElement('inputText').value = 'We are thrilled to anounce v2.8.15 today.';
   await pg.runAllPipeline();
 
   assert.equal(getElement('pipelineStatus').textContent, 'Complete');
-  assert.equal(getElement('pipelineStagesDone').textContent, '7 / 7');
+  assert.equal(getElement('pipelineStagesDone').textContent, '8 / 8');
   assert.equal(pg.detectedLanguageCode, 'en');
   assert.equal(pg.stageOutputs.proofreader, 'We are thrilled to announce v2.8.15 today.');
 
@@ -205,6 +240,11 @@ test('single input runs all 7 Built-in AI APIs end-to-end and chains Proofreader
   assert.equal(pg.stageOutputs.rewriter, 'Polished: We are thrilled to announce v2.8.15 today.');
   assert.match(pg.stageOutputs.writer, /Action plan for: We are thrilled to announce v2\.8\.15 today\./);
   assert.equal(pg.stageOutputs.prompt, 'Takeaways for: We are thrilled to announce v2.8.15 today.');
+  const decisionsCall = calls.find(c => c.api === 'decisions');
+  assert.equal(decisionsCall.input, 'We are thrilled to announce v2.8.15 today.');
+  assert.match(pg.stageOutputs.decisions, /actionable: true/);
+  assert.match(pg.stageOutputs.decisions, /expectedScore=4\.15/);
+  assert.equal(getElement('decisionsScore').textContent, 'priority = 4.15');
 
   // Translator translates all generated sections concurrently when translateSourceStage === 'all'
   assert.match(pg.stageOutputs.translator, /\[Source Input\]\n\[es\] We are thrilled to announce v2\.8\.15 today\./);
@@ -214,5 +254,6 @@ test('single input runs all 7 Built-in AI APIs end-to-end and chains Proofreader
   await pg.copyFullReport();
   assert.match(getClipboard(), /Built-in AI End-to-End Pipeline Report/);
   assert.match(getClipboard(), /── Summarizer ──/);
+  assert.match(getClipboard(), /── Decisions API ──/);
   assert.match(getClipboard(), /── Translator ──/);
 });

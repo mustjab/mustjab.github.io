@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description"
-    content="Unified one-input end-to-end pipeline for on-device Built-in AI APIs: Language Detection, Proofreader, Summarizer, Rewriter, Writer, Prompt API, and Translator" />
+    content="Unified one-input end-to-end pipeline for on-device Built-in AI APIs: Language Detection, Proofreader, Summarizer, Rewriter, Writer, Prompt API, Decisions API, and Translator" />
   <meta name="theme-color" content="#4f46e5" />
   <title>Built-in AI End-to-End Pipeline</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21,6 +21,7 @@
     <nav class="demo-nav" aria-label="AI demos navigation">
       <a href="../">← Home</a>
       <a href="../e2e/" aria-current="page">End-to-End Playground</a>
+      <a href="../decisions/">Decisions API</a>
       <a href="../translate/">Translator API</a>
       <a href="../lid/">Language Detection API</a>
       <a href="../translate/speed/">Translation Speed</a>
@@ -28,7 +29,7 @@
     </nav>
     <header>
       <h1>Built-in AI End-to-End Pipeline</h1>
-      <p class="subtitle">Enter text once and run Language Detection, Proofreader, Summarizer, Rewriter, Writer, Prompt, and Translator automatically</p>
+      <p class="subtitle">Enter text once and run Language Detection, Proofreader, Summarizer, Rewriter, Writer, Prompt, Decisions API, and Translator automatically</p>
     </header>
 
     <div class="error-banner" id="errorBanner" role="alert" aria-live="assertive" style="display:none;">
@@ -73,6 +74,7 @@
             <label class="stage-pill"><input type="checkbox" id="enableRewriter" checked> <span>✨ Rewriter</span></label>
             <label class="stage-pill"><input type="checkbox" id="enableWriter" checked> <span>✍️ Writer</span></label>
             <label class="stage-pill"><input type="checkbox" id="enablePrompt" checked> <span>🤖 Prompt API</span></label>
+            <label class="stage-pill"><input type="checkbox" id="enableDecisions" checked> <span>⚖️ Decisions API</span></label>
             <label class="stage-pill"><input type="checkbox" id="enableTranslator" checked> <span>🌐 Translator</span></label>
           </div>
           <label class="chain-toggle" title="When enabled, Summarizer and Rewriter use Proofreader's corrected output if available">
@@ -370,9 +372,53 @@
             <pre id="modelOutput" class="text-output" aria-live="polite"></pre>
           </div>
         </section>
+
+        <!-- Stage 7: Decisions API -->
+        <section class="card stage-card stage-card--span2" id="card-decisions">
+          <div class="stage-card__header">
+            <div class="stage-card__title">
+              <h3>⚖️ Decisions API</h3>
+              <span class="support-badge" id="supportDecisions">Checking…</span>
+            </div>
+            <div class="stage-card__actions">
+              <span class="stage-status" id="status-decisions">Idle</span>
+              <button type="button" class="btn btn-small" id="runDecisionsBtn" title="Run Decisions API only">↻ Run</button>
+            </div>
+          </div>
+          <div class="options-row compact-options" id="optionsDecisions">
+            <div class="option">
+              <label for="decisionsPreset">Schema Preset</label>
+              <select id="decisionsPreset">
+                <option value="general" selected>General Triage (Actionable + Category + Priority 1..5)</option>
+                <option value="support">Support Escalation (Urgent + Area + Severity 1..5)</option>
+                <option value="release">Release Readiness (Ready to Ship + Pillar + Confidence 1..5)</option>
+              </select>
+            </div>
+            <div class="option" style="grid-column: span 2;">
+              <label for="decisionsContext">Shared Context / Classification Rubric (<code>options.context</code>)</label>
+              <input id="decisionsContext" type="text" value="Classify the input text by whether it requires action, its primary category, and its priority score from 1 (low) to 5 (critical)." />
+            </div>
+          </div>
+          <div class="result-meta">
+            <div class="stat"><span class="k">Top Decisions:</span> <span id="decisionsPrimary">-</span></div>
+            <div class="stat"><span class="k">Expected Score:</span> <span id="decisionsScore">-</span></div>
+            <div class="stat"><span class="k">Questions:</span> <span id="statChunks-decisions">0</span></div>
+            <div class="stat"><span class="k">Time:</span> <span id="statTime-decisions">0</span> ms</div>
+          </div>
+          <div class="output">
+            <div class="output-header">
+              <h4>Structured Decisions Output</h4>
+              <div class="output-btn-group">
+                <button type="button" class="btn btn-small copy-stage-btn" data-stage="decisions" disabled>Copy</button>
+              </div>
+            </div>
+            <pre id="output-decisions" class="text-output text-output--compact" aria-live="polite"></pre>
+            <div id="decisionsDetails" class="proof-details" style="display:none;"></div>
+          </div>
+        </section>
       </div>
 
-      <!-- Stage 7: Translator (Full Width) -->
+      <!-- Stage 8: Translator (Full Width) -->
       <section class="card stage-card stage-card--full" id="card-translator">
         <div class="stage-card__header">
           <div class="stage-card__title">

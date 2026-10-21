@@ -721,3 +721,53 @@ textarea:focus {
     padding-left: 18px;
     color: #374151;
 }
+
+.stage-card--span2 {
+    grid-column: 1 / -1;
+}
+
+.decisions-prob-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.decision-mini-card {
+    padding: 8px 10px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    background: var(--background);
+}
+
+.decision-mini-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.decision-mini-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 52px;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    margin: 3px 0;
+}
+
+.decision-mini-track {
+    height: 8px;
+    background: var(--surface-2);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.decision-mini-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+    border-radius: 999px;
+}
