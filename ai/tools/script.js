@@ -187,10 +187,23 @@ function normalizePromptResult(result) {
       });
     }
   }
+  const serializableRaw = parts.map((part) => {
+    if (part?.type === 'tool-call' && part.value) {
+      return {
+        type: 'tool-call',
+        value: {
+          callId: part.value.callId,
+          name: part.value.name,
+          arguments: part.value.arguments || {},
+        },
+      };
+    }
+    return part;
+  });
   return {
     text: textParts.join(''),
     toolCalls,
-    raw: parts,
+    raw: serializableRaw,
   };
 }
 
