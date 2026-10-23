@@ -84,6 +84,11 @@
       failures.push('marker_nesting');
     }
     if (!sourceMarkers.valid) review.push('source_marker_structure');
+    const emptySourceTags = [...source.matchAll(/<(b\d+|b|i|em|strong)>\s*<\/\1>/gi)].map(match => match[1].toLowerCase());
+    if (emptySourceTags.some(tag => [...output.matchAll(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'gi'))]
+        .some(match => match[1].trim().length > 0))) {
+      failures.push('empty_tag_non_empty');
+    }
 
     const opaqueTokens = [...source.matchAll(/https?:\/\/[^\s<>"']+|[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi)]
       .map(match => match[0].replace(/[.,;!]+$/, ''));
@@ -337,7 +342,7 @@
     { key: 'newlines', id: 'structured_text', source: 'Status\n Ready\n Count: 12\n Next update: tomorrow.', mustPreserve: ['12'], reviewTopics: ['no_spurious_colons_or_tokens', 'line_structure_and_clause_coverage'] },
     { key: 'tag-meaning', id: 'marker_content', source: 'Open the <b10>GitHub app</b10> on your Windows 11 computer.', mustPreserve: ['Windows', '11', 'GitHub'], reviewTopics: ['entire_translation_of_GitHub_app_inside_b10', 'not_just_balanced_tags'] },
     { key: 'tag-price', id: 'marker_content', source: 'Try the sample service.<b10></b10><b11></b11><b12>A plan costs <b20>$7.50</b20>/month</b12>.', mustPreserve: ['7.50'], reviewTopics: ['price_inside_b20', 'monthly_plan_clause_inside_b12', 'empty_tags_preserved'] },
-    { key: 'dom-whitespace-citation', id: 'marker_content', source: 'different attacks on<b10>  </b10>... different parties of ladies, in as many different streets, at the same period of time, we may conclude, to a certainty of conviction, that there must be a gang, or, at all events, there must certainly be several of these horrid monsters<b11>  </b11>...<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>', mustPreserve: ['17'], exactTokens: ['17'], reviewTopics: ['opening_clause_preserved_before_b10', 'multi_space_empty_tags_and_nested_citation_preserved'] },
+    { key: 'dom-whitespace-citation', id: 'marker_content', source: 'different attacks on<b10>  </b10>... different parties of ladies, in as many different streets, at the same period of time, we may conclude, to a certainty of conviction, that there must be a gang, or, at all events, there must certainly be several of these horrid monsters<b11>  </b11>...<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>', mustPreserve: ['17', '<b40>[</b40>', '<b41>]</b41>'], exactTokens: ['17', '<b40>[</b40>', '<b41>]</b41>'], reviewTopics: ['opening_clause_preserved_before_b10', 'multi_space_empty_tags_and_nested_citation_preserved'] },
     { key: 'brand-tag', id: 'marker_content', source: 'Compare <b10>GitHub</b10> with <b11><b20>GitLab</b20></b11> for this example.', mustPreserve: ['GitHub', 'GitLab'], exactTokens: ['GitHub', 'GitLab'], reviewTopics: ['brand_names_inside_original_tags'] },
     { key: 'cjk-format', id: 'structured_text', source: 'Name: GitHub Copilot\n Size: 12.34 MB\n Language: English', mustPreserve: ['GitHub Copilot', '12.34'], exactTokens: ['GitHub Copilot'], reviewTopics: ['no_added_in_English_annotation', 'no_spurious_tokens', 'unit_identity'] },
     { key: 'segmentation', id: 'api_segmentation', source: Array.from({ length: 30 }, (_, index) => `The parcel for department ${index + 1} arrives on Monday.`).join(' ') + ' The final parcel is cancelled, not delayed.', reviewTopics: ['standard_streaming_clause_parity', 'segment_join_spacing', 'final_negation'] },

@@ -25,6 +25,16 @@ test('brand translation is flagged and semantic tag placement remains a review o
   const result = checks.evaluate(tags, 'Usa Windows 11 y la aplicacion <b10>GitHub</b10>.');
   assert.ok(result.review.includes('entire_translation_of_GitHub_app_inside_b10'));
   assert.equal(result.status, 'needs_review');
+
+  const domCite = checks.cases.find(row => row.caseId === 'report:ja:dom-whitespace-citation');
+  const swallowed = checks.evaluate(domCite, '<b10>に対するさまざまな攻撃 </b10>...<b11> </b11>...<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>');
+  assert.equal(swallowed.pass, false);
+  assert.ok(swallowed.failures.includes('empty_tag_non_empty'));
+  const droppedBracket = checks.evaluate(domCite, '对<b10></b10>...<b11> </b11>...<b12><b20><b30><b40>[</b40>17<b41></b41></b30></b20></b12>');
+  assert.equal(droppedBracket.pass, false);
+  assert.ok(droppedBracket.failures.includes('required_token_missing'));
+  const cleanDom = checks.evaluate(domCite, '<b10></b10>...同じ時期に<b11> </b11>...<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>');
+  assert.equal(cleanDom.pass, true);
 });
 
 test('public cases have unique descriptive IDs rather than internal regression IDs', () => {
