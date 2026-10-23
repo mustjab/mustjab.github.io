@@ -19,13 +19,15 @@ test('UMD exposes version1 and identical stable twenty-five-case multilingual pu
   const ids = regressions.getCases('es').map(row => row.caseId);
   for (const target of ['es', 'ja', 'zh-hans']) {
     const cases = regressions.getCases(target);
-    assert.equal(cases.length, 25);
+    assert.equal(cases.length, 27);
     assert.deepEqual(cases.map(row => row.caseId), ids);
     assert(cases.every(row => row.sourceLanguage === 'en' && row.lang === target &&
       regressions.rules.includes(row.regressionRule) && row.expectedInvariant));
     assert.equal(spec(target, 'passages').source.length, 5950);
     assert.equal(spec(target, 'fields').source, 'Status\n Ready\n Count: 12\n Next update: tomorrow.');
     assert.ok(spec(target, 'dom-whitespace-citation').source.includes('<b10>  </b10>'));
+    assert.ok(spec(target, 'multi-number-dom-citation').source.includes('<b17><b20><b30><b40>[</b40>64<b41>]</b41></b30></b20></b17>'));
+    assert.ok(spec(target, 'dense-nested-dom-citations').source.includes('<b17>8080</b17>'));
     assert.deepEqual(spec(target, 'literal-phrasefix-syntax').mustPreserve, ['42', 'qa@example.com']);
     assert.deepEqual(spec(target, 'batch-padding-acropora').mustNotContain, ['Acropura']);
     assert.deepEqual(cases.slice(-3).map(row => row.exactTokens[0]), ['Б', 'Ԁ', 'É']);
@@ -33,8 +35,8 @@ test('UMD exposes version1 and identical stable twenty-five-case multilingual pu
   const altered = regressions.getCases('es');
   altered.find(item => item.caseId === 'focused:opaque').exactTokens[0] = 'mutated';
   assert.equal(spec('es', 'opaque').exactTokens[0], 'support@example.com');
-  assert.equal(regressions.getCases('fr').length, 25);
-  assert.equal(regressions.getCases('zh-hant').length, 25);
+  assert.equal(regressions.getCases('fr').length, 27);
+  assert.equal(regressions.getCases('zh-hant').length, 27);
   assert.throws(() => regressions.getCases('en'), /Unsupported/);
   assert.throws(() => regressions.evaluate({regressionRule: 'guess', lang: 'es'}, 'output'), /Unknown/);
   assert.throws(() => regressions.evaluate({regressionRule: 'budget', lang: 'en'}, 'output'), /Unsupported/);

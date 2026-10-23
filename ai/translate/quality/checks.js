@@ -90,8 +90,11 @@
       failures.push('empty_tag_non_empty');
     }
 
-    const opaqueTokens = [...source.matchAll(/https?:\/\/[^\s<>"']+|[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi)]
-      .map(match => match[0].replace(/[.,;!]+$/, ''));
+    const opaqueTokens = [
+      ...[...source.matchAll(/https?:\/\/[^\s<>"']+|[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi)]
+        .map(match => match[0].replace(/[.,;!]+$/, '')),
+      ...[...source.matchAll(/<b\d+>\s*[\[\]]\s*<\/b\d+>/gi)].map(match => match[0]),
+    ];
     for (const token of new Set([...(test.mustPreserve || []), ...opaqueTokens])) {
       const variants = test.allowedTokens?.[token] || [token];
       const count = variants.reduce((total, variant) => total + occurrences(output, variant), 0);
@@ -343,6 +346,8 @@
     { key: 'tag-meaning', id: 'marker_content', source: 'Open the <b10>GitHub app</b10> on your Windows 11 computer.', mustPreserve: ['Windows', '11', 'GitHub'], reviewTopics: ['entire_translation_of_GitHub_app_inside_b10', 'not_just_balanced_tags'] },
     { key: 'tag-price', id: 'marker_content', source: 'Try the sample service.<b10></b10><b11></b11><b12>A plan costs <b20>$7.50</b20>/month</b12>.', mustPreserve: ['7.50'], reviewTopics: ['price_inside_b20', 'monthly_plan_clause_inside_b12', 'empty_tags_preserved'] },
     { key: 'dom-whitespace-citation', id: 'marker_content', source: 'different attacks on<b10>  </b10>... different parties of ladies, in as many different streets, at the same period of time, we may conclude, to a certainty of conviction, that there must be a gang, or, at all events, there must certainly be several of these horrid monsters<b11>  </b11>...<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>', mustPreserve: ['17', '<b40>[</b40>', '<b41>]</b41>'], exactTokens: ['17', '<b40>[</b40>', '<b41>]</b41>'], reviewTopics: ['opening_clause_preserved_before_b10', 'multi_space_empty_tags_and_nested_citation_preserved'] },
+    { key: 'multi-number-dom-citation', id: 'marker_content', source: 'In 1999, users launched a campaign at <b10>Windows Refund Center</b10><b11><b20><b30><b40>[</b40>62<b41>]</b41></b30></b20></b11> for <b12>Windows 98</b12><b13><b20><b30><b40>[</b40>63<b41>]</b41></b30></b20></b13>. On October 22, 2009, the <b14>Free Software Foundation</b14> campaigned against <b15>Windows 7</b15> and <b16>Windows 8</b16> systems<b17><b20><b30><b40>[</b40>64<b41>]</b41></b30></b20></b17>.', mustPreserve: ['1999', '62', '98', '63', '22', '2009', '7', '8', '64'], reviewTopics: ['nested_citation_tags_intact_across_4_marker_npf_split'] },
+    { key: 'dense-nested-dom-citations', id: 'marker_content', source: 'The January 1975 issue of <b10><b20>Popular Electronics</b20></b10> featured <b11>Micro Instrumentation and Telemetry Systems</b11>\'s <b12>Altair 8800</b12> microcomputer,<b13><b20><b30><b40>[</b40>5<b41>]</b41></b30></b20></b13> inspiring <b14>Paul Allen</b14> and <b15>Bill Gates</b15> to develop a <b16>BASIC</b16> interpreter in 1975 for <b17>8080</b17> CPUs<b18><b20><b30><b40>[</b40>6<b41>]</b41></b30></b20></b18>.', mustPreserve: ['1975', '8800', '5', '8080', '6'], reviewTopics: ['inline_number_tags_not_split_across_subsegments'] },
     { key: 'brand-tag', id: 'marker_content', source: 'Compare <b10>GitHub</b10> with <b11><b20>GitLab</b20></b11> for this example.', mustPreserve: ['GitHub', 'GitLab'], exactTokens: ['GitHub', 'GitLab'], reviewTopics: ['brand_names_inside_original_tags'] },
     { key: 'cjk-format', id: 'structured_text', source: 'Name: GitHub Copilot\n Size: 12.34 MB\n Language: English', mustPreserve: ['GitHub Copilot', '12.34'], exactTokens: ['GitHub Copilot'], reviewTopics: ['no_added_in_English_annotation', 'no_spurious_tokens', 'unit_identity'] },
     { key: 'segmentation', id: 'api_segmentation', source: Array.from({ length: 30 }, (_, index) => `The parcel for department ${index + 1} arrives on Monday.`).join(' ') + ' The final parcel is cancelled, not delayed.', reviewTopics: ['standard_streaming_clause_parity', 'segment_join_spacing', 'final_negation'] },
