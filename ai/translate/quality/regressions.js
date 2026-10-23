@@ -186,7 +186,7 @@
       /(?:empresas|negocios)[^.!?]{0,30}internacionales/iu],
     ja: [/注意|アテンション/u, /トランスフォーマ|transformer/iu,
       /アライメント|対応表|整列.*表/u, /実用|実践/u, /国際.*企業|多国籍/u],
-    'zh-hans': [/注意力/u, /变压器|transformer/iu, /对齐表/u,
+    'zh-hans': [/注意力/u, /变压器|变形器|变换器|transformer/iu, /对齐表/u,
       /实际应用|实用/u, /国际企业|跨国企业/u],
   };
   const passageNames = ['attention', 'transformer', 'alignment_tables',
