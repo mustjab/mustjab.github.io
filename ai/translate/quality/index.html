@@ -65,12 +65,10 @@
             </div>
           </div>
           <div class="form-group">
-            <label for="corpusSelection">Built-in Test Suite (Auto-Loaded)</label>
+            <label for="corpusSelection">Test Suite</label>
             <select id="corpusSelection">
               <option value="focused">Focused Quality Regressions (25 cases)</option>
               <option value="builtin">Full Built-in Suite (References + Checks)</option>
-              <option value="combined">Built-in + Custom Imported Rows</option>
-              <option value="imported">Custom Imported Rows Only</option>
             </select>
           </div>
           <div class="form-group">
@@ -79,75 +77,35 @@
           </div>
         </div>
 
-        <!-- Inline Mode & Comparison Toggles -->
-        <div class="quality-options-bar">
-          <div class="quality-toggles">
-            <label class="stage-pill" for="compareStreaming">
-              <input id="compareStreaming" type="checkbox" checked>
-              <span>🔄 Compare Streaming (<code>translateStreaming</code>)</span>
-            </label>
-            <label class="stage-pill" for="compareConcurrent">
-              <input id="compareConcurrent" type="checkbox" checked>
-              <span>⚡ Compare Concurrent / Batched Wave</span>
-            </label>
-          </div>
-          <div class="quality-suite-badge">
-            <span class="mode-badge" id="modeBadge">Focused</span>
-            <span id="defectInfoText">25 cases auto-loaded.</span>
-          </div>
-        </div>
-
         <!-- Action Controls -->
         <div class="bench-controls">
-          <button id="runAllTests" class="btn btn-primary" disabled>▶ Run Quality Benchmark</button>
+          <button id="runAllTests" class="btn btn-primary" disabled>▶ Run Benchmark</button>
           <button id="stopAllTests" class="btn btn-secondary" disabled>⏹ Stop</button>
-          <button id="copyAllResults" class="btn btn-secondary" disabled>📋 Copy Results</button>
-          <button id="saveSnapshot" class="btn btn-secondary" disabled>💾 Save as Baseline</button>
-          <button id="compareSnapshot" class="btn btn-secondary">📊 Compare to Baseline</button>
-          <button id="exportRun" class="btn btn-secondary" disabled>⬇ Export JSON</button>
-          <label class="btn btn-secondary file-btn" for="snapshotFile">📂 Import Baseline JSON</label>
+          <button id="copyAllResults" class="btn btn-secondary" disabled>📋 Copy</button>
+          <button id="saveSnapshot" class="btn btn-secondary" disabled>💾 Save Baseline</button>
+          <button id="compareSnapshot" class="btn btn-secondary">📊 Compare</button>
+          <button id="exportRun" class="btn btn-secondary" disabled>⬇ Export</button>
+          <label class="btn btn-secondary file-btn" for="snapshotFile">📂 Import</label>
           <input id="snapshotFile" type="file" accept=".json,application/json" style="display: none;">
-          <button id="clearSnapshot" class="btn btn-secondary">🗑 Clear Baselines</button>
-          <button id="clearAllResults" class="btn btn-secondary">Reset</button>
+          <button id="clearSnapshot" class="btn btn-secondary">🗑 Clear</button>
+          <button id="clearAllResults" class="btn btn-secondary" style="display: none;">Reset</button>
         </div>
 
-        <!-- Collapsible Advanced Settings & Optional External Corpus Import -->
-        <details class="advanced-drawer">
-          <summary>⚙️ Advanced Options &amp; Custom CSV/JSON Corpus Import (Optional — built-in suites load automatically)</summary>
-          <div class="advanced-drawer__body">
-            <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
-              <div class="form-group">
-                <label for="runtimeLabel">ORT / GenAI / Model Version</label>
-                <input id="runtimeLabel" type="text" placeholder="Unknown">
-              </div>
-              <div class="form-group">
-                <label for="requestTimeout">Request Timeout (sec)</label>
-                <input id="requestTimeout" type="number" min="1" max="600" value="60">
-              </div>
-              <div class="form-group">
-                <label for="concurrency">Concurrent Requests / Wave</label>
-                <input id="concurrency" type="number" min="2" max="32" value="8">
-              </div>
-              <div class="form-group">
-                <label for="regressionCsv">Import Custom CSV / JSON Corpus</label>
-                <input id="regressionCsv" type="file" accept=".csv,.json,text/csv,application/json">
-              </div>
-              <div class="form-group">
-                <label for="csvEncoding">CSV Encoding</label>
-                <select id="csvEncoding">
-                  <option value="auto">Auto: UTF-8 / Windows-1252</option>
-                  <option value="utf-8">UTF-8</option>
-                  <option value="windows-1252">Windows-1252</option>
-                </select>
-              </div>
-            </div>
-            <div id="corpusStatus" class="field-hint" role="status">Built-in regression corpus auto-loaded.</div>
-            <div class="test-mode-info" id="testModeInfo" style="margin-top: 8px; margin-bottom: 0;">
-              <span id="modeDescription">Select languages to see test mode</span>
-            </div>
-            <div class="defect-info" id="defectInfo" style="display: none;"></div>
-          </div>
-        </details>
+        <!-- Hidden runtime defaults & legacy hooks -->
+        <div hidden>
+          <input id="compareStreaming" type="checkbox" checked>
+          <input id="compareConcurrent" type="checkbox" checked>
+          <input id="runtimeLabel" type="text" value="">
+          <input id="requestTimeout" type="number" value="60">
+          <input id="concurrency" type="number" value="8">
+          <input id="regressionCsv" type="file">
+          <select id="csvEncoding"><option value="auto">Auto</option></select>
+          <span id="modeBadge">Focused</span>
+          <span id="defectInfoText"></span>
+          <span id="corpusStatus"></span>
+          <span id="modeDescription"></span>
+          <div id="defectInfo"></div>
+        </div>
 
         <div class="progress-container" id="downloadProgress" style="display: none;">
           <div class="progress-bar">
