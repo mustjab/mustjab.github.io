@@ -249,7 +249,7 @@
         unread: /sin leer|no leíd|sin leíd|pendiente de lectura/iu,
         identifier: /mensaje\s+(?:n[úu]mero|n[.º°]*|id)\s*1\b/iu},
       ja: {entity: /メッセージ/u,
-        quantity: /(?:1|一)\s*(?:件|通)[^。\n]{0,20}メッセージ|メッセージ[^。\n]{0,20}(?:1|一)\s*(?:件|通)/u,
+        quantity: /(?:(?<!\d)1(?!\d)|一)\s*(?:(?:件|通)[^。\n]{0,20})?メッセージ|メッセージ[^。\n]{0,20}(?:(?<!\d)1(?!\d)|一)\s*(?:件|通)/u,
         unread: /未読|読まれていない/u, identifier: /メッセージ\s*(?:番号|ID)\s*1|1番.*メッセージ/u},
       'zh-hans': {entity: /消息|信息/u,
         quantity: /(?:1|一)\s*(?:条|則|则|个)[^。\n]{0,15}(?:消息|信息)|(?:消息|信息)[^。\n]{0,15}[:：]\s*1/u,
