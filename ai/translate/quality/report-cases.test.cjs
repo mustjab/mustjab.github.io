@@ -4,14 +4,15 @@ const checks = require('./checks.js');
 
 test('report cases cover the same missing scenarios for all three targets', () => {
   const cases = checks.cases.filter(row => row.caseId.startsWith('report:'));
-  assert.equal(cases.length, 48);
+  assert.equal(cases.length, 51);
   assert.equal(new Set(cases.map(row => row.caseId)).size, cases.length);
   for (const lang of ['es', 'ja', 'zh-hans']) {
     const selected = cases.filter(row => row.lang === lang);
-    assert.equal(selected.length, 16);
+    assert.equal(selected.length, 17);
     for (const source of ['12 MB', '12mb', '12MB', '208.96 MB', '12.34']) {
       assert.ok(selected.some(row => row.source === source));
     }
+    assert.ok(selected.some(row => row.caseId === `report:${lang}:dom-whitespace-citation`));
     assert.ok(selected.every(row => row.sourceLanguage === 'en'));
   }
 });

@@ -830,7 +830,7 @@ class TranslationQualityBenchmark {
       badge.textContent = 'Focused';
       badge.className = 'mode-badge mode-reference';
       desc.textContent = ['es', 'ja', 'zh-hans'].includes(target) ?
-        '18 development cases: objective checks and semantic review are separate. No similarity score.' :
+        `${this.getDefectCases().length} development cases: objective checks and semantic review are separate. No similarity score.` :
         'Focused regressions support Spanish, Japanese, and Simplified Chinese only. Choose one of these targets or another corpus.';
     } else if (mode === 'reference') {
       const count = QUALITY_TEST_DATA.filter(d => d.refs[target]).length;
@@ -1509,6 +1509,19 @@ class TranslationQualityBenchmark {
     } else if (parityScoreEl) {
       parityScoreEl.textContent = '—';
     }
+    const concScoreEl = document.getElementById('concurrentParityScore');
+    const concSubEl = document.getElementById('concurrentParitySub');
+    if (concScoreEl && this.run?.compareConcurrent) {
+      const concClear = concurrent.filter(result => result.pass).length;
+      const concDiffs = concurrent.filter(result => result.identical === false).length;
+      concScoreEl.textContent = `${concClear} / ${totalAll}`;
+      if (concSubEl) {
+        const waveInfo = waveMs.length ? ` · ${(waveMs.reduce((sum, ms) => sum + ms, 0) / waveMs.length).toFixed(0)}ms/wave` : '';
+        concSubEl.textContent = `${concDiffs} diff${concDiffs === 1 ? '' : 's'} vs sequential${waveInfo}`;
+      }
+    } else if (concScoreEl) {
+      concScoreEl.textContent = '—';
+    }
     if (!this.results?.length && this.defectResults?.length) {
       const avgTimeEl = document.getElementById('avgTime');
       if (avgTimeEl) {
@@ -1821,6 +1834,10 @@ class TranslationQualityBenchmark {
     document.getElementById('overallScore').textContent = '0';
     document.getElementById('completedCount').textContent = '0';
     document.getElementById('avgTime').textContent = '0';
+    const parityScoreEl = document.getElementById('streamingParityScore');
+    if (parityScoreEl) parityScoreEl.textContent = '—';
+    const concScoreEl = document.getElementById('concurrentParityScore');
+    if (concScoreEl) concScoreEl.textContent = '—';
     document.getElementById('testProgressFill').style.width = '0%';
     document.getElementById('testProgressText').textContent = '0 / 0';
     document.getElementById('saveSnapshot').disabled = true;

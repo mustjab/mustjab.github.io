@@ -287,7 +287,7 @@ test('summary retains the planned denominator after early stop or initialization
   assert.ok(html.includes('Not run: 2.'));
 });
 
-test('focused selection runs only twenty-two defect pairs and exports a compatible new baseline', async () => {
+test('focused selection runs only twenty-five defect pairs and exports a compatible new baseline', async () => {
   const { bench, elements } = createHarness(async () => null);
   elements.set('sourceLanguage', { value: 'en' });
   elements.set('targetLanguage', { value: 'es' });
@@ -311,8 +311,8 @@ test('focused selection runs only twenty-two defect pairs and exports a compatib
   await bench.runAllTests();
   assert.equal(bench.run.complete, true);
   assert.equal(bench.run.qualityCorpus.length, 0);
-  assert.equal(bench.run.corpus.length, 22);
-  assert.equal(bench.run.requests.length, 44);
+  assert.equal(bench.run.corpus.length, 25);
+  assert.equal(bench.run.requests.length, 50);
   assert.equal(bench.run.harnessVersion, '8');
   assert.equal(bench.run.validatorVersion, require('./checks.js').VERSION);
   assert.equal(elements.get('overallScore').textContent, 'N/A');
@@ -419,6 +419,8 @@ test('concurrent summary reports differences, errors and unattempted requests', 
   assert.ok(html.includes('Concurrent not run: 1.'));
   assert.ok(html.includes('Differences from sequential standard output: 1 (needs review).'));
   assert.ok(html.includes('Waves: 1 of up to 8 requests; mean 30 ms, max 30 ms.'));
+  assert.equal(elements.get('concurrentParityScore').textContent, '1 / 3');
+  assert.equal(elements.get('concurrentParitySub').textContent, '1 diff vs sequential · 30ms/wave');
 });
 
 test('concurrent comparison is opt-in and keeps sequential snapshots comparable', async () => {

@@ -67,7 +67,7 @@
           <div class="form-group">
             <label for="corpusSelection">Built-in Test Suite (Auto-Loaded)</label>
             <select id="corpusSelection">
-              <option value="focused">Focused Quality Regressions (22 cases)</option>
+              <option value="focused">Focused Quality Regressions (25 cases)</option>
               <option value="builtin">Full Built-in Suite (References + Checks)</option>
               <option value="combined">Built-in + Custom Imported Rows</option>
               <option value="imported">Custom Imported Rows Only</option>
@@ -87,13 +87,13 @@
               <span>🔄 Compare Streaming (<code>translateStreaming</code>)</span>
             </label>
             <label class="stage-pill" for="compareConcurrent">
-              <input id="compareConcurrent" type="checkbox">
+              <input id="compareConcurrent" type="checkbox" checked>
               <span>⚡ Compare Concurrent / Batched Wave</span>
             </label>
           </div>
           <div class="quality-suite-badge">
             <span class="mode-badge" id="modeBadge">Focused</span>
-            <span id="defectInfoText">18 cases auto-loaded.</span>
+            <span id="defectInfoText">25 cases auto-loaded.</span>
           </div>
         </div>
 
@@ -161,13 +161,18 @@
         <div class="score-grid quality-scorecard">
           <div class="score-item score-item--hero">
             <div class="score-label">🏆 Checks Clear</div>
-            <div class="score-value" id="checksClearScore">0 / 18</div>
+            <div class="score-value" id="checksClearScore">0 / 25</div>
             <div class="score-sub" id="checksClearSub">Automatic invariant checks</div>
           </div>
           <div class="score-item">
             <div class="score-label">Streaming Parity</div>
             <div class="score-value" id="streamingParityScore">—</div>
             <div class="score-sub" id="streamingParitySub">translate() vs streaming</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Concurrent Parity</div>
+            <div class="score-value" id="concurrentParityScore">—</div>
+            <div class="score-sub" id="concurrentParitySub">sequential vs batched wave</div>
           </div>
           <div class="score-item">
             <div class="score-label">Reference BLEU</div>

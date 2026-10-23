@@ -160,6 +160,8 @@ test('detects leaked brace and phrase-fix markers without rejecting literal sour
   }
   assert.equal(checks.evaluate({ source: 'Keep {0}.' }, 'Mantenga {0}.').pass, true);
   assert.equal(checks.evaluate({ source: 'Keep <[>literal<]>.' }, 'Mantenga <[>literal<]>.').pass, true);
+  assert.ok(checks.evaluate(spec, 'Visite \uFFFD https://example.com.').failures.includes('invalid_utf8_or_control_byte'));
+  assert.ok(checks.evaluate(spec, 'Visite \u0090 https://example.com.').failures.includes('invalid_utf8_or_control_byte'));
 });
 
 test('detects partial and duplicated brace markers without rejecting literal incomplete source markers', () => {
@@ -178,7 +180,7 @@ test('focused imports retain trusted rule/invariant metadata but reject unknown 
   const source = { schemaVersion: 1, kind: 'translation-quality-corpus',
     source: 'en', target: 'es', cases: regressions.getCases('es') };
   const imported = checks.importCorpus(source).cases;
-  assert.equal(imported.length, 22);
+  assert.equal(imported.length, 25);
   assert.ok(imported.every(row => row.regressionRule && row.expectedInvariant));
   assert.deepEqual(imported.map(row => row.regressionRule), source.cases.map(row => row.regressionRule));
   assert.throws(() => checks.importCorpus({ ...source,

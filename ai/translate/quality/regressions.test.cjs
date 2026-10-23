@@ -12,19 +12,22 @@ function spec(target, name) {
   return row;
 }
 
-test('UMD exposes version1 and identical stable twenty-two-case multilingual public corpora', () => {
+test('UMD exposes version1 and identical stable twenty-five-case multilingual public corpora', () => {
   const context = {};
   vm.runInNewContext(fs.readFileSync(require.resolve('./regressions.js'), 'utf8'), context, {timeout: 1000});
   assert.equal(context.QualityRegressions.VERSION, '1');
   const ids = regressions.getCases('es').map(row => row.caseId);
   for (const target of ['es', 'ja', 'zh-hans']) {
     const cases = regressions.getCases(target);
-    assert.equal(cases.length, 22);
+    assert.equal(cases.length, 25);
     assert.deepEqual(cases.map(row => row.caseId), ids);
     assert(cases.every(row => row.sourceLanguage === 'en' && row.lang === target &&
       regressions.rules.includes(row.regressionRule) && row.expectedInvariant));
     assert.equal(spec(target, 'passages').source.length, 5950);
     assert.equal(spec(target, 'fields').source, 'Status\n Ready\n Count: 12\n Next update: tomorrow.');
+    assert.ok(spec(target, 'dom-whitespace-citation').source.includes('<b10>  </b10>'));
+    assert.deepEqual(spec(target, 'literal-phrasefix-syntax').mustPreserve, ['42', 'qa@example.com']);
+    assert.deepEqual(spec(target, 'batch-padding-acropora').mustNotContain, ['Acropura']);
     assert.deepEqual(cases.slice(-3).map(row => row.exactTokens[0]), ['Б', 'Ԁ', 'É']);
   }
   const altered = regressions.getCases('es');
