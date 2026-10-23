@@ -38,7 +38,12 @@ test('UMD exposes version1 and identical stable twenty-five-case multilingual pu
   assert.throws(() => regressions.getCases('en'), /Unsupported/);
   assert.throws(() => regressions.evaluate({regressionRule: 'guess', lang: 'es'}, 'output'), /Unknown/);
   assert.throws(() => regressions.evaluate({regressionRule: 'budget', lang: 'en'}, 'output'), /Unsupported/);
-  assert.ok(regressions.evaluate({regressionRule: 'budget', lang: 'fr', source: 'The budget is $42 billion.'}, 'output')
+  assert.deepEqual(regressions.evaluate({regressionRule: 'budget', lang: 'fr', source: 'The budget is $42 billion.'}, 'Le budget est de 42 milliards de dollars.').failures, []);
+  assert(regressions.evaluate({regressionRule: 'budget', lang: 'fr', source: 'The budget is $42 billion.'}, 'Le budget est de 42 millions de dollars.').failures.includes('budget_wrong_magnitude'));
+  assert.deepEqual(regressions.evaluate({regressionRule: 'budget', lang: 'ar', source: 'The budget is $42 billion.'}, 'الميزانية هي ٤٢ مليار دولار.').failures, []);
+  assert(regressions.evaluate({regressionRule: 'budget', lang: 'ar', source: 'The budget is $42 billion.'}, 'الميزانية هي ٤٢ مليون دولار.').failures.includes('budget_wrong_magnitude'));
+  assert.deepEqual(regressions.evaluate({regressionRule: 'budget', lang: 'hi', source: 'The budget is $42 billion.'}, 'बजट ४२ अरब डॉलर है।').failures, []);
+  assert.ok(regressions.evaluate({regressionRule: 'budget', lang: 'sw', source: 'The budget is $42 billion.'}, 'output')
     .review.includes('budget_magnitude_unrecognized_needs_review'));
   assert.deepEqual(regressions.evaluate({}, 'output'), {failures: [], review: []});
 });

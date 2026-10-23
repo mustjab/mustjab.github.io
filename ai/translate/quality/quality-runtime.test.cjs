@@ -360,6 +360,12 @@ test('focused selection supports any non-English target language', async () => {
   assert.equal(bench.run.complete, true);
   assert.equal(bench.run.target, 'fr');
   assert.equal(bench.run.corpus.length, 25);
+
+  elements.set('corpusSelection', { value: 'builtin' });
+  elements.set('targetLanguage', { value: 'ar' });
+  const builtinAr = bench.getDefectCases();
+  assert.ok(builtinAr.length >= 45);
+  assert.ok(builtinAr.every(row => row.lang === 'ar'));
 });
 test('summary separates completed execution, coverage flags and semantic verdicts with missing APIs retained', () => {
   const { bench, elements } = createHarness(async () => null);

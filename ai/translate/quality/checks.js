@@ -348,7 +348,35 @@
     }
   }
 
-  const api = { VERSION, occurrences, markerStructure, placeholderLeaks, evaluate, importRows, importCorpus, snapshotCases, compare, cases };
+  function getCases(target) {
+    if (typeof target !== 'string' || !target.trim() || target === 'en') return [];
+    if (['es', 'ja', 'zh-hans'].includes(target)) {
+      return cases.filter(row => row.lang === target).map(row => ({ ...row }));
+    }
+    const baseChecks = cases
+      .filter(row => !row.caseId.startsWith('report:'))
+      .map(row => ({
+        ...row,
+        caseId: `${row.caseId}:${target}`,
+        lang: target,
+        sourceLanguage: 'en',
+        ...(row.mustPreserve ? { mustPreserve: [...row.mustPreserve] } : {}),
+        ...(row.mustNotContain ? { mustNotContain: [...row.mustNotContain] } : {}),
+        ...(row.reviewTopics ? { reviewTopics: [...row.reviewTopics] } : {}),
+      }));
+    const targetReports = reportCases.map(({ key, ...test }) => ({
+      ...test,
+      lang: target,
+      sourceLanguage: 'en',
+      caseId: `report:${target}:${key}`,
+      ...(test.mustPreserve ? { mustPreserve: [...test.mustPreserve] } : {}),
+      ...(test.exactTokens ? { exactTokens: [...test.exactTokens] } : {}),
+      ...(test.reviewTopics ? { reviewTopics: [...test.reviewTopics] } : {}),
+    }));
+    return [...baseChecks, ...targetReports];
+  }
+
+  const api = { VERSION, occurrences, markerStructure, placeholderLeaks, evaluate, importRows, importCorpus, snapshotCases, compare, cases, getCases };
   root.QualityChecks = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(globalThis);

@@ -119,10 +119,29 @@
     }));
   }
 
+  function toAsciiDigits(value) {
+    return value.replace(/\p{Nd}/gu, char => {
+      const code = char.codePointAt(0);
+      for (const zero of [0x0030, 0x0660, 0x06F0, 0x0966, 0x09E6, 0x0A66, 0x0AE6, 0x0B66, 0x0BE6, 0x0C66, 0x0CE6, 0x0D66, 0x0E50, 0x0ED0, 0x0F20, 0x1040, 0xFF10]) {
+        if (code >= zero && code <= zero + 9) return String(code - zero);
+      }
+      return char;
+    });
+  }
+
+  function normalizeTargetLang(target) {
+    if (target === 'zh-hant' || target === 'yue' || target === 'lzh') return 'zh-hans';
+    if (target === 'fr-ca') return 'fr';
+    if (target === 'pt-pt' || target === 'pt-br') return 'pt';
+    if (target === 'es-419' || target === 'es-es' || target === 'es-mx') return 'es';
+    return target;
+  }
+
   function numeral(value) {
-    if (/^\d+$/.test(value)) return Number(value);
+    const ascii = toAsciiDigits(value);
+    if (/^\d+$/.test(ascii)) return Number(ascii);
     const digits = '〇一二三四五六七八九';
-    const normalized = value.replaceAll('零', '〇').replaceAll('两', '二').replaceAll('兩', '二');
+    const normalized = ascii.replaceAll('零', '〇').replaceAll('两', '二').replaceAll('兩', '二');
     if (normalized.includes('十')) {
       const parts = normalized.split('十');
       if (parts.length !== 2) return NaN;
@@ -196,17 +215,49 @@
     const failures = [];
     const idiomatic = discount && lang === 'zh-hans' && /(?<!\d)8\.5\s*折/u.test(output);
     for (const value of discount ? [15] : [15, 50]) {
-      if (!new RegExp(`(?<!\\d)${value}\\s*%(?!\\d)`, 'u').test(output) && !idiomatic) {
+      if (!new RegExp(`(?<!\\d)${value}\\s*[%٪](?!\\d)`, 'u').test(output) && !idiomatic) {
         failures.push(`percent_value_${value}`);
       }
     }
-    const discountMeaning = {es: /descuento|ahorr|rebaja/iu,
-      ja: /割引|オフ/u, 'zh-hans': /折扣|节省|减免|优惠|8\.5\s*折/u};
-    const decreaseMeaning = {es: /disminu|baj|redu/iu,
-      ja: /下が|下落|低下|減/u, 'zh-hans': /下降|下跌|降低|减少/u};
-    const negation = {es: /(?:\bno\b|en lugar de)[^.!?\n]{0,20}50\s*%/iu,
+    const discountMeaning = {
+      es: /descuento|ahorr|rebaja/iu,
+      ja: /割引|オフ/u,
+      'zh-hans': /折扣|节省|减免|优惠|優惠|8\.5\s*折/u,
+      fr: /réduction|remise|rabais|économis/iu,
+      de: /rabatt|ersparnis|sparen|nachlass/iu,
+      it: /sconto|risparmi/iu,
+      pt: /desconto|economiz|abatimento/iu,
+      ru: /скидк|сэконом/iu,
+      ko: /할인/u,
+      ar: /خصم|تخفيض|وفر/u,
+      hi: /छूट|बचत/u,
+    };
+    const decreaseMeaning = {
+      es: /disminu|baj|redu/iu,
+      ja: /下が|下落|低下|減/u,
+      'zh-hans': /下降|下跌|降低|减少|減少/u,
+      fr: /diminu|baiss|rédui/iu,
+      de: /gesunken|verringert|reduziert|gefallen|sank/iu,
+      it: /diminuit|calat|ridott|sces/iu,
+      pt: /diminu|ca[íi]|reduz|baixa/iu,
+      ru: /сниз|уменьш|упал/iu,
+      ko: /감소|하락|내려|줄/u,
+      ar: /انخفض|تراجع|قل/u,
+      hi: /कम|घट|गिरावट/u,
+    };
+    const negation = {
+      es: /(?:\bno\b|en lugar de)[^.!?\n]{0,20}50\s*%/iu,
       ja: /50\s*%[^。\n]{0,15}(?:ではなく|じゃなく|でなく|ではない|ではありません)/u,
-      'zh-hans': /(?:不是|而非|而不是|并非)[^。\n]{0,15}50\s*%/u};
+      'zh-hans': /(?:不是|而非|而不是|并非|並非)[^。\n]{0,15}50\s*%/u,
+      fr: /(?:\bnon\b|\bpas\b|au lieu de)[^.!?\n]{0,25}50\s*%/iu,
+      de: /(?:\bnicht\b|statt|anstelle)[^.!?\n]{0,25}50\s*%/iu,
+      it: /(?:\bnon\b|invece di)[^.!?\n]{0,25}50\s*%/iu,
+      pt: /(?:\bnão\b|em vez de)[^.!?\n]{0,25}50\s*%/iu,
+      ru: /(?:\bне\b|вместо)[^.!?\n]{0,25}50\s*%/iu,
+      ko: /50\s*%[^.\n]{0,15}(?:아니|아닌)/u,
+      ar: /(?:وليس|لا|بدلاً من)[^.!؟\n]{0,25}50\s*[%٪]/u,
+      hi: /50\s*%[^।.\n]{0,15}नहीं|न कि[^।.\n]{0,20}50\s*%/u,
+    };
     if ((discount ? discountMeaning : decreaseMeaning)[lang] &&
         !(discount ? discountMeaning : decreaseMeaning)[lang].test(output)) {
       failures.push('percent_meaning_0');
@@ -216,30 +267,51 @@
   }
 
   function budget(lang, output, failures, review) {
-    if (!['es', 'ja', 'zh-hans'].includes(lang)) {
-      review.push('budget_magnitude_unrecognized_needs_review');
-      return;
-    }
     const correct = {
       es: /(?<![\d.,])(?:42\s+mil\s+millones|42[.]000\s+millones|cuarenta y dos\s+mil\s+millones|42[.]000[.]000[.]000)(?!\d)/iu,
       ja: /(?<!\d)(?:420|四百二十|四佰二十)\s*億/u,
       'zh-hans': /(?<!\d)(?:420|四百二十|四佰贰拾)\s*[亿億]/u,
+      fr: /(?<![\d.,])42\s*milliards?(?!\d)/iu,
+      de: /(?<![\d.,])42\s*milliarden?(?!\d)/iu,
+      it: /(?<![\d.,])42\s*miliardi?(?!\d)/iu,
+      pt: /(?<![\d.,])(?:42\s*bilh[õo]es|42\s*mil\s*milh[õo]es)(?!\d)/iu,
+      ru: /(?<![\d.,])42\s*(?:миллиард|млрд)(?!\d)/iu,
+      ko: /(?<!\d)(?:420|사백이십)\s*억/u,
+      ar: /(?<!\d)42\s*مليار/u,
+      hi: /(?<!\d)42\s*अरब/u,
     };
     const wrong = {
       es: /(?<![\d.,])(?:42\s*(?:millones|billones)|cuarenta y dos\s*(?:millones|billones))(?!\p{L})/iu,
       ja: /(?<!\d)(?:42|四十二)\s*億/u,
       'zh-hans': /(?<!\d)(?:42|四十二)\s*[亿億]/u,
+      fr: /(?<![\d.,])42\s*millions?(?!\p{L})/iu,
+      de: /(?<![\d.,])42\s*(?:millionen?|billionen?)(?!\p{L})/iu,
+      it: /(?<![\d.,])42\s*(?:milioni?|bilioni?)(?!\p{L})/iu,
+      pt: /(?<![\d.,])42\s*milh[õo]es(?!\p{L})/iu,
+      ru: /(?<![\d.,])42\s*(?:миллион|млн)(?!\p{L})/iu,
+      ko: /(?<!\d)(?:42|사십이)\s*억/u,
+      ar: /(?<!\d)42\s*مليون/u,
+      hi: /(?<!\d)42\s*(?:करोड़|लाख)/u,
     };
-    const currency = {es: /dólares|USD|US\$/iu, ja: /米ドル|ドル|USD/u,
-      'zh-hans': /美元|美金|USD/u};
+    const currency = {
+      es: /dólares|USD|US\$/iu, ja: /米ドル|ドル|USD/u,
+      'zh-hans': /美元|美金|USD/u, fr: /dollars?|USD|\$/iu,
+      de: /dollar|USD|\$/iu, it: /dollari|USD|\$/iu,
+      pt: /d[óo]lares|USD|\$/iu, ru: /доллар|USD|\$/iu,
+      ko: /달러|불|USD|\$/u, ar: /دولار|USD|\$/u, hi: /डॉलर|USD|\$/u,
+    };
+    if (!correct[lang]) {
+      review.push('budget_magnitude_unrecognized_needs_review');
+      return;
+    }
     const recognized = correct[lang].test(output);
-    if (wrong[lang].test(output)) {
+    if (wrong[lang]?.test(output)) {
       if (recognized) review.push('budget_multiple_magnitudes_need_review');
       else failures.push('budget_wrong_magnitude');
     }
     if (!recognized) review.push(/(?<!\d)42\s*billion/iu.test(output) ?
       'budget_english_scale_carryover_needs_review' : 'budget_magnitude_unrecognized_needs_review');
-    if (!currency[lang].test(output)) review.push('budget_USD_currency_unrecognized_needs_review');
+    if (currency[lang] && !currency[lang].test(output)) review.push('budget_USD_currency_unrecognized_needs_review');
   }
 
   function message(lang, output) {
@@ -272,9 +344,9 @@
     if (typeof test.lang !== 'string' || !test.lang.trim() || test.lang === 'en') {
       throw new Error(`Unsupported regression target: ${test.lang}`);
     }
-    const lang = test.lang === 'zh-hant' ? 'zh-hans' : test.lang;
+    const lang = normalizeTargetLang(test.lang);
     if (typeof output !== 'string') throw new Error('Regression output must be text.');
-    const text = output.normalize('NFKC');
+    const text = toAsciiDigits(output.normalize('NFKC'));
     result.review.push('expected_invariant_requires_human_review');
     const {failures, review} = result;
     switch (test.regressionRule) {
@@ -311,18 +383,43 @@
         review.push('message_quantity_entity_and_unread_meaning_need_review');
         break;
       case 'bank': {
-        const financial = {es: /\bbanco\b|entidad bancaria/iu, ja: /銀行|金融機関/u, 'zh-hans': /银行|金融机构|銀行|金融機構/u};
-        const riverbank = {es: /\borilla\b|\bribera\b/iu, ja: /川岸|河岸/u, 'zh-hans': /河岸/u};
+        const financial = {
+          es: /\bbanco\b|entidad bancaria/iu, ja: /銀行|金融機関/u,
+          'zh-hans': /银行|金融机构|銀行|金融機構/u, fr: /\bbanque\b/iu,
+          de: /\bbank\b|geldinstitut/iu, it: /\bbanca\b/iu, pt: /\bbanco\b/iu,
+          ru: /\bбанк/iu, ko: /은행/u, ar: /بنك|مصرف/u, hi: /बैंक/u,
+        };
+        const riverbank = {
+          es: /\borilla\b|\bribera\b/iu, ja: /川岸|河岸/u, 'zh-hans': /河岸/u,
+          fr: /\brive\b|\bberge\b/iu, de: /\bufer\b|\bflussufer\b/iu,
+          it: /\briva\b|\bsponda\b/iu, pt: /\bmargem\b|\bbeira\b/iu,
+          ru: /\bберег/iu, ko: /강둑|강가/u, ar: /ضفة/u, hi: /किनार|तट/u,
+        };
         if (riverbank[lang]?.test(text) && !financial[lang]?.test(text)) failures.push('financial_bank_replaced_by_riverbank');
         review.push('financial_bank_not_riverbank', 'closure_flood_warning_and_causality_need_review');
         break;
       }
       case 'idiom': {
-        const literal = {es: /lluev[^.!?\n]{0,35}gatos[^.!?\n]{0,15}perros/iu,
+        const literal = {
+          es: /lluev[^.!?\n]{0,35}gatos[^.!?\n]{0,15}perros/iu,
           ja: /猫[^。\n]{0,15}犬[^。\n]{0,25}(?:降|雨)/u,
-          'zh-hans': /(?:下|降)[^。\n]{0,15}[猫貓][^。\n]{0,15}狗/u};
-        const negated = {es: /\bno\b[^.!?\n]{0,20}lluev/iu,
-          ja: /ではな|わけでは/u, 'zh-hans': /不是[^。\n]{0,20}(?:下|降)/u};
+          'zh-hans': /(?:下|降)[^。\n]{0,15}[猫貓][^。\n]{0,15}狗/u,
+          fr: /pleu[^.!?\n]{0,35}chats?[^.!?\n]{0,15}chiens?/iu,
+          de: /regne[^.!?\n]{0,35}katzen[^.!?\n]{0,15}hunde/iu,
+          it: /piov[^.!?\n]{0,35}gatti[^.!?\n]{0,15}cani/iu,
+          pt: /chov[^.!?\n]{0,35}gatos[^.!?\n]{0,15}c(?:ã|a)es|cachorros/iu,
+          ru: /дожд[^.!?\n]{0,35}кош[^.!?\n]{0,15}собак/iu,
+          ko: /고양이[^.\n]{0,15}개[^.\n]{0,20}비/u,
+          ar: /تمطر[^.!؟\n]{0,30}قطط[^.!؟\n]{0,15}كلاب/u,
+          hi: /बिल्ल[^।.\n]{0,20}कुत्त[^।.\n]{0,20}बारिश/u,
+        };
+        const negated = {
+          es: /\bno\b[^.!?\n]{0,20}lluev/iu,
+          ja: /ではな|わけでは/u, 'zh-hans': /不是[^。\n]{0,20}(?:下|降)/u,
+          fr: /\bne\b[^.!?\n]{0,20}pleu/iu, de: /\bnicht\b/iu,
+          it: /\bnon\b[^.!?\n]{0,20}piov/iu, pt: /\bnão\b[^.!?\n]{0,20}chov/iu,
+          ru: /\bне\b/iu, ko: /아니/u, ar: /\bلا\b|\bليس\b/u, hi: /नहीं/u,
+        };
         if (literal[lang]?.test(text) && !negated[lang]?.test(text)) failures.push('literal_raining_animals');
         review.push('heavy_rain_not_literal_animals', 'stay_indoors_and_causality_need_review');
         break;

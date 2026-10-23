@@ -719,10 +719,44 @@ class TranslationQualityBenchmark {
     if (selection === 'focused') {
       return target && target !== 'en' ? QualityRegressions.getCases(target) : [];
     }
-    const builtin = [...DEFECT_TEST_DATA.map((test, index) => ({ ...test, caseId: `builtin:${index}`, sourceLanguage: 'en' })),
-      ...QualityChecks.cases];
-    return (selection === 'imported' ? this.importedCases : selection === 'combined' ? [...builtin, ...this.importedCases] : builtin)
-      .filter(test => test.lang === target);
+    const isPrimaryDefectTarget = ['es', 'ja', 'zh-hans'].includes(target);
+    let builtin;
+    if (isPrimaryDefectTarget) {
+      builtin = [
+        ...DEFECT_TEST_DATA.map((test, index) => ({ ...test, caseId: `builtin:${index}`, sourceLanguage: 'en' })),
+        ...QualityChecks.cases,
+      ].filter(test => test.lang === target);
+    } else if (target && target !== 'en') {
+      const seenSources = new Set();
+      const universalDefects = [];
+      for (const test of DEFECT_TEST_DATA) {
+        if ((!test.mustPreserve || test.mustPreserve.length === 0) && !test.minSentences) continue;
+        const key = `${test.id}|${test.source}`;
+        if (seenSources.has(key)) continue;
+        seenSources.add(key);
+        universalDefects.push({
+          id: test.id,
+          lang: target,
+          sourceLanguage: 'en',
+          source: test.source,
+          caseId: `builtin:${target}:${universalDefects.length}`,
+          mustPreserve: [...(test.mustPreserve || [])],
+          mustNotContain: test.lang === 'es' ? [...(test.mustNotContain || [])] : [],
+          ...(test.minSentences ? { minSentences: test.minSentences } : {}),
+        });
+      }
+      const checkCases = typeof QualityChecks.getCases === 'function'
+        ? QualityChecks.getCases(target)
+        : QualityChecks.cases.filter(test => test.lang === target);
+      builtin = [...universalDefects, ...checkCases];
+    } else {
+      builtin = [];
+    }
+    return selection === 'imported'
+      ? this.importedCases.filter(test => test.lang === target)
+      : selection === 'combined'
+        ? [...builtin, ...this.importedCases.filter(test => test.lang === target)]
+        : builtin;
   }
 
   async importCsv(file) {
@@ -2001,15 +2035,17 @@ const DEFECT_TEST_DATA = [
 // Counts sentence-final punctuation across scripts. Used by
 // "missing_content" tests to detect dropped trailing sentences.
 function countSentences(text) {
-  const m = text.match(/[.!?。！？]/g);
+  const m = text.match(/[.!?。！？؟।]/g);
   return m ? m.length : 0;
 }
 
 // Locales that use comma as the decimal separator. Used to treat "179,5"
 // as equivalent to "179.5" when checking numeric preservation.
 const COMMA_DECIMAL_LANGS = new Set([
-  'es', 'es-419', 'fr', 'de', 'it', 'pt', 'pt-br', 'nl', 'pl', 'ru',
-  'tr', 'sv', 'no', 'da', 'fi', 'cs', 'el', 'hu', 'ro', 'bg', 'uk',
+  'es', 'es-419', 'es-es', 'es-mx', 'fr', 'fr-ca', 'de', 'it', 'pt', 'pt-br', 'pt-pt',
+  'nl', 'pl', 'ru', 'tr', 'sv', 'no', 'nb', 'da', 'fi', 'cs', 'el', 'hu', 'ro', 'bg',
+  'uk', 'be', 'sr-latn', 'sr-cyrl', 'sl', 'hr', 'bs', 'sk', 'id', 'vi', 'af', 'ca',
+  'gl', 'eu', 'et', 'lv', 'lt', 'is', 'fo', 'sq', 'mk', 'az', 'kk', 'uz',
 ]);
 
 // Magnitude-word substitutions that map locale-specific expansions back
@@ -2030,8 +2066,19 @@ const MAGNITUDE_PATTERNS = [
   [/(\d+(?:\.\d+)?)\s*miliardi?/gi, '$1B'],
   [/(\d+(?:\.\d+)?)\s*milioni?/gi, '$1M'],
   // Portuguese
-  [/(\d+(?:\.\d+)?)\s*bilhões?/gi, '$1B'],
-  [/(\d+(?:\.\d+)?)\s*milhões?/gi, '$1M'],
+  [/(\d+(?:\.\d+)?)\s*bilh[õo]es?/gi, '$1B'],
+  [/(\d+(?:\.\d+)?)\s*milh[õo]es?/gi, '$1M'],
+  // Russian
+  [/(\d+(?:\.\d+)?)\s*(?:миллиард(?:а|ов)?|млрд)/giu, '$1B'],
+  [/(\d+(?:\.\d+)?)\s*(?:миллион(?:а|ов)?|млн)/giu, '$1M'],
+  [/(\d+(?:\.\d+)?)\s*(?:тысяч(?:и|а)?|тыс)/giu, '$1K'],
+  // Arabic
+  [/(\d+(?:\.\d+)?)\s*مليار(?:ات)?/gu, '$1B'],
+  [/(\d+(?:\.\d+)?)\s*(?:مليون|ملايين)/gu, '$1M'],
+  [/(\d+(?:\.\d+)?)\s*(?:ألف|آلاف)/gu, '$1K'],
+  // Hindi
+  [/(\d+(?:\.\d+)?)\s*अरब/gu, '$1B'],
+  [/(\d+(?:\.\d+)?)\s*मिलियन/gu, '$1M'],
   // Generic / English (covers French "millions" too)
   [/(\d+(?:\.\d+)?)\s*billions?/gi, '$1B'],
   [/(\d+(?:\.\d+)?)\s*millions?/gi, '$1M'],
@@ -2044,7 +2091,7 @@ const MAGNITUDE_PATTERNS = [
 // Applied AFTER MAGNITUDE_PATTERNS so suffixes are already collapsed.
 const CURRENCY_PATTERNS = [
   // USD: "3.8M de dólares" / "3.8M dólares" / "3.8M dollars" / "3.8M USD"
-  [/(\d+(?:\.\d+)?[KMB]?)\s+(?:de\s+)?(?:d[óo]lares?|dollars?|USD|US\$)/gi, '$$$1'],
+  [/(\d+(?:\.\d+)?[KMB]?)\s+(?:de\s+|d'\s*)?(?:d[óo]lares?|dollars?|dollari|доллар(?:а|ов)?|دولار(?:ات)?|डॉलर|달러|USD|US\$)/giu, '$$$1'],
   // EUR
   [/(\d+(?:\.\d+)?[KMB]?)\s+(?:de\s+)?(?:euros?|EUR)/gi, '€$1'],
   // GBP
@@ -2061,12 +2108,18 @@ const CURRENCY_PATTERNS = [
 //   "$3.8M"  ↔ "3,8 millones de dólares" (symbol replaced by word + decimal localised)
 function normalizeNumeric(s, lang) {
   if (!s) return s;
-  let t = s;
+  let t = s.replace(/\p{Nd}/gu, char => {
+    const code = char.codePointAt(0);
+    for (const zero of [0x0030, 0x0660, 0x06F0, 0x0966, 0x09E6, 0x0A66, 0x0AE6, 0x0B66, 0x0BE6, 0x0C66, 0x0CE6, 0x0D66, 0x0E50, 0x0ED0, 0x0F20, 0x1040, 0xFF10]) {
+      if (code >= zero && code <= zero + 9) return String(code - zero);
+    }
+    return char;
+  });
   // Collapse whitespace after currency symbol: "$ 3.8" -> "$3.8".
   t = t.replace(/([$€£¥¢])\s+/g, '$1');
-  // Decimal separator: "," between digits -> "." in comma-decimal locales.
-  if (COMMA_DECIMAL_LANGS.has(lang)) {
-    t = t.replace(/(\d),(\d)/g, '$1.$2');
+  // Decimal separator: "," or "٫" between digits -> "." in comma-decimal / Arabic locales.
+  if (COMMA_DECIMAL_LANGS.has(lang) || ['ar', 'fa', 'prs', 'ur', 'ps', 'ug'].includes(lang)) {
+    t = t.replace(/(\d)[,٫](\d)/g, '$1.$2');
   }
   // Magnitude words -> abbreviated suffix.
   for (const [re, repl] of MAGNITUDE_PATTERNS) {
