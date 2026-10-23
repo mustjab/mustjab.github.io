@@ -717,7 +717,7 @@ class TranslationQualityBenchmark {
     const target = document.getElementById('targetLanguage').value;
     const selection = document.getElementById('corpusSelection').value;
     if (selection === 'focused') {
-      return ['es', 'ja', 'zh-hans'].includes(target) ? QualityRegressions.getCases(target) : [];
+      return target && target !== 'en' ? QualityRegressions.getCases(target) : [];
     }
     const builtin = [...DEFECT_TEST_DATA.map((test, index) => ({ ...test, caseId: `builtin:${index}`, sourceLanguage: 'en' })),
       ...QualityChecks.cases];
@@ -829,9 +829,7 @@ class TranslationQualityBenchmark {
     if (focused) {
       badge.textContent = 'Focused';
       badge.className = 'mode-badge mode-reference';
-      desc.textContent = ['es', 'ja', 'zh-hans'].includes(target) ?
-        `${this.getDefectCases().length} development cases: objective checks and semantic review are separate. No similarity score.` :
-        'Focused regressions support Spanish, Japanese, and Simplified Chinese only. Choose one of these targets or another corpus.';
+      desc.textContent = `${this.getDefectCases().length} development cases: objective checks and semantic review are separate. No similarity score.`;
     } else if (mode === 'reference') {
       const count = QUALITY_TEST_DATA.filter(d => d.refs[target]).length;
       badge.textContent = 'Reference';
@@ -1712,11 +1710,6 @@ class TranslationQualityBenchmark {
     if (this.runningAll || this.importing) return;
     const target = document.getElementById('targetLanguage').value;
     if (target === 'en') { this.log('Choose a target other than English.', 'warning'); return; }
-    if (document.getElementById('corpusSelection').value === 'focused' &&
-        !['es', 'ja', 'zh-hans'].includes(target)) {
-      this.log('Focused regressions support es, ja, and zh-hans. Choose a supported target or another corpus.', 'warning');
-      return;
-    }
     const cases = this.getDefectCases();
     const importedOnly = document.getElementById('corpusSelection').value === 'imported';
     const focused = document.getElementById('corpusSelection').value === 'focused';

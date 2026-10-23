@@ -107,7 +107,9 @@
   ];
 
   function getCases(target) {
-    if (!targets.includes(target)) throw new Error(`Unsupported focused target: ${target}`);
+    if (typeof target !== 'string' || !target.trim() || target === 'en') {
+      throw new Error(`Unsupported focused target: ${target}`);
+    }
     return definitions.map(({name, ...spec}) => ({
       ...spec, caseId: `focused:${name}`, sourceLanguage: 'en', lang: target,
       ...(spec.mustPreserve ? {mustPreserve: [...spec.mustPreserve]} : {}),
@@ -147,6 +149,14 @@
 
   function departments(lang, output, startId = 1, endId = 30) {
     const rule = departmentRules[lang];
+    if (!rule) {
+      const failures = [];
+      for (let id = startId; id <= endId; id++) {
+        const matches = [...output.matchAll(new RegExp(`(?<!\\p{N})${id}(?!\\p{N})`, 'gu'))].length;
+        if (matches === 0) failures.push(`department_clause_${id}: 0`);
+      }
+      return failures;
+    }
     const labels = [...output.matchAll(rule.label)];
     const associations = [];
     for (let i = 0; i < labels.length; i++) {
@@ -197,12 +207,19 @@
     const negation = {es: /(?:\bno\b|en lugar de)[^.!?\n]{0,20}50\s*%/iu,
       ja: /50\s*%[^。\n]{0,15}(?:ではなく|じゃなく|でなく|ではない|ではありません)/u,
       'zh-hans': /(?:不是|而非|而不是|并非)[^。\n]{0,15}50\s*%/u};
-    if (!(discount ? discountMeaning : decreaseMeaning)[lang].test(output)) failures.push('percent_meaning_0');
-    if (!discount && !negation[lang].test(output)) failures.push('percent_meaning_1');
+    if ((discount ? discountMeaning : decreaseMeaning)[lang] &&
+        !(discount ? discountMeaning : decreaseMeaning)[lang].test(output)) {
+      failures.push('percent_meaning_0');
+    }
+    if (!discount && negation[lang] && !negation[lang].test(output)) failures.push('percent_meaning_1');
     return failures;
   }
 
   function budget(lang, output, failures, review) {
+    if (!['es', 'ja', 'zh-hans'].includes(lang)) {
+      review.push('budget_magnitude_unrecognized_needs_review');
+      return;
+    }
     const correct = {
       es: /(?<![\d.,])(?:42\s+mil\s+millones|42[.]000\s+millones|cuarenta y dos\s+mil\s+millones|42[.]000[.]000[.]000)(?!\d)/iu,
       ja: /(?<!\d)(?:420|四百二十|四佰二十)\s*億/u,
@@ -240,6 +257,7 @@
     };
     const rule = rules[lang];
     const failures = [];
+    if (!rule) return failures;
     if (!rule.entity.test(output)) failures.push('message_entity_missing');
     if (!rule.quantity.test(output)) failures.push('message_quantity_unrecognized');
     if (!rule.unread.test(output)) failures.push('message_unread_meaning_unrecognized');
@@ -251,8 +269,10 @@
     const result = {failures: [], review: []};
     if (!test.regressionRule) return result;
     if (!rules.includes(test.regressionRule)) throw new Error(`Unknown regression rule: ${test.regressionRule}`);
-    const lang = test.lang;
-    if (!targets.includes(lang)) throw new Error(`Unsupported regression target: ${lang}`);
+    if (typeof test.lang !== 'string' || !test.lang.trim() || test.lang === 'en') {
+      throw new Error(`Unsupported regression target: ${test.lang}`);
+    }
+    const lang = test.lang === 'zh-hant' ? 'zh-hans' : test.lang;
     if (typeof output !== 'string') throw new Error('Regression output must be text.');
     const text = output.normalize('NFKC');
     result.review.push('expected_invariant_requires_human_review');
@@ -267,8 +287,10 @@
         review.push('coverage_patterns_are_development_flags_not_accuracy', 'alternative_department_wording_needs_review');
         break;
       case 'passages':
-        failures.push(...passageRules[lang].flatMap((pattern, i) =>
-          pattern.test(text) ? [] : [`passage_${passageNames[i]}`]));
+        if (passageRules[lang]) {
+          failures.push(...passageRules[lang].flatMap((pattern, i) =>
+            pattern.test(text) ? [] : [`passage_${passageNames[i]}`]));
+        }
         review.push('coverage_patterns_are_development_flags_not_accuracy', 'full_passage_semantics_and_synonyms_need_review');
         break;
       case 'discount':
@@ -289,19 +311,19 @@
         review.push('message_quantity_entity_and_unread_meaning_need_review');
         break;
       case 'bank': {
-        const financial = {es: /\bbanco\b|entidad bancaria/iu, ja: /銀行|金融機関/u, 'zh-hans': /银行|金融机构/u};
+        const financial = {es: /\bbanco\b|entidad bancaria/iu, ja: /銀行|金融機関/u, 'zh-hans': /银行|金融机构|銀行|金融機構/u};
         const riverbank = {es: /\borilla\b|\bribera\b/iu, ja: /川岸|河岸/u, 'zh-hans': /河岸/u};
-        if (riverbank[lang].test(text) && !financial[lang].test(text)) failures.push('financial_bank_replaced_by_riverbank');
+        if (riverbank[lang]?.test(text) && !financial[lang]?.test(text)) failures.push('financial_bank_replaced_by_riverbank');
         review.push('financial_bank_not_riverbank', 'closure_flood_warning_and_causality_need_review');
         break;
       }
       case 'idiom': {
         const literal = {es: /lluev[^.!?\n]{0,35}gatos[^.!?\n]{0,15}perros/iu,
           ja: /猫[^。\n]{0,15}犬[^。\n]{0,25}(?:降|雨)/u,
-          'zh-hans': /(?:下|降)[^。\n]{0,15}猫[^。\n]{0,15}狗/u};
+          'zh-hans': /(?:下|降)[^。\n]{0,15}[猫貓][^。\n]{0,15}狗/u};
         const negated = {es: /\bno\b[^.!?\n]{0,20}lluev/iu,
           ja: /ではな|わけでは/u, 'zh-hans': /不是[^。\n]{0,20}(?:下|降)/u};
-        if (literal[lang].test(text) && !negated[lang].test(text)) failures.push('literal_raining_animals');
+        if (literal[lang]?.test(text) && !negated[lang]?.test(text)) failures.push('literal_raining_animals');
         review.push('heavy_rain_not_literal_animals', 'stay_indoors_and_causality_need_review');
         break;
       }
@@ -309,8 +331,8 @@
         const lines = output.split(/\r?\n/u).map(line => line.trim()).filter(Boolean);
         if (lines.length !== 4) failures.push('four_field_lines_not_preserved');
         if (new Set(lines).size !== lines.length) failures.push('repeated_field_line');
-        const invented = {es: /\breferencia\b/iu, ja: /参考|参照/u, 'zh-hans': /参考|引用/u};
-        if (invented[lang].test(text)) failures.push('invented_reference_field');
+        const invented = {es: /\breferencia\b/iu, ja: /参考|参照/u, 'zh-hans': /参考|引用|參考/u};
+        if (invented[lang]?.test(text)) failures.push('invented_reference_field');
         review.push('ordered_status_ready_count12_update_tomorrow_and_no_repeated_content_need_review');
         break;
       }

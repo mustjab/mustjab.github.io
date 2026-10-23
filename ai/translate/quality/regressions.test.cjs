@@ -33,9 +33,13 @@ test('UMD exposes version1 and identical stable twenty-five-case multilingual pu
   const altered = regressions.getCases('es');
   altered.find(item => item.caseId === 'focused:opaque').exactTokens[0] = 'mutated';
   assert.equal(spec('es', 'opaque').exactTokens[0], 'support@example.com');
-  assert.throws(() => regressions.getCases('fr'), /Unsupported/);
+  assert.equal(regressions.getCases('fr').length, 25);
+  assert.equal(regressions.getCases('zh-hant').length, 25);
+  assert.throws(() => regressions.getCases('en'), /Unsupported/);
   assert.throws(() => regressions.evaluate({regressionRule: 'guess', lang: 'es'}, 'output'), /Unknown/);
-  assert.throws(() => regressions.evaluate({regressionRule: 'budget', lang: 'fr'}, 'output'), /Unsupported/);
+  assert.throws(() => regressions.evaluate({regressionRule: 'budget', lang: 'en'}, 'output'), /Unsupported/);
+  assert.ok(regressions.evaluate({regressionRule: 'budget', lang: 'fr', source: 'The budget is $42 billion.'}, 'output')
+    .review.includes('budget_magnitude_unrecognized_needs_review'));
   assert.deepEqual(regressions.evaluate({}, 'output'), {failures: [], review: []});
 });
 

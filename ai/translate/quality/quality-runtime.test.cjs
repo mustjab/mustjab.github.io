@@ -336,18 +336,30 @@ test('standard and streaming semantic verdict controls update only their own API
   assert.equal(bench.defectResults[0].humanVerdict, 'defect');
 });
 
-test('unsupported focused language reports the limitation without starting a request', async () => {
+test('focused selection supports any non-English target language', async () => {
   const { bench, elements } = createHarness(async () => null);
+  elements.set('sourceLanguage', { value: 'en' });
   elements.set('targetLanguage', { value: 'fr' });
   elements.set('corpusSelection', { value: 'focused' });
-  let warning;
-  bench.log = message => { warning = message; };
-  bench.runTests = () => assert.fail('Unsupported focused target must not run references');
-  bench.runDefectTests = () => assert.fail('Unsupported focused target must not translate');
-  assert.equal(bench.getDefectCases().length, 0);
+  elements.set('requestTimeout', { value: '60' });
+  elements.set('compareStreaming', { checked: false });
+  elements.set('compareConcurrent', { checked: false });
+  bench.log = () => {};
+  bench.escapeHtml = value => value;
+  bench.targetSelect = { close() {} };
+  bench.importWarnings = [];
+  bench.clearAllResults = () => { bench.run = null; };
+  assert.equal(bench.getDefectCases().length, 25);
+  assert.ok(bench.getDefectCases().every(row => row.lang === 'fr'));
+  bench.runTests = () => assert.fail('Focused mode must not run references');
+  bench.runDefectTests = async () => {
+    bench.defectResults = bench.getDefectCases().map(spec => ({ ...spec, output: 'fixture', pass: true,
+      humanVerdict: 'unreviewed', failures: [] }));
+  };
   await bench.runAllTests();
-  assert.match(warning, /support es, ja, and zh-hans/);
-  assert.equal(bench.runningAll, undefined);
+  assert.equal(bench.run.complete, true);
+  assert.equal(bench.run.target, 'fr');
+  assert.equal(bench.run.corpus.length, 25);
 });
 test('summary separates completed execution, coverage flags and semantic verdicts with missing APIs retained', () => {
   const { bench, elements } = createHarness(async () => null);
