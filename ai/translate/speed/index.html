@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../theme.css">
   <link rel="stylesheet" href="../style.css">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
   <link rel="icon" href="../../../icon.png">
 </head>
 
@@ -71,19 +71,19 @@
           </div>
 
           <div class="bench-controls">
-            <button id="runAll" class="btn btn-primary" disabled>▶ Run Full Speed Benchmark</button>
-            <button id="saveResults" class="btn btn-secondary" disabled title="Copy summary and TSV to clipboard">📋 Copy Results</button>
-            <button id="saveSpeedSnapshot" class="btn btn-secondary" disabled title="Save current run into selected baseline slot">💾 Save as Baseline</button>
+            <button id="runAll" class="btn btn-primary" disabled>▶ Run Benchmark</button>
+            <button id="saveResults" class="btn btn-secondary" disabled title="Copy summary and TSV to clipboard">📋 Copy</button>
+            <button id="saveSpeedSnapshot" class="btn btn-secondary" disabled title="Save current run into selected baseline slot">💾 Save Baseline</button>
             <select id="baselineSlotSelect" class="slot-select" aria-label="Baseline slot to save into">
               <option value="canary" selected>Slot: Edge Canary</option>
               <option value="chrome">Slot: Chrome</option>
-              <option value="custom">Slot: Custom Baseline</option>
+              <option value="custom">Slot: Custom</option>
             </select>
-            <button id="compareSpeedSnapshot" class="btn btn-secondary">📊 Compare vs Baselines</button>
-            <button id="exportSpeedRun" class="btn btn-secondary" disabled>⬇ Export JSON</button>
-            <label class="btn btn-secondary file-btn" for="speedSnapshotFile">📂 Import JSON</label>
+            <button id="compareSpeedSnapshot" class="btn btn-secondary">📊 Compare</button>
+            <button id="exportSpeedRun" class="btn btn-secondary" disabled>⬇ Export</button>
+            <label class="btn btn-secondary file-btn" for="speedSnapshotFile">📂 Import</label>
             <input type="file" id="speedSnapshotFile" accept=".json,application/json" style="display: none;">
-            <button id="clearSpeedSnapshot" class="btn btn-secondary" title="Clear saved baselines">🗑 Clear Baselines</button>
+            <button id="clearSpeedSnapshot" class="btn btn-secondary" title="Clear saved baselines">🗑 Clear</button>
           </div>
         </div>
 
@@ -378,7 +378,7 @@
     </footer>
   </div>
 
-  <script src="speed.js"></script>
+  <script src="speed.js?v=2"></script>
 </body>
 
 </html>

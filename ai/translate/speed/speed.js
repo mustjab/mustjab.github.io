@@ -98,9 +98,10 @@ const LANGUAGE_NAMES = {
 // Simulates a real web page with ~300 text segments of varying types and lengths.
 // Modeled after typical content-heavy pages (news, docs, e-commerce).
 
-// Numbers (excluding prose percentages like 15%), URLs, relative query paths,
-// and emails use phrase-fix span annotations before the model sees them.
-const PROTECTED_SPAN_RE = /\b\d+(?:[.,]\d+)*(?![.,]?\d|\s*%)|https?:\/\/\S+|\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+\?[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+|\bwww\.\S+|\S+@\S+\.\w+/;
+// Numbers (including slash-dates and colon-times, excluding prose percentages
+// like 15%), Cyrillic Supplement product codes, URLs, relative query paths, and
+// emails use phrase-fix span annotations before the model sees them.
+const PROTECTED_SPAN_RE = /\b\d+(?:[.,:/]\d+)*(?![.,:/]?\d|\s*%)|[\u0500-\u052F]+|https?:\/\/\S+|\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+\?[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+|\bwww\.\S+|\S+@\S+\.\w+/;
 
 const PAGE_SIM_SEGMENTS = {
   nav: [
@@ -995,7 +996,7 @@ class TranslationSpeedBenchmark {
       this.showStatus(`Error: ${error.message}`);
     } finally {
       btn.disabled = false;
-      btn.textContent = '▶ Run Full Speed Benchmark';
+      btn.textContent = '▶ Run Benchmark';
     }
   }
 
@@ -1366,7 +1367,7 @@ class TranslationSpeedBenchmark {
     navigator.clipboard.writeText(clipboardData).then(() => {
       const btn = document.getElementById('saveResults');
       btn.textContent = '✓ Copied!';
-      setTimeout(() => { btn.textContent = '📋 Copy Results'; }, 2000);
+      setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
     }).catch(() => {
       alert('Failed to copy results to clipboard');
     });

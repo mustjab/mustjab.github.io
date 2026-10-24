@@ -160,6 +160,8 @@ test('PROTECTED_SPAN_RE matches numbers, URLs, relative query paths, and emails 
   const { PROTECTED_SPAN_RE, PAGE_SIM_SEGMENTS } = createSpeedHarness();
 
   assert.equal(PROTECTED_SPAN_RE.test('Version 3.2.1'), true);
+  assert.equal(PROTECTED_SPAN_RE.test('Timestamp: 6/16/2026 2:11:58 AM'), true);
+  assert.equal(PROTECTED_SPAN_RE.test('The product code is \u0500.'), true);
   assert.equal(PROTECTED_SPAN_RE.test('Docs: https://example.com/docs/2.8.15?id=676'), true);
   assert.equal(PROTECTED_SPAN_RE.test('Release path: /docs/release/2.8.15?id=676'), true);
   assert.equal(PROTECTED_SPAN_RE.test('Support: support@example.com'), true);
