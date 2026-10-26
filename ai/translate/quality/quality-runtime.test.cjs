@@ -311,8 +311,8 @@ test('focused selection runs only twenty-five defect pairs and exports a compati
   await bench.runAllTests();
   assert.equal(bench.run.complete, true);
   assert.equal(bench.run.qualityCorpus.length, 0);
-  assert.equal(bench.run.corpus.length, 28);
-  assert.equal(bench.run.requests.length, 56);
+  assert.equal(bench.run.corpus.length, 29);
+  assert.equal(bench.run.requests.length, 58);
   assert.equal(bench.run.harnessVersion, '8');
   assert.equal(bench.run.validatorVersion, require('./checks.js').VERSION);
   assert.equal(elements.get('overallScore').textContent, 'N/A');
@@ -349,7 +349,7 @@ test('focused selection supports any non-English target language', async () => {
   bench.targetSelect = { close() {} };
   bench.importWarnings = [];
   bench.clearAllResults = () => { bench.run = null; };
-  assert.equal(bench.getDefectCases().length, 28);
+  assert.equal(bench.getDefectCases().length, 29);
   assert.ok(bench.getDefectCases().every(row => row.lang === 'fr'));
   bench.runTests = () => assert.fail('Focused mode must not run references');
   bench.runDefectTests = async () => {
@@ -359,7 +359,7 @@ test('focused selection supports any non-English target language', async () => {
   await bench.runAllTests();
   assert.equal(bench.run.complete, true);
   assert.equal(bench.run.target, 'fr');
-  assert.equal(bench.run.corpus.length, 28);
+  assert.equal(bench.run.corpus.length, 29);
 
   elements.set('corpusSelection', { value: 'builtin' });
   elements.set('targetLanguage', { value: 'ar' });

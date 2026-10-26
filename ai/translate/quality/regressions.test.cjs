@@ -19,12 +19,13 @@ test('UMD exposes version1 and identical stable twenty-five-case multilingual pu
   const ids = regressions.getCases('es').map(row => row.caseId);
   for (const target of ['es', 'ja', 'zh-hans']) {
     const cases = regressions.getCases(target);
-    assert.equal(cases.length, 28);
+    assert.equal(cases.length, 29);
     assert.deepEqual(cases.map(row => row.caseId), ids);
     assert(cases.every(row => row.sourceLanguage === 'en' && row.lang === target &&
       regressions.rules.includes(row.regressionRule) && row.expectedInvariant));
     assert.equal(spec(target, 'passages').source.length, 5950);
     assert.equal(spec(target, 'fields').source, 'Status\n Ready\n Count: 12\n Next update: tomorrow.');
+    assert.ok(spec(target, 'market-cap-subscription').source.includes('$154 billion'));
     assert.ok(spec(target, 'dom-whitespace-citation').source.includes('<b10>  </b10>'));
     assert.ok(spec(target, 'multi-number-dom-citation').source.includes('<b17><b20><b30><b40>[</b40>64<b41>]</b41></b30></b20></b17>'));
     assert.ok(spec(target, 'dense-nested-dom-citations').source.includes('<b17>8080</b17>'));
@@ -36,8 +37,8 @@ test('UMD exposes version1 and identical stable twenty-five-case multilingual pu
   const altered = regressions.getCases('es');
   altered.find(item => item.caseId === 'focused:opaque').exactTokens[0] = 'mutated';
   assert.equal(spec('es', 'opaque').exactTokens[0], 'support@example.com');
-  assert.equal(regressions.getCases('fr').length, 28);
-  assert.equal(regressions.getCases('zh-hant').length, 28);
+  assert.equal(regressions.getCases('fr').length, 29);
+  assert.equal(regressions.getCases('zh-hant').length, 29);
   assert.throws(() => regressions.getCases('en'), /Unsupported/);
   assert.throws(() => regressions.evaluate({regressionRule: 'guess', lang: 'es'}, 'output'), /Unknown/);
   assert.throws(() => regressions.evaluate({regressionRule: 'budget', lang: 'en'}, 'output'), /Unsupported/);
@@ -130,6 +131,16 @@ test('budget binds magnitude to language scale, rejects known tenfold/million de
     'El presupuesto es de cuatro mil millones de dólares.');
   assert(otherSource.review.includes('budget_rule_requires_controlled_42_billion_source'));
   assert.deepEqual(otherSource.failures, []);
+
+  assert.deepEqual(regressions.evaluate(spec('zh-hans', 'market-cap-subscription'),
+    '微软在宣布每月 30 美元的人工智能订阅后,市值增加了 1540 亿美元。').failures, []);
+  const swappedZh = regressions.evaluate(spec('zh-hans', 'market-cap-subscription'),
+    '微软在宣布每月订阅 154 美元的人工智能后,市值增加了 30 亿美元。');
+  assert(swappedZh.failures.includes('market_cap_and_subscription_numbers_swapped'));
+  const tailZh = regressions.evaluate(spec('zh-hans', 'market-cap-subscription'),
+    '微软在宣布每月订阅 AI 后增加了 154 亿美元的市值 30');
+  assert(tailZh.failures.includes('subscription_number_appended_at_tail'));
+  assert(tailZh.failures.includes('budget_wrong_magnitude'));
 });
 
 test('message quantity is not a detached number or identifier; entity and unread role remain visible', () => {

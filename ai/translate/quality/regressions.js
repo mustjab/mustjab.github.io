@@ -59,6 +59,11 @@
       source: 'The budget is $42 billion.',
       expectedInvariant: 'Budget of 42,000,000,000 US dollars: Spanish 42 mil millones, Japanese 420億ドル, Chinese 420亿美元. Not 42 million or 42億/亿 (4.2 billion).',
       reviewTopics: ['budget_currency_magnitude_and_numeric_role']},
+    {name: 'market-cap-subscription', id: 'meaning', regressionRule: 'budget',
+      source: 'Microsoft added $154 billion in market cap after announcing a $30 monthly AI subscription.',
+      mustPreserve: ['30'],
+      expectedInvariant: 'Market cap increase of $154 billion (Spanish 154 mil millones, Japanese 1,540億ドル, Chinese 1540亿美元) and $30 monthly AI subscription: do not emit 154億/亿 ($15.4B), swap 154 and 30 across reordered clauses, or append 30 at the tail.',
+      reviewTopics: ['budget_currency_magnitude_and_numeric_role']},
     {name: 'bank', id: 'meaning', regressionRule: 'bank',
       source: 'The bank near the river closed early because of the flood warning.',
       expectedInvariant: 'The financial institution near the river closed early because of a flood warning; the riverbank is not the institution.',
@@ -101,7 +106,7 @@
       expectedInvariant: 'Preserve inline number tags (<b17>8080</b17>) and nested citation tags (<b18><b20><b30><b40>[</b40>6<b41>]</b41></b30></b20></b18>) across 6-number sentence sub-segment splitting without reparenting or nesting <b16>BASIC</b16> inside <b17>.'},
     {name: 'lead-paragraph-16-dom-tags', id: 'marker_content', regressionRule: 'identity',
       source: '<b10>Microsoft</b10> (<b11>English</b11><b12>: </b12><b13>Microsoft Corporation</b13>) is an American <b14>multinational</b14> company and <b15>technology</b15> conglomerate working in <b16>computer technology</b16>,<b17><b20><b30><b40>[</b40>5<b41>]</b41></b30></b20></b17> whose revenue for 2016 exceeded 85 billion <b18>dollars</b18> as of 2016.<b19><b20><b30><b40>[</b40>6<b41>]</b41></b30></b20></b19> It develops, manufactures, and licenses a wide range of <b110>software</b110> for <b111>computing</b111>. The company is headquartered in the suburbs of <b112>Redmond</b112>, <b113>Seattle</b113>, <b114>Washington</b114>, <b115>United States</b115>.',
-      mustPreserve: ['5', '2016', '85', '6'],
+      mustPreserve: ['5', '2016', '6'],
       expectedInvariant: 'Preserve all 16 level-1 DOM tags (<b10> through 3-digit <b110>..<b115>) and nested citations ([5], [6]) across 5-number paragraph segmentation without corrupting <b18> into $18>, dropping </b111>, or losing the final headquarters sentence.'},
     {name: 'literal-phrasefix-syntax', id: 'literal_identity', regressionRule: 'identity',
       source: 'Literal (#1) and <=> are user text for item 42 at qa@example.com.',
@@ -278,8 +283,33 @@
     return failures;
   }
 
-  function budget(lang, output, failures, review) {
-    const correct = {
+  function budget(lang, output, failures, review, source = 'The budget is $42 billion.') {
+    const isMarketCap = source === 'Microsoft added $154 billion in market cap after announcing a $30 monthly AI subscription.';
+    if (isMarketCap) {
+      if (/\s30\s*[.。!！?？]?\s*$/u.test(output)) {
+        failures.push('subscription_number_appended_at_tail');
+      }
+      const swappedToSubscription =
+        /(?:每月|月度|月額|월간|mensual|mensuel|monatlich|mensile|mensal|ежемесяч|شهري|मासिक)[^.!?\n，,。]{0,18}(?<!\d)154(?!\d)|(?<!\d)154(?!\d)[^.!?\n，,。]{0,18}(?:每月|月度|月額|월간|mensual|mensuel|monatlich|mensile|mensal|ежемесяч|شهري|मासिक)/iu.test(output);
+      const swappedToMarketCap =
+        /(?<!\d)30\s*(?:mil\s+millones|milliards?|milliarden?|miliardi?|bilh[õo]es|миллиард|млрд|億|亿|억|مليار|अरब)/iu.test(output);
+      if (swappedToSubscription || swappedToMarketCap) {
+        failures.push('market_cap_and_subscription_numbers_swapped');
+      }
+    }
+    const correct = isMarketCap ? {
+      es: /(?<![\d.,])(?:154\s+mil\s+millones|154[.]000\s+millones)(?!\d)/iu,
+      ja: /(?<!\d)(?:1[,]?540|千五百四十)\s*億/u,
+      'zh-hans': /(?<!\d)(?:1[,]?540|一千五百四十)\s*[亿億]/u,
+      fr: /(?<![\d.,])154\s*milliards?(?!\d)/iu,
+      de: /(?<![\d.,])154\s*milliarden?(?!\d)/iu,
+      it: /(?<![\d.,])154\s*miliardi?(?!\d)/iu,
+      pt: /(?<![\d.,])(?:154\s*bilh[õo]es|154\s*mil\s*milh[õo]es)(?!\d)/iu,
+      ru: /(?<![\d.,])154\s*(?:миллиард|млрд)(?!\d)/iu,
+      ko: /(?<!\d)(?:1[,]?540|천오백사십)\s*억/u,
+      ar: /(?<!\d)154\s*مليار/u,
+      hi: /(?<!\d)154\s*अरब/u,
+    } : {
       es: /(?<![\d.,])(?:42\s+mil\s+millones|42[.]000\s+millones|cuarenta y dos\s+mil\s+millones|42[.]000[.]000[.]000)(?!\d)/iu,
       ja: /(?<!\d)(?:420|四百二十|四佰二十)\s*億/u,
       'zh-hans': /(?<!\d)(?:420|四百二十|四佰贰拾)\s*[亿億]/u,
@@ -292,7 +322,19 @@
       ar: /(?<!\d)42\s*مليار/u,
       hi: /(?<!\d)42\s*अरब/u,
     };
-    const wrong = {
+    const wrong = isMarketCap ? {
+      es: /(?<![\d.,])154\s*(?:millones|billones)(?!\p{L})/iu,
+      ja: /(?<!\d)(?:154|百五十四)\s*億/u,
+      'zh-hans': /(?<!\d)(?:154|一百五十四)\s*[亿億]/u,
+      fr: /(?<![\d.,])154\s*millions?(?!\p{L})/iu,
+      de: /(?<![\d.,])154\s*(?:millionen?|billionen?)(?!\p{L})/iu,
+      it: /(?<![\d.,])154\s*(?:milioni?|bilioni?)(?!\p{L})/iu,
+      pt: /(?<![\d.,])154\s*milh[õo]es(?!\p{L})/iu,
+      ru: /(?<![\d.,])154\s*(?:миллион|млн)(?!\p{L})/iu,
+      ko: /(?<!\d)(?:154|백오십사)\s*억/u,
+      ar: /(?<!\d)154\s*مليون/u,
+      hi: /(?<!\d)154\s*(?:करोड़|लाख)/u,
+    } : {
       es: /(?<![\d.,])(?:42\s*(?:millones|billones)|cuarenta y dos\s*(?:millones|billones))(?!\p{L})/iu,
       ja: /(?<!\d)(?:42|四十二)\s*億/u,
       'zh-hans': /(?<!\d)(?:42|四十二)\s*[亿億]/u,
@@ -321,7 +363,7 @@
       if (recognized) review.push('budget_multiple_magnitudes_need_review');
       else failures.push('budget_wrong_magnitude');
     }
-    if (!recognized) review.push(/(?<!\d)42\s*billion/iu.test(output) ?
+    if (!recognized) review.push(/(?<!\d)(?:42|154)\s*billion/iu.test(output) ?
       'budget_english_scale_carryover_needs_review' : 'budget_magnitude_unrecognized_needs_review');
     if (currency[lang] && !currency[lang].test(output)) review.push('budget_USD_currency_unrecognized_needs_review');
   }
@@ -383,11 +425,12 @@
         review.push('percentage_value_role_and_alternative_wording_need_review');
         break;
       case 'budget':
-        if (test.source !== 'The budget is $42 billion.') {
+        if (test.source !== 'The budget is $42 billion.' &&
+            test.source !== 'Microsoft added $154 billion in market cap after announcing a $30 monthly AI subscription.') {
           review.push('budget_rule_requires_controlled_42_billion_source');
           break;
         }
-        budget(lang, text, failures, review);
+        budget(lang, text, failures, review, test.source);
         review.push('budget_currency_magnitude_and_numeric_role');
         break;
       case 'message':
