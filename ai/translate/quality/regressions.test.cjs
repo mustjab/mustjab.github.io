@@ -134,6 +134,8 @@ test('budget binds magnitude to language scale, rejects known tenfold/million de
 
   assert.deepEqual(regressions.evaluate(spec('zh-hans', 'market-cap-subscription'),
     '微软在宣布每月 30 美元的人工智能订阅后,市值增加了 1540 亿美元。').failures, []);
+  assert.deepEqual(regressions.evaluate(spec('es', 'market-cap-subscription'),
+    'Microsoft agregó $ 154 mil millones en capitalización de mercado después de anunciar una suscripción mensual de IA de $ 30.').failures, []);
   const swappedZh = regressions.evaluate(spec('zh-hans', 'market-cap-subscription'),
     '微软在宣布每月订阅 154 美元的人工智能后,市值增加了 30 亿美元。');
   assert(swappedZh.failures.includes('market_cap_and_subscription_numbers_swapped'));

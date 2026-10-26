@@ -286,7 +286,7 @@
   function budget(lang, output, failures, review, source = 'The budget is $42 billion.') {
     const isMarketCap = source === 'Microsoft added $154 billion in market cap after announcing a $30 monthly AI subscription.';
     if (isMarketCap) {
-      if (/\s30\s*[.。!！?？]?\s*$/u.test(output)) {
+      if (/(?:[。.!！?？]|市值|時価総額|시가총액)\s*30\s*[.。!！?？]?\s*$/u.test(output)) {
         failures.push('subscription_number_appended_at_tail');
       }
       const swappedToSubscription =
