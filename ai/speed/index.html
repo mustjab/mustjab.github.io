@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Prompt API - Speed Benchmark</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../theme.css">
+  <link rel="stylesheet" href="../benchmark.css">
+  <link rel="icon" href="../../icon.png">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation"></nav>
+
+    <header>
+      <h1>Prompt API - Speed Benchmark</h1>
+      <p class="subtitle">Time to First Token (TTFT), 1K-token prefill latency, token generation TPS (10–50 &amp; 50–100), and Tool Calling latency</p>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Checking LanguageModel availability...</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="bench-top-bar">
+          <div class="bench-label-group">
+            <label for="runLabel">Current Run Label</label>
+            <input type="text" id="runLabel" placeholder="e.g. Local Build, Edge Canary, Chrome">
+          </div>
+          <div class="bench-controls">
+            <button id="bench" class="btn btn-primary">▶ Measure All</button>
+            <button id="save" class="btn btn-secondary" title="Copy TSV summary to clipboard">📋 Copy TSV</button>
+            <button id="saveBaselineBtn" class="btn btn-secondary" title="Save current metrics to selected baseline slot">💾 Save Baseline</button>
+            <select id="baselineSlot" class="slot-select" aria-label="Baseline slot">
+              <option value="canary" selected>Slot: Edge Canary</option>
+              <option value="chrome">Slot: Chrome</option>
+              <option value="custom">Slot: Custom</option>
+            </select>
+            <button id="clearBaselinesBtn" class="btn btn-secondary btn-small" title="Clear saved baselines">🗑️ Clear</button>
+          </div>
+        </div>
+
+        <!-- Hero Scorecard -->
+        <div class="score-grid">
+          <div class="score-item score-item--hero">
+            <div class="score-label">⚡ Generation Speed</div>
+            <div class="score-value"><span id="hero-tps">0</span> <span class="metric-unit">tps</span></div>
+            <div class="score-sub">Mean across 5 runs (tokens 10–100)</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Time to First Token</div>
+            <div class="score-value"><span id="hero-ttft">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">Prompt "Hi" (session + first token)</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">1K Token Prefill</div>
+            <div class="score-value"><span id="hero-prefill">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">Mean across 5 runs (~1K tokens)</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">🛠️ Tool Call Latency</div>
+            <div class="score-value"><span id="hero-tool-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">2-tool dispatch turn</div>
+          </div>
+        </div>
+
+        <div class="progress-bar-track" id="progressContainer" style="display: none;">
+          <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
+
+        <!-- Detailed Breakdown Table -->
+        <table class="metric-breakdown-table">
+          <tbody>
+            <tr>
+              <td class="metric-cell-info">
+                <h3>
+                  1. Time to First Token (TTFT)
+                  <button type="button" class="replay-btn" id="replayTtft" title="Re-run Time to First Token">↻ Replay</button>
+                </h3>
+                <p>
+                  With a short prompt <code>"Hi"</code> (~9 tokens), measures time from session creation to the first streamed token.<br>
+                  After a fresh browser start, this includes model load time; on a warm start, this reflects session creation + prefill latency.
+                </p>
+              </td>
+              <td class="metric-cell-value">
+                <span id="time-to-first-token" class="metric-big-number">0</span><span class="metric-unit">ms</span>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="metric-cell-info">
+                <h3>
+                  2. Time for Prefill 1K Tokens
+                  <button type="button" class="replay-btn" id="replayPrefill" title="Re-run 1K prefill benchmark">↻ Replay</button>
+                </h3>
+                <p>
+                  Measures time for the inference engine to prefill ~1K tokens (NASA &amp; Earley parser passages) and emit the first response token across 5 runs.
+                </p>
+                <table class="runs-mini-table">
+                  <tr>
+                    <th>Run</th>
+                    <td>1</td>
+                    <td>2</td>
+                    <td>3</td>
+                    <td>4</td>
+                    <td>5</td>
+                  </tr>
+                  <tr>
+                    <th>ms</th>
+                    <td id="1kt1">0</td>
+                    <td id="1kt2">0</td>
+                    <td id="1kt3">0</td>
+                    <td id="1kt4">0</td>
+                    <td id="1kt5">0</td>
+                  </tr>
+                </table>
+              </td>
+              <td class="metric-cell-value">
+                <span id="time-to-prefill-1k" class="metric-big-number">0</span><span class="metric-unit">ms</span>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="metric-cell-info">
+                <h3>
+                  3. Token Generation Performance (TPS)
+                  <button type="button" class="replay-btn" id="replayTps" title="Re-run token generation TPS benchmark">↻ Replay</button>
+                </h3>
+                <p>
+                  Measures decode tokens per second across 5 generation prompts.<br>
+                  Reports steady-state generation speed across chunks 10–50 and chunks 50–100 to capture KV-cache growth effects.
+                </p>
+                <table class="runs-mini-table">
+                  <tr>
+                    <th>Run</th>
+                    <td>1</td>
+                    <td>2</td>
+                    <td>3</td>
+                    <td>4</td>
+                    <td>5</td>
+                  </tr>
+                  <tr>
+                    <th>Token 10–50 tps</th>
+                    <td id="tps1-1">0</td>
+                    <td id="tps2-1">0</td>
+                    <td id="tps3-1">0</td>
+                    <td id="tps4-1">0</td>
+                    <td id="tps5-1">0</td>
+                  </tr>
+                  <tr>
+                    <th>Token 50–100 tps</th>
+                    <td id="tps1-2">0</td>
+                    <td id="tps2-2">0</td>
+                    <td id="tps3-2">0</td>
+                    <td id="tps4-2">0</td>
+                    <td id="tps5-2">0</td>
+                  </tr>
+                </table>
+                <div id="scratch-tps" class="scratch-preview">&nbsp;</div>
+              </td>
+              <td class="metric-cell-value">
+                <span id="tps-result" class="metric-big-number">0</span><span class="metric-unit">tps</span>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="metric-cell-info">
+                <h3>
+                  4. Tool Calling Latency (<code>options.tools</code>)
+                  <button type="button" class="replay-btn" id="replayTools" title="Re-run Tool Calling latency">↻ Replay</button>
+                </h3>
+                <p>
+                  Measures end-to-end turn latency when invoking <code>LanguageModel</code> with tool declarations (<code>getWeather</code> + <code>getLocalTime</code>) on a multi-tool user query.
+                </p>
+              </td>
+              <td class="metric-cell-value">
+                <span id="tool-call-ms" class="metric-big-number">0</span><span class="metric-unit">ms</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div id="baselineComparisonSection" style="display: none; margin-top: 1.25rem;">
+          <h3>Saved Baseline Comparison</h3>
+          <table class="comparison-table" id="baselineComparisonTable"></table>
+        </div>
+
+        <div style="margin-top: 1rem; font-size: 0.82rem; color: var(--text-muted);">
+          Benchmark Status: <strong id="benchmark-status">Ready</strong>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../nav.js"></script>
+  <script src="speed.js"></script>
+</body>
+
+</html>

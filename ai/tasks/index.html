@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Task APIs Playground - Summarizer, Writer, Rewriter, Proofreader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../theme.css">
+  <link rel="stylesheet" href="../benchmark.css">
+  <link rel="icon" href="../../icon.png">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation"></nav>
+
+    <header>
+      <h1>Task APIs Playground</h1>
+      <p class="subtitle">Interactive workspace for built-in <code>Summarizer</code>, <code>Writer</code>, <code>Rewriter</code>, and <code>Proofreader</code> APIs</p>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Checking Task APIs availability...</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="bench-top-bar">
+          <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end;">
+            <div class="bench-label-group">
+              <label for="taskSelector">Select Task API</label>
+              <select id="taskSelector">
+                <option value="summarizer" selected>📝 Summarizer API</option>
+                <option value="writer">✍️ Writer API</option>
+                <option value="rewriter">✨ Rewriter API</option>
+                <option value="proofreader">✅ Proofreader API</option>
+              </select>
+            </div>
+            <div class="bench-label-group" id="optGroup1">
+              <label for="opt1" id="opt1Label">Type</label>
+              <select id="opt1">
+                <option value="key-points" selected>key-points</option>
+                <option value="tldr">tldr</option>
+                <option value="teaser">teaser</option>
+                <option value="headline">headline</option>
+              </select>
+            </div>
+            <div class="bench-label-group" id="optGroup2">
+              <label for="opt2" id="opt2Label">Length</label>
+              <select id="opt2">
+                <option value="short">short</option>
+                <option value="medium" selected>medium</option>
+                <option value="long">long</option>
+              </select>
+            </div>
+            <div class="bench-label-group" id="optGroup3">
+              <label for="opt3" id="opt3Label">Format</label>
+              <select id="opt3">
+                <option value="markdown" selected>markdown</option>
+                <option value="plain-text">plain-text</option>
+              </select>
+            </div>
+          </div>
+          <div class="bench-controls">
+            <label style="font-size: 0.84rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+              <input type="checkbox" id="useStreaming" checked> Stream output
+            </label>
+            <button id="processBtn" class="btn btn-primary">▶ Run Task</button>
+            <button id="clearBtn" class="btn btn-secondary btn-small">Clear</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 0.85rem;">
+          <label for="inputText" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Input Text / Prompt</label>
+          <textarea id="inputText" rows="7" style="width: 100%; padding: 0.7rem;">The moon landing on July 20, 1969, was a monumental event that left an indelible mark on human history. When Neil Armstrong took his first steps on the lunar surface and uttered the famous words, "That's one small step for man, one giant leap for mankind," it symbolized a pinnacle of human achievement and ingenuity.
+
+The Apollo program spurred significant technological advancements in computing, telecommunications, and materials science. Broadcast globally to an estimated 600 million viewers, the mission provided invaluable lunar samples and demonstrated what humanity could achieve when working toward a shared scientific goal.</textarea>
+        </div>
+
+        <div class="score-grid">
+          <div class="score-item score-item--hero">
+            <div class="score-label">⚡ Throughput</div>
+            <div class="score-value"><span id="statCps">0</span> <span class="metric-unit">chars/s</span></div>
+            <div class="score-sub">End-to-end generation rate</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">First Chunk (TTFT)</div>
+            <div class="score-value"><span id="statTtft">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">Session + prefill latency</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Total Time</div>
+            <div class="score-value"><span id="statTotalMs">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">Complete task execution</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Output Length</div>
+            <div class="score-value"><span id="statChars">0</span> <span class="metric-unit">chars</span></div>
+            <div class="score-sub">Generated output size</div>
+          </div>
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem;">Task Output</label>
+          <pre id="outputContent" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; min-height: 140px; white-space: pre-wrap; font-family: inherit; font-size: 0.9rem;">Output will appear here...</pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../nav.js"></script>
+  <script src="script.js"></script>
+</body>
+
+</html>

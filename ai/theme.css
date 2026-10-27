@@ -131,10 +131,49 @@ body {
   border-color: color-mix(in oklab, var(--primary-color) 40%, var(--border));
 }
 
-.demo-nav a[aria-current="page"] {
+.demo-nav a[aria-current="page"],
+.demo-nav a.is-active {
   background: color-mix(in oklab, var(--primary-color) 14%, var(--background));
   border-color: color-mix(in oklab, var(--primary-color) 55%, var(--border));
   color: var(--primary-color);
+}
+
+.demo-nav.demo-nav-2tier {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.demo-nav-primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.demo-nav-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding-top: 0.42rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.demo-nav-sub-label {
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-right: 0.25rem;
+}
+
+.demo-nav .nav-mode-tab {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
 }
 
 /* Neutralize per-page white/shadowed headers — professional look */

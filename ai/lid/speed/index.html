@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Language Detection API - Speed Benchmark</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../theme.css">
+  <link rel="stylesheet" href="../../benchmark.css">
+  <link rel="icon" href="../../../icon.png">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation"></nav>
+
+    <header>
+      <h1>Language Detection API - Speed Benchmark</h1>
+      <p class="subtitle">Measure LanguageDetector initialization, short-string batch throughput, and paragraph/document latency</p>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Checking LanguageDetector availability...</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="bench-top-bar">
+          <div class="bench-label-group">
+            <label for="runLabel">Current Run Label</label>
+            <input type="text" id="runLabel" placeholder="e.g. CLD3 / Edge Canary">
+          </div>
+          <div class="bench-controls">
+            <button id="measureAllBtn" class="btn btn-primary">▶ Measure All</button>
+            <button id="copyTsvBtn" class="btn btn-secondary">📋 Copy TSV</button>
+            <button id="saveBaselineBtn" class="btn btn-secondary">💾 Save Baseline</button>
+            <select id="baselineSlot" class="slot-select">
+              <option value="canary" selected>Slot: Edge Canary</option>
+              <option value="chrome">Slot: Chrome</option>
+              <option value="custom">Slot: Custom</option>
+            </select>
+            <button id="clearBaselinesBtn" class="btn btn-secondary btn-small">🗑️ Clear</button>
+          </div>
+        </div>
+
+        <div class="score-grid">
+          <div class="score-item score-item--hero">
+            <div class="score-label">⚡ Batch Throughput</div>
+            <div class="score-value"><span id="hero-qps">0</span> <span class="metric-unit">det/s</span></div>
+            <div class="score-sub">15 multilingual sentences</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Create Latency</div>
+            <div class="score-value"><span id="hero-create-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">Warm create()</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Paragraph Latency</div>
+            <div class="score-value"><span id="hero-para-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">~300 chars (mean of 5)</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Long Document</div>
+            <div class="score-value"><span id="hero-doc-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">~2,500 chars (mean of 5)</div>
+          </div>
+        </div>
+
+        <table class="metric-breakdown-table">
+          <tbody>
+            <tr>
+              <td class="metric-cell-info">
+                <h3>1. Detector Creation Latency (<code>LanguageDetector.create()</code>)
+                  <button type="button" class="replay-btn" id="replayCreate">↻ Replay</button>
+                </h3>
+                <p>Measures <code>LanguageDetector.create()</code> across 5 consecutive sessions.</p>
+                <table class="runs-mini-table">
+                  <tr><th>Run</th><td>1 (Cold)</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
+                  <tr><th>ms</th><td id="create-1">0</td><td id="create-2">0</td><td id="create-3">0</td><td id="create-4">0</td><td id="create-5">0</td></tr>
+                </table>
+              </td>
+              <td class="metric-cell-value">
+                <span id="create-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="metric-cell-info">
+                <h3>2. 15-Language Short Sentence Batch Throughput
+                  <button type="button" class="replay-btn" id="replayBatch">↻ Replay</button>
+                </h3>
+                <p>Runs 15 short sentences across distinct scripts (Latin, Cyrillic, CJK, Arabic, Hangul) and computes detections/sec.</p>
+                <table class="runs-mini-table">
+                  <tr><th>Batch</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
+                  <tr><th>det/s</th><td id="batch-1">0</td><td id="batch-2">0</td><td id="batch-3">0</td><td id="batch-4">0</td><td id="batch-5">0</td></tr>
+                </table>
+              </td>
+              <td class="metric-cell-value">
+                <span id="batch-mean" class="metric-big-number">0</span><span class="metric-unit">det/s</span>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="metric-cell-info">
+                <h3>3. Medium Paragraph Detection (~300 chars)
+                  <button type="button" class="replay-btn" id="replayPara">↻ Replay</button>
+                </h3>
+                <p>Measures single-call <code>detector.detect()</code> latency on a 300-character paragraph across 5 runs.</p>
+                <table class="runs-mini-table">
+                  <tr><th>Run</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
+                  <tr><th>ms</th><td id="para-1">0</td><td id="para-2">0</td><td id="para-3">0</td><td id="para-4">0</td><td id="para-5">0</td></tr>
+                </table>
+              </td>
+              <td class="metric-cell-value">
+                <span id="para-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="metric-cell-info">
+                <h3>4. Long Document Detection (~2,500 chars)
+                  <button type="button" class="replay-btn" id="replayDoc">↻ Replay</button>
+                </h3>
+                <p>Measures single-call <code>detector.detect()</code> latency on a ~2,500-character multi-paragraph article across 5 runs.</p>
+                <table class="runs-mini-table">
+                  <tr><th>Run</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
+                  <tr><th>ms</th><td id="doc-1">0</td><td id="doc-2">0</td><td id="doc-3">0</td><td id="doc-4">0</td><td id="doc-5">0</td></tr>
+                </table>
+              </td>
+              <td class="metric-cell-value">
+                <span id="doc-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div id="baselineComparisonSection" style="display: none; margin-top: 1.25rem;">
+          <h3>Saved Baseline Comparison</h3>
+          <table class="comparison-table" id="baselineComparisonTable"></table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../../nav.js"></script>
+  <script src="speed.js"></script>
+</body>
+
+</html>

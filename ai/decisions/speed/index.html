@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Decisions API - Speed Benchmark</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../theme.css">
+  <link rel="stylesheet" href="../../benchmark.css">
+  <link rel="icon" href="../../../icon.png">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation"></nav>
+
+    <header>
+      <h1>Decisions API - Speed Benchmark</h1>
+      <p class="subtitle">Boolean decision latency, 4-option choice throughput (options/sec), and multi-question rubric scoring with prefill caching</p>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Checking DecisionModel availability...</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="bench-top-bar">
+          <div class="bench-label-group">
+            <label for="runLabel">Current Run Label</label>
+            <input type="text" id="runLabel" placeholder="e.g. Prefill Cache On, Edge Canary">
+          </div>
+          <div class="bench-controls">
+            <button id="measureAllBtn" class="btn btn-primary">▶ Measure All</button>
+            <button id="copyTsvBtn" class="btn btn-secondary">📋 Copy TSV</button>
+            <button id="saveBaselineBtn" class="btn btn-secondary">💾 Save Baseline</button>
+            <select id="baselineSlot" class="slot-select">
+              <option value="canary" selected>Slot: Edge Canary</option>
+              <option value="chrome">Slot: Chrome</option>
+              <option value="custom">Slot: Custom</option>
+            </select>
+            <button id="clearBaselinesBtn" class="btn btn-secondary btn-small">🗑️ Clear</button>
+          </div>
+        </div>
+
+        <div class="score-grid">
+          <div class="score-item score-item--hero">
+            <div class="score-label">⚡ Option Throughput</div>
+            <div class="score-value"><span id="hero-ops">0</span> <span class="metric-unit">opts/s</span></div>
+            <div class="score-sub">Multi-question rubric (11 options)</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Boolean Decision</div>
+            <div class="score-value"><span id="hero-bool-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">Mean across 5 runs</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">4-Option Choice</div>
+            <div class="score-value"><span id="hero-choice-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">Mean across 5 runs</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Full 3-Question Rubric</div>
+            <div class="score-value"><span id="hero-rubric-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">Boolean + Choice(4) + Score(5)</div>
+          </div>
+        </div>
+
+        <table class="metric-breakdown-table">
+          <tbody>
+            <tr>
+              <td class="metric-cell-info">
+                <h3>1. Boolean Decision Latency (2 options)
+                  <button type="button" class="replay-btn" id="replayBool">↻ Replay</button>
+                </h3>
+                <p>Measures <code>model.decide()</code> latency for a single boolean question across 5 runs on a warm session.</p>
+                <table class="runs-mini-table">
+                  <tr><th>Run</th><td>1 (Cold)</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
+                  <tr><th>ms</th><td id="bool-1">0</td><td id="bool-2">0</td><td id="bool-3">0</td><td id="bool-4">0</td><td id="bool-5">0</td></tr>
+                </table>
+              </td>
+              <td class="metric-cell-value">
+                <span id="bool-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="metric-cell-info">
+                <h3>2. Multi-Option Choice Scoring (4 options)
+                  <button type="button" class="replay-btn" id="replayChoice">↻ Replay</button>
+                </h3>
+                <p>Measures 4-way choice classification latency across 5 runs (tests shared-prefix prefill cache reuse across option clones).</p>
+                <table class="runs-mini-table">
+                  <tr><th>Run</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
+                  <tr><th>ms</th><td id="choice-1">0</td><td id="choice-2">0</td><td id="choice-3">0</td><td id="choice-4">0</td><td id="choice-5">0</td></tr>
+                </table>
+              </td>
+              <td class="metric-cell-value">
+                <span id="choice-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="metric-cell-info">
+                <h3>3. Full 3-Question Triage Rubric (11 options total)
+                  <button type="button" class="replay-btn" id="replayRubric">↻ Replay</button>
+                </h3>
+                <p>Runs a 3-question rubric (<code>boolean</code> + 4-way <code>choice</code> + 5-level <code>score</code>) across 5 runs and computes options/sec throughput.</p>
+                <table class="runs-mini-table">
+                  <tr><th>Run</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
+                  <tr><th>ms</th><td id="rubric-1">0</td><td id="rubric-2">0</td><td id="rubric-3">0</td><td id="rubric-4">0</td><td id="rubric-5">0</td></tr>
+                </table>
+              </td>
+              <td class="metric-cell-value">
+                <span id="rubric-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div id="baselineComparisonSection" style="display: none; margin-top: 1.25rem;">
+          <h3>Saved Baseline Comparison</h3>
+          <table class="comparison-table" id="baselineComparisonTable"></table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../../nav.js"></script>
+  <script src="speed.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Decisions API - Quality Benchmark</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../theme.css">
+  <link rel="stylesheet" href="../../benchmark.css">
+  <link rel="icon" href="../../../icon.png">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation"></nav>
+
+    <header>
+      <h1>Decisions API - Quality Benchmark</h1>
+      <p class="subtitle">Boolean accuracy, multi-class choice accuracy, option-order invariance, and expected-score monotonicity</p>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Checking DecisionModel availability...</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="bench-top-bar">
+          <div class="bench-label-group">
+            <label for="runLabel">Current Run Label</label>
+            <input type="text" id="runLabel" placeholder="e.g. Aion 1.1 Decisions, Edge Canary">
+          </div>
+          <div class="bench-controls">
+            <button id="startBtn" class="btn btn-primary">▶ Run Quality Suite (12 cases)</button>
+            <button id="copyBtn" class="btn btn-secondary" disabled>📋 Copy Summary</button>
+            <button id="clearBtn" class="btn btn-secondary btn-small">🗑️ Clear</button>
+          </div>
+        </div>
+
+        <div class="score-grid">
+          <div class="score-item score-item--hero">
+            <div class="score-label">🏆 Checks Clear</div>
+            <div class="score-value"><span id="totalPass">0</span> / <span id="totalCount">12</span></div>
+            <div class="score-sub">Pass rate: <span id="passRate">0</span>%</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Boolean Accuracy</div>
+            <div class="score-value" id="boolScore">—</div>
+            <div class="score-sub">True / False classification</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Choice Accuracy</div>
+            <div class="score-value" id="choiceScore">—</div>
+            <div class="score-sub">Multi-class label match</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Order &amp; Calibration</div>
+            <div class="score-value" id="invarianceScore">—</div>
+            <div class="score-sub">Option-order invariance &amp; score</div>
+          </div>
+        </div>
+
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
+
+        <div id="caseResultsList" class="quality-case-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../../nav.js"></script>
+  <script src="quality.js"></script>
+</body>
+
+</html>

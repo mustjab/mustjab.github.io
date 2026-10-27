@@ -268,11 +268,74 @@ body {
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.demo-link:hover {
+.demo-link:hover,
+.demo-links a:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
   background: var(--primary-subtle);
   border-color: color-mix(in oklab, var(--primary-color) 40%, var(--border));
+}
+
+.demo-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.32rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.demo-links a[aria-current="page"],
+.demo-links a.is-active {
+  background: color-mix(in oklab, var(--primary-color) 14%, var(--background));
+  border-color: color-mix(in oklab, var(--primary-color) 55%, var(--border));
+  color: var(--primary-color);
+}
+
+.demo-links.demo-nav-2tier {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.demo-links .demo-nav-primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.demo-links .demo-nav-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding-top: 0.42rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.demo-links .demo-nav-sub-label {
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-right: 0.25rem;
+}
+
+.demo-links .nav-mode-tab {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+}
 }
 
 .demo-link[aria-current="page"] {

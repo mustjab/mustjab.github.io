@@ -1,0 +1,238 @@
+// Task APIs Quality Benchmark (Summarizer, Writer, Rewriter, Proofreader)
+(function () {
+  'use strict';
+
+  const CASES = [
+    {
+      id: 'summarizer:key-facts-apollo',
+      task: 'summarizer',
+      options: { type: 'key-points', length: 'short', format: 'markdown' },
+      input: `The Apollo 11 mission landed on the Moon on July 20, 1969. Commander Neil Armstrong and Lunar Module Pilot Buzz Aldrin walked on the lunar surface while Michael Collins orbited above in the Command Module Columbia. An estimated 650 million people watched the televised broadcast worldwide.`,
+      check(out) {
+        const hasApolloOrMoon = /apollo|moon|lunar/i.test(out);
+        const hasYearOrArmstrong = /1969|armstrong/i.test(out);
+        return {
+          pass: hasApolloOrMoon && hasYearOrArmstrong && out.length < 600,
+          detail: `Length=${out.length} chars, key facts=${hasApolloOrMoon && hasYearOrArmstrong}`,
+        };
+      },
+    },
+    {
+      id: 'summarizer:headline-brevity',
+      task: 'summarizer',
+      options: { type: 'headline', length: 'short', format: 'plain-text' },
+      input: `Microsoft Edge 158 introduces on-device neural phrase-fix recovery and dynamic 4-row batching for local translation, cutting latency by 35% while preserving URLs and numeric scales across 18 language packs.`,
+      check(out) {
+        const lines = out.trim().split(/\r?\n/).filter(Boolean);
+        const pass = lines.length <= 2 && out.trim().length > 10 && out.trim().length <= 180;
+        return { pass, detail: `Headline lines=${lines.length}, chars=${out.trim().length}` };
+      },
+    },
+    {
+      id: 'summarizer:numeric-budget-retention',
+      task: 'summarizer',
+      options: { type: 'tldr', length: 'short', format: 'plain-text' },
+      input: `In Q3 2026, Acme Cloud reduced server operating expenses by $42 million after migrating 12,500 customer workspaces to its new ARM64 cluster in Dublin.`,
+      check(out) {
+        const pass = /42|12[,]?500|dublin|acme/i.test(out);
+        return { pass, detail: pass ? 'Retained core quantitative/named entities' : 'Dropped key numbers/entities' };
+      },
+    },
+    {
+      id: 'summarizer:url-email-preservation',
+      task: 'summarizer',
+      options: { type: 'tldr', length: 'medium', format: 'plain-text' },
+      input: `All developers migrating to the v2.8 SDK must update their endpoint to https://api.example.com/v2 and report any breaking changes to sdk-support@example.com before Friday.`,
+      check(out) {
+        const pass = /example\.com|v2|friday/i.test(out);
+        return { pass, detail: pass ? 'Preserved migration domain/deadline context' : 'Missing domain/deadline' };
+      },
+    },
+    {
+      id: 'rewriter:shorter-compression',
+      task: 'rewriter',
+      options: { tone: 'as-is', length: 'shorter', format: 'plain-text' },
+      input: `Due to the fact that our scheduled database maintenance window is going to take place at 2:00 AM UTC tomorrow morning, all active user sessions will be temporarily disconnected for a period of approximately fifteen minutes while the primary replica is upgraded.`,
+      check(out) {
+        const pass = out.trim().length > 15 && out.trim().length < 235 && /2:00|15|fifteen|maintenance|database/i.test(out);
+        return { pass, detail: `Compressed from 259 chars to ${out.trim().length} chars` };
+      },
+    },
+    {
+      id: 'rewriter:formal-entity-preservation',
+      task: 'rewriter',
+      options: { tone: 'more-formal', length: 'as-is', format: 'plain-text' },
+      input: `Hey folks, we just shipped v2.8.15 to fix bug #64782008! Ping qa@example.com if anything looks broken.`,
+      check(out) {
+        const pass = /2\.8\.15/.test(out) && /64782008/.test(out) && /qa@example\.com/i.test(out);
+        return { pass, detail: pass ? 'Preserved v2.8.15, #64782008, and qa@example.com' : 'Lost version, bug ID, or email during rewrite' };
+      },
+    },
+    {
+      id: 'writer:release-note-draft',
+      task: 'writer',
+      options: { tone: 'formal', length: 'short', format: 'plain-text' },
+      input: `Write a one-paragraph release note announcing WebGPU KV-cache quantization in Edge 158.`,
+      check(out) {
+        const pass = out.trim().length >= 40 && /webgpu|kv|quantiz|edge/i.test(out);
+        return { pass, detail: `Generated ${out.trim().length} chars referencing target topic` };
+      },
+    },
+    {
+      id: 'writer:structured-checklist',
+      task: 'writer',
+      options: { tone: 'neutral', length: 'short', format: 'markdown' },
+      input: `Write a short 3-item deployment checklist for an on-device AI model update.`,
+      check(out) {
+        const pass = out.trim().length >= 30 && /[-*1-3]/.test(out);
+        return { pass, detail: `Generated checklist (${out.trim().length} chars)` };
+      },
+    },
+    {
+      id: 'proofreader:spelling-anounce-becuase',
+      task: 'proofreader',
+      options: {},
+      input: `We are thrilled to anounce that our team has acheived a 35% reduction in latency becuase of the new cache.`,
+      check(out) {
+        const pass = /\bannounce\b/i.test(out) && /\bachieved\b/i.test(out) && /\bbecause\b/i.test(out) && /35%/.test(out);
+        return { pass, detail: pass ? 'Corrected anounce -> announce, acheived -> achieved, becuase -> because' : `Remaining typos in: ${out}` };
+      },
+    },
+    {
+      id: 'proofreader:preserve-url-and-version',
+      task: 'proofreader',
+      options: {},
+      input: `Please downloaded version 2.8.15 from https://example.com/docs?id=676 and contact qa@example.com.`,
+      check(out) {
+        const pass = /2\.8\.15/.test(out) && /https:\/\/example\.com\/docs\?id=676/.test(out) && /qa@example\.com/.test(out);
+        return { pass, detail: pass ? 'Preserved URL, query string, version, and email intact' : `Corrupted entities: ${out}` };
+      },
+    },
+    {
+      id: 'proofreader:clean-sentence-passthrough',
+      task: 'proofreader',
+      options: {},
+      input: `The translation service completed all 29 regression tests without any errors.`,
+      check(out) {
+        const pass = /29/.test(out) && /translation/i.test(out) && /regression/i.test(out);
+        return { pass, detail: `Clean input preserved: ${out}` };
+      },
+    },
+    {
+      id: 'proofreader:grammar-subject-verb',
+      task: 'proofreader',
+      options: {},
+      input: `The list of required dependencies are missing from the configuration file.`,
+      check(out) {
+        const pass = /dependencies/i.test(out) && /configuration/i.test(out);
+        return { pass, detail: `Output: ${out}` };
+      },
+    },
+  ];
+
+  function getApi(name) {
+    if (name === 'summarizer') return window.Summarizer || window.ai?.summarizer || null;
+    if (name === 'writer') return window.Writer || window.ai?.writer || null;
+    if (name === 'rewriter') return window.Rewriter || window.ai?.rewriter || null;
+    if (name === 'proofreader') return window.Proofreader || window.ai?.proofreader || null;
+    return null;
+  }
+
+  async function runSingleCase(spec) {
+    const api = getApi(spec.task);
+    if (!api) {
+      return {
+        ...spec,
+        output: `${spec.task} API unavailable in this browser`,
+        pass: false,
+        detail: 'API unavailable',
+      };
+    }
+    const inst = await api.create(spec.options || {});
+    let out = '';
+    try {
+      if (spec.task === 'proofreader') {
+        const r = await inst.proofread(spec.input);
+        out = typeof r === 'string' ? r : (r?.correctedInput || r?.corrected || JSON.stringify(r));
+      } else {
+        const method = spec.task === 'summarizer' ? 'summarize' : spec.task === 'writer' ? 'write' : 'rewrite';
+        out = String(await inst[method](spec.input)).trim();
+      }
+    } finally {
+      if (typeof inst.destroy === 'function') inst.destroy();
+    }
+    const res = spec.check(out);
+    return { ...spec, output: out, pass: res.pass, detail: res.detail };
+  }
+
+  function renderCard(res) {
+    const list = document.getElementById('caseResultsList');
+    const div = document.createElement('div');
+    div.className = `quality-case-card ${res.pass ? 'pass' : 'fail'}`;
+    div.innerHTML = `
+      <div class="quality-case-header">
+        <span><code>${res.id}</code> (${res.task})</span>
+        <span class="badge ${res.pass ? 'badge-pass' : 'badge-fail'}">${res.pass ? 'PASS' : 'FAIL'}</span>
+      </div>
+      <div style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.25rem;">
+        <strong>Input:</strong> ${res.input}
+      </div>
+      <div style="font-size: 0.82rem; font-family: ui-monospace, monospace; margin-bottom: 0.2rem;">
+        <strong>Output:</strong> ${res.output}
+      </div>
+      <div style="font-size: 0.78rem; color: var(--text-muted);">${res.detail}</div>
+    `;
+    list.appendChild(div);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const anyAvailable = ['summarizer', 'writer', 'rewriter', 'proofreader'].some(k => Boolean(getApi(k)));
+    document.getElementById('statusIndicator').className = 'status-indicator ' + (anyAvailable ? 'available' : 'unavailable');
+    document.getElementById('statusText').textContent = anyAvailable ? 'Task APIs Detected' : 'Task APIs Not Detected';
+
+    document.getElementById('startBtn').addEventListener('click', async () => {
+      document.getElementById('caseResultsList').innerHTML = '';
+      let passCount = 0;
+      let sumPass = 0, sumTot = 0;
+      let wrPass = 0, wrTot = 0;
+      let prfPass = 0, prfTot = 0;
+
+      for (let i = 0; i < CASES.length; i++) {
+        let res;
+        try {
+          res = await runSingleCase(CASES[i]);
+        } catch (e) {
+          res = { ...CASES[i], output: `Error: ${e.message}`, pass: false, detail: 'Execution error' };
+        }
+        if (res.pass) passCount++;
+        if (res.task === 'summarizer') { sumTot++; if (res.pass) sumPass++; }
+        else if (res.task === 'proofreader') { prfTot++; if (res.pass) prfPass++; }
+        else { wrTot++; if (res.pass) wrPass++; }
+
+        document.getElementById('totalPass').textContent = String(passCount);
+        document.getElementById('totalCount').textContent = String(i + 1);
+        document.getElementById('passRate').textContent = ((passCount / (i + 1)) * 100).toFixed(1);
+        document.getElementById('sumScore').textContent = sumTot ? `${sumPass} / ${sumTot}` : '—';
+        document.getElementById('wrtRewScore').textContent = wrTot ? `${wrPass} / ${wrTot}` : '—';
+        document.getElementById('prfScore').textContent = prfTot ? `${prfPass} / ${prfTot}` : '—';
+        document.getElementById('progressBar').style.width = `${((i + 1) / CASES.length) * 100}%`;
+        renderCard(res);
+      }
+      document.getElementById('copyBtn').disabled = false;
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      document.getElementById('caseResultsList').innerHTML = '';
+      document.getElementById('totalPass').textContent = '0';
+      document.getElementById('passRate').textContent = '0';
+      document.getElementById('progressBar').style.width = '0%';
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', () => {
+      const label = document.getElementById('runLabel').value.trim() || 'Task APIs Quality';
+      const p = document.getElementById('totalPass').textContent;
+      const t = document.getElementById('totalCount').textContent;
+      navigator.clipboard.writeText(`${label}\t${p}/${t}\tSum:${document.getElementById('sumScore').textContent}\tWrtRew:${document.getElementById('wrtRewScore').textContent}\tPrf:${document.getElementById('prfScore').textContent}`);
+    });
+  });
+})();

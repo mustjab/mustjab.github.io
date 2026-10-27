@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Prompt API - Quality Benchmark</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../theme.css">
+  <link rel="stylesheet" href="../benchmark.css">
+  <link rel="icon" href="../../icon.png">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation"></nav>
+
+    <header>
+      <h1>Prompt API - Quality Benchmark</h1>
+      <p class="subtitle">MMLU multiple-choice accuracy, Tool Calling correctness, and JSON schema / instruction adherence</p>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Checking LanguageModel availability...</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="bench-top-bar">
+          <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+            <div class="bench-label-group">
+              <label for="suiteSelect">Benchmark Suite</label>
+              <select id="suiteSelect">
+                <option value="all" selected>Full Suite (MMLU + Tool Calling + Constraints — 25 cases)</option>
+                <option value="mmlu">MMLU Multiple-Choice Subset (15 questions)</option>
+                <option value="tools">Tool Calling &amp; Structured Output (10 cases)</option>
+              </select>
+            </div>
+            <div class="bench-label-group">
+              <label for="runLabel">Current Run Label</label>
+              <input type="text" id="runLabel" placeholder="e.g. Aion 1.1, Edge Canary, Chrome">
+            </div>
+          </div>
+
+          <div class="bench-controls">
+            <button id="startTest" class="btn btn-primary">▶ Start Benchmark</button>
+            <button id="stopTest" class="btn btn-secondary" disabled>⏹ Stop</button>
+            <button id="copyBtn" class="btn btn-secondary" disabled>📋 Copy Summary</button>
+            <button id="clearResults" class="btn btn-secondary btn-small">🗑️ Clear</button>
+          </div>
+        </div>
+
+        <!-- Hero Scorecard -->
+        <div class="score-grid">
+          <div class="score-item score-item--hero">
+            <div class="score-label">🏆 Overall Score (%)</div>
+            <div class="score-value"><span id="scorePercent">0</span>%</div>
+            <div class="score-sub"><span id="correctCount">0</span> / <span id="questionCount">0</span> passed</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">MMLU Accuracy</div>
+            <div class="score-value" id="mmluScore">—</div>
+            <div class="score-sub">Single-letter multiple-choice</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">🛠️ Tool &amp; Constraint Pass</div>
+            <div class="score-value" id="toolsScore">—</div>
+            <div class="score-sub">Tool selection + JSON schema</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Invalid Format / Errors</div>
+            <div class="score-value" id="nonLetterCount">0</div>
+            <div class="score-sub">Non-letter MMLU or malformed JSON</div>
+          </div>
+        </div>
+
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
+
+        <div id="caseResultsList" class="quality-case-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../nav.js"></script>
+  <script src="quality.js"></script>
+</body>
+
+</html>
