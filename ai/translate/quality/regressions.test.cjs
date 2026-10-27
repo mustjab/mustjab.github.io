@@ -19,7 +19,7 @@ test('UMD exposes version1 and identical stable twenty-five-case multilingual pu
   const ids = regressions.getCases('es').map(row => row.caseId);
   for (const target of ['es', 'ja', 'zh-hans']) {
     const cases = regressions.getCases(target);
-    assert.equal(cases.length, 29);
+    assert.equal(cases.length, 34);
     assert.deepEqual(cases.map(row => row.caseId), ids);
     assert(cases.every(row => row.sourceLanguage === 'en' && row.lang === target &&
       regressions.rules.includes(row.regressionRule) && row.expectedInvariant));
@@ -32,13 +32,18 @@ test('UMD exposes version1 and identical stable twenty-five-case multilingual pu
     assert.ok(spec(target, 'lead-paragraph-16-dom-tags').source.includes('<b111>computing</b111>'));
     assert.deepEqual(spec(target, 'literal-phrasefix-syntax').mustPreserve, ['42', 'qa@example.com']);
     assert.deepEqual(spec(target, 'batch-padding-acropora').mustNotContain, ['Acropura']);
+    assert.deepEqual(spec(target, 'time-am-pm-conversion').mustNotContain, ['16:4:05', '9 9']);
+    assert.deepEqual(spec(target, 'month-day-year-order').mustNotContain, ['5 月 2017 日', '5月2017日', '19 年 4 月', '19年4月']);
+    assert.ok(spec(target, 'decimal-million-billion').mustNotContain.includes('4.1 万'));
+    assert.deepEqual(spec(target, 'bare-and-negative-number').mustNotContain, ['1684年', '1684 年', '△22']);
+    assert.deepEqual(spec(target, 'dotnet-version-modifier').mustNotContain, ['Icono 8 de ASP.NET', 'Ícono 8 de ASP.NET']);
     assert.deepEqual(cases.slice(-3).map(row => row.exactTokens[0]), ['Б', 'Ԁ', 'É']);
   }
   const altered = regressions.getCases('es');
   altered.find(item => item.caseId === 'focused:opaque').exactTokens[0] = 'mutated';
   assert.equal(spec('es', 'opaque').exactTokens[0], 'support@example.com');
-  assert.equal(regressions.getCases('fr').length, 29);
-  assert.equal(regressions.getCases('zh-hant').length, 29);
+  assert.equal(regressions.getCases('fr').length, 34);
+  assert.equal(regressions.getCases('zh-hant').length, 34);
   assert.throws(() => regressions.getCases('en'), /Unsupported/);
   assert.throws(() => regressions.evaluate({regressionRule: 'guess', lang: 'es'}, 'output'), /Unknown/);
   assert.throws(() => regressions.evaluate({regressionRule: 'budget', lang: 'en'}, 'output'), /Unsupported/);
@@ -80,12 +85,12 @@ test('departments require every numbered Monday-arrival association once and fin
 
 test('long-passage keywords are development flags, never human semantic verdicts', () => {
   const row = spec('es', 'passages');
-  const text = 'Atención y transformer. Tablas de alineación. Aplicaciones prácticas. Empresas internacionales.';
+  const text = 'Atención y transformer. Tablas de alineación. Aplicaciones prácticas. Empresas internacionales. Turismo y hospitalidad. Instituciones financieras.';
   const result = regressions.evaluate(row, text);
   assert.deepEqual(result.failures, []);
   assert(result.review.includes('full_passage_semantics_and_synonyms_need_review'));
   assert.equal('humanVerdict' in result, false);
-  assert.equal(regressions.evaluate(row, 'Atención y transformer.').failures.length, 3);
+  assert.equal(regressions.evaluate(row, 'Atención y transformer.').failures.length, 5);
 });
 
 test('discount versus percentage-of-price and 50-percent negation retain meaning flags', () => {
