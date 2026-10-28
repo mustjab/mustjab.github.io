@@ -213,6 +213,7 @@ Pse`;
       'Write me a poem about web browsers.',
     ];
     const scratch = document.getElementById('scratch-tps');
+    if (scratch) scratch.style.display = 'block';
     let d1 = 0;
     let d2 = 0;
     for (let i = 0; i < prompts.length; i++) {
@@ -224,7 +225,10 @@ Pse`;
     const meanTps = ((d1 + d2) / (prompts.length * 2)).toFixed(2);
     document.getElementById('tps-result').textContent = meanTps;
     document.getElementById('hero-tps').textContent = meanTps;
-    if (scratch) scratch.textContent = 'Completed 5 generation runs.';
+    if (scratch) {
+      scratch.textContent = '';
+      scratch.style.display = 'none';
+    }
     return Number(meanTps);
   }
 

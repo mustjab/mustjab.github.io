@@ -44,94 +44,72 @@
 
         <div class="score-grid">
           <div class="score-item score-item--hero">
-            <div class="score-label">📝 Summarizer Speed</div>
-            <div class="score-value"><span id="hero-sum-cps">0</span> <span class="metric-unit">ch/s</span></div>
+            <div class="score-label">
+              <span>📝 Summarizer Speed</span>
+              <button type="button" class="replay-btn" data-replay="summarizer" title="Re-run Summarizer">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-sum-cps">0</span> <span class="metric-unit">ch/s</span><span id="sum-mean-cps" hidden>0</span></div>
             <div class="score-sub">TTFT: <span id="hero-sum-ttft">0</span> ms</div>
           </div>
           <div class="score-item">
-            <div class="score-label">✍️ Writer Speed</div>
-            <div class="score-value"><span id="hero-writer-cps">0</span> <span class="metric-unit">ch/s</span></div>
+            <div class="score-label">
+              <span>✍️ Writer Speed</span>
+              <button type="button" class="replay-btn" data-replay="writer" title="Re-run Writer">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-writer-cps">0</span> <span class="metric-unit">ch/s</span><span id="wrt-mean-cps" hidden>0</span></div>
             <div class="score-sub">TTFT: <span id="hero-writer-ttft">0</span> ms</div>
           </div>
           <div class="score-item">
-            <div class="score-label">✨ Rewriter Speed</div>
-            <div class="score-value"><span id="hero-rewriter-cps">0</span> <span class="metric-unit">ch/s</span></div>
+            <div class="score-label">
+              <span>✨ Rewriter Speed</span>
+              <button type="button" class="replay-btn" data-replay="rewriter" title="Re-run Rewriter">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-rewriter-cps">0</span> <span class="metric-unit">ch/s</span><span id="rew-mean-cps" hidden>0</span></div>
             <div class="score-sub">TTFT: <span id="hero-rewriter-ttft">0</span> ms</div>
           </div>
           <div class="score-item">
-            <div class="score-label">✅ Proofreader Latency</div>
-            <div class="score-value"><span id="hero-proof-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-label">
+              <span>✅ Proofreader Latency</span>
+              <button type="button" class="replay-btn" data-replay="proofreader" title="Re-run Proofreader">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-proof-ms">0</span> <span class="metric-unit">ms</span><span id="prf-mean-ms" hidden>0</span></div>
             <div class="score-sub">End-to-end correction</div>
           </div>
         </div>
 
-        <table class="metric-breakdown-table">
+        <table class="runs-summary-table">
+          <thead>
+            <tr>
+              <th>Per-Run Breakdown</th>
+              <th>Run 1</th>
+              <th>Run 2</th>
+              <th>Run 3</th>
+            </tr>
+          </thead>
           <tbody>
             <tr>
-              <td class="metric-cell-info">
-                <h3>1. Summarizer API (<code>key-points</code>, <code>tldr</code>, <code>headline</code>)
-                  <button type="button" class="replay-btn" data-replay="summarizer">↻ Replay</button>
-                </h3>
-                <p>Measures streaming first-chunk latency and chars/sec across 3 summary types on a 1,200-char article.</p>
-                <table class="runs-mini-table">
-                  <tr><th>Mode</th><td>key-points</td><td>tldr</td><td>headline</td></tr>
-                  <tr><th>TTFT (ms)</th><td id="sum-ttft-1">0</td><td id="sum-ttft-2">0</td><td id="sum-ttft-3">0</td></tr>
-                  <tr><th>chars/s</th><td id="sum-cps-1">0</td><td id="sum-cps-2">0</td><td id="sum-cps-3">0</td></tr>
-                </table>
-              </td>
-              <td class="metric-cell-value">
-                <span id="sum-mean-cps" class="metric-big-number">0</span><span class="metric-unit">ch/s</span>
-              </td>
+              <th>Summarizer (ch/s) <span hidden id="sum-ttft-1"></span><span hidden id="sum-ttft-2"></span><span hidden id="sum-ttft-3"></span></th>
+              <td id="sum-cps-1">—</td>
+              <td id="sum-cps-2">—</td>
+              <td id="sum-cps-3">—</td>
             </tr>
-
             <tr>
-              <td class="metric-cell-info">
-                <h3>2. Writer API (<code>short</code> &amp; <code>medium</code> drafts)
-                  <button type="button" class="replay-btn" data-replay="writer">↻ Replay</button>
-                </h3>
-                <p>Measures streaming first-chunk latency and generation throughput across 3 writing prompts.</p>
-                <table class="runs-mini-table">
-                  <tr><th>Run</th><td>1 (Release Note)</td><td>2 (Status Email)</td><td>3 (Tech Summary)</td></tr>
-                  <tr><th>TTFT (ms)</th><td id="wrt-ttft-1">0</td><td id="wrt-ttft-2">0</td><td id="wrt-ttft-3">0</td></tr>
-                  <tr><th>chars/s</th><td id="wrt-cps-1">0</td><td id="wrt-cps-2">0</td><td id="wrt-cps-3">0</td></tr>
-                </table>
-              </td>
-              <td class="metric-cell-value">
-                <span id="wrt-mean-cps" class="metric-big-number">0</span><span class="metric-unit">ch/s</span>
-              </td>
+              <th>Writer (ch/s) <span hidden id="wrt-ttft-1"></span><span hidden id="wrt-ttft-2"></span><span hidden id="wrt-ttft-3"></span></th>
+              <td id="wrt-cps-1">—</td>
+              <td id="wrt-cps-2">—</td>
+              <td id="wrt-cps-3">—</td>
             </tr>
-
             <tr>
-              <td class="metric-cell-info">
-                <h3>3. Rewriter API (<code>more-formal</code>, <code>shorter</code>, <code>more-casual</code>)
-                  <button type="button" class="replay-btn" data-replay="rewriter">↻ Replay</button>
-                </h3>
-                <p>Measures streaming rewrite latency and throughput across 3 tone/length transformations.</p>
-                <table class="runs-mini-table">
-                  <tr><th>Mode</th><td>more-formal</td><td>shorter</td><td>more-casual</td></tr>
-                  <tr><th>TTFT (ms)</th><td id="rew-ttft-1">0</td><td id="rew-ttft-2">0</td><td id="rew-ttft-3">0</td></tr>
-                  <tr><th>chars/s</th><td id="rew-cps-1">0</td><td id="rew-cps-2">0</td><td id="rew-cps-3">0</td></tr>
-                </table>
-              </td>
-              <td class="metric-cell-value">
-                <span id="rew-mean-cps" class="metric-big-number">0</span><span class="metric-unit">ch/s</span>
-              </td>
+              <th>Rewriter (ch/s) <span hidden id="rew-ttft-1"></span><span hidden id="rew-ttft-2"></span><span hidden id="rew-ttft-3"></span></th>
+              <td id="rew-cps-1">—</td>
+              <td id="rew-cps-2">—</td>
+              <td id="rew-cps-3">—</td>
             </tr>
-
             <tr>
-              <td class="metric-cell-info">
-                <h3>4. Proofreader API (3 paragraphs)
-                  <button type="button" class="replay-btn" data-replay="proofreader">↻ Replay</button>
-                </h3>
-                <p>Measures end-to-end proofreading latency (ms) and throughput across 3 test paragraphs.</p>
-                <table class="runs-mini-table">
-                  <tr><th>Run</th><td>1</td><td>2</td><td>3</td></tr>
-                  <tr><th>Latency (ms)</th><td id="prf-ms-1">0</td><td id="prf-ms-2">0</td><td id="prf-ms-3">0</td></tr>
-                </table>
-              </td>
-              <td class="metric-cell-value">
-                <span id="prf-mean-ms" class="metric-big-number">0</span><span class="metric-unit">ms</span>
-              </td>
+              <th>Proofreader (ms)</th>
+              <td id="prf-ms-1">—</td>
+              <td id="prf-ms-2">—</td>
+              <td id="prf-ms-3">—</td>
             </tr>
           </tbody>
         </table>

@@ -1,39 +1,43 @@
 /* Shared Speed & Quality Benchmark Styles across /ai/* APIs */
 
 .container {
-  max-width: 1200px;
+  max-width: 1140px;
   margin: 0 auto;
-  padding: 1.25rem 1.5rem 3rem;
+  padding: 0.75rem 1.25rem 2rem;
 }
 
 .container > header {
-  text-align: center;
-  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  text-align: left;
 }
 
 .container > header h1 {
-  font-size: 1.85rem;
-  margin-bottom: 0.35rem;
+  font-size: 1.35rem;
+  margin: 0;
 }
 
 .container > header .subtitle {
-  font-size: 0.95rem;
-  margin-bottom: 0.75rem;
+  display: none;
 }
 
 .api-status {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.85rem;
+  gap: 0.45rem;
+  padding: 0.28rem 0.75rem;
   border-radius: 999px;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
 }
 
 .status-indicator {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--warning-color);
   display: inline-block;
@@ -48,54 +52,51 @@
 }
 
 .card {
-  padding: 1.35rem 1.5rem;
-  margin-bottom: 1.25rem;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
 }
 
 .bench-top-bar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.85rem;
-  margin-bottom: 1.1rem;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
 }
 
 .bench-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .bench-label-group {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 0.5rem;
   min-width: 220px;
 }
 
 .bench-label-group label {
-  font-size: 0.76rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  display: none;
 }
 
 .bench-label-group input,
 .bench-label-group select,
 .slot-select {
-  padding: 0.45rem 0.75rem;
-  min-height: 38px;
-  font-size: 0.85rem;
+  padding: 0.38rem 0.7rem;
+  min-height: 36px;
+  font-size: 0.84rem;
 }
 
 /* Hero Scorecard */
 .score-grid {
   display: grid;
-  grid-template-columns: 1.25fr repeat(3, 1fr);
-  gap: 0.85rem;
-  margin-bottom: 1.25rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.7rem;
+  margin-bottom: 0.85rem;
 }
 
 @media (max-width: 900px) {
@@ -108,10 +109,10 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 0.9rem 1rem;
+  padding: 0.75rem 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
 
 .score-item--hero {
@@ -120,7 +121,11 @@
 }
 
 .score-label {
-  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -128,10 +133,11 @@
 }
 
 .score-value {
-  font-size: 1.55rem;
+  font-size: 1.5rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
+  line-height: 1.2;
 }
 
 .score-item--hero .score-value {
@@ -139,8 +145,40 @@
 }
 
 .score-sub {
-  font-size: 0.76rem;
+  font-size: 0.73rem;
   color: var(--text-muted);
+}
+
+.runs-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.runs-summary-table th,
+.runs-summary-table td {
+  padding: 0.48rem 0.65rem;
+  text-align: center;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.runs-summary-table tbody th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 32%;
+}
+
+.runs-summary-table thead th {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.runs-summary-table thead th:first-child {
+  text-align: left;
 }
 
 /* Detailed Metric Table (Prompt API / Sushanth speed.htm style) */

@@ -44,91 +44,66 @@
 
         <div class="score-grid">
           <div class="score-item score-item--hero">
-            <div class="score-label">⚡ Batch Throughput</div>
-            <div class="score-value"><span id="hero-qps">0</span> <span class="metric-unit">det/s</span></div>
+            <div class="score-label">
+              <span>⚡ Batch Throughput</span>
+              <button type="button" class="replay-btn" id="replayBatch" title="Re-run Batch Throughput">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-qps">0</span> <span class="metric-unit">det/s</span><span id="batch-mean" hidden>0</span></div>
             <div class="score-sub">15 multilingual sentences</div>
           </div>
           <div class="score-item">
-            <div class="score-label">Create Latency</div>
-            <div class="score-value"><span id="hero-create-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-label">
+              <span>Create Latency</span>
+              <button type="button" class="replay-btn" id="replayCreate" title="Re-run Create Latency">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-create-ms">0</span> <span class="metric-unit">ms</span><span id="create-mean" hidden>0</span></div>
             <div class="score-sub">Warm create()</div>
           </div>
           <div class="score-item">
-            <div class="score-label">Paragraph Latency</div>
-            <div class="score-value"><span id="hero-para-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-label">
+              <span>Paragraph Latency</span>
+              <button type="button" class="replay-btn" id="replayPara" title="Re-run Paragraph Latency">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-para-ms">0</span> <span class="metric-unit">ms</span><span id="para-mean" hidden>0</span></div>
             <div class="score-sub">~300 chars (mean of 5)</div>
           </div>
           <div class="score-item">
-            <div class="score-label">Long Document</div>
-            <div class="score-value"><span id="hero-doc-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-label">
+              <span>Long Document</span>
+              <button type="button" class="replay-btn" id="replayDoc" title="Re-run Long Document">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-doc-ms">0</span> <span class="metric-unit">ms</span><span id="doc-mean" hidden>0</span></div>
             <div class="score-sub">~2,500 chars (mean of 5)</div>
           </div>
         </div>
 
-        <table class="metric-breakdown-table">
+        <table class="runs-summary-table">
+          <thead>
+            <tr>
+              <th>Per-Run Breakdown</th>
+              <th>Run 1</th>
+              <th>Run 2</th>
+              <th>Run 3</th>
+              <th>Run 4</th>
+              <th>Run 5</th>
+            </tr>
+          </thead>
           <tbody>
             <tr>
-              <td class="metric-cell-info">
-                <h3>1. Detector Creation Latency (<code>LanguageDetector.create()</code>)
-                  <button type="button" class="replay-btn" id="replayCreate">↻ Replay</button>
-                </h3>
-                <p>Measures <code>LanguageDetector.create()</code> across 5 consecutive sessions.</p>
-                <table class="runs-mini-table">
-                  <tr><th>Run</th><td>1 (Cold)</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
-                  <tr><th>ms</th><td id="create-1">0</td><td id="create-2">0</td><td id="create-3">0</td><td id="create-4">0</td><td id="create-5">0</td></tr>
-                </table>
-              </td>
-              <td class="metric-cell-value">
-                <span id="create-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
-              </td>
+              <th>Create Latency (ms)</th>
+              <td id="create-1">—</td><td id="create-2">—</td><td id="create-3">—</td><td id="create-4">—</td><td id="create-5">—</td>
             </tr>
-
             <tr>
-              <td class="metric-cell-info">
-                <h3>2. 15-Language Short Sentence Batch Throughput
-                  <button type="button" class="replay-btn" id="replayBatch">↻ Replay</button>
-                </h3>
-                <p>Runs 15 short sentences across distinct scripts (Latin, Cyrillic, CJK, Arabic, Hangul) and computes detections/sec.</p>
-                <table class="runs-mini-table">
-                  <tr><th>Batch</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
-                  <tr><th>det/s</th><td id="batch-1">0</td><td id="batch-2">0</td><td id="batch-3">0</td><td id="batch-4">0</td><td id="batch-5">0</td></tr>
-                </table>
-              </td>
-              <td class="metric-cell-value">
-                <span id="batch-mean" class="metric-big-number">0</span><span class="metric-unit">det/s</span>
-              </td>
+              <th>15-Lang Batch (det/s)</th>
+              <td id="batch-1">—</td><td id="batch-2">—</td><td id="batch-3">—</td><td id="batch-4">—</td><td id="batch-5">—</td>
             </tr>
-
             <tr>
-              <td class="metric-cell-info">
-                <h3>3. Medium Paragraph Detection (~300 chars)
-                  <button type="button" class="replay-btn" id="replayPara">↻ Replay</button>
-                </h3>
-                <p>Measures single-call <code>detector.detect()</code> latency on a 300-character paragraph across 5 runs.</p>
-                <table class="runs-mini-table">
-                  <tr><th>Run</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
-                  <tr><th>ms</th><td id="para-1">0</td><td id="para-2">0</td><td id="para-3">0</td><td id="para-4">0</td><td id="para-5">0</td></tr>
-                </table>
-              </td>
-              <td class="metric-cell-value">
-                <span id="para-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
-              </td>
+              <th>Paragraph ~300ch (ms)</th>
+              <td id="para-1">—</td><td id="para-2">—</td><td id="para-3">—</td><td id="para-4">—</td><td id="para-5">—</td>
             </tr>
-
             <tr>
-              <td class="metric-cell-info">
-                <h3>4. Long Document Detection (~2,500 chars)
-                  <button type="button" class="replay-btn" id="replayDoc">↻ Replay</button>
-                </h3>
-                <p>Measures single-call <code>detector.detect()</code> latency on a ~2,500-character multi-paragraph article across 5 runs.</p>
-                <table class="runs-mini-table">
-                  <tr><th>Run</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
-                  <tr><th>ms</th><td id="doc-1">0</td><td id="doc-2">0</td><td id="doc-3">0</td><td id="doc-4">0</td><td id="doc-5">0</td></tr>
-                </table>
-              </td>
-              <td class="metric-cell-value">
-                <span id="doc-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
-              </td>
+              <th>Long Doc ~2,500ch (ms)</th>
+              <td id="doc-1">—</td><td id="doc-2">—</td><td id="doc-3">—</td><td id="doc-4">—</td><td id="doc-5">—</td>
             </tr>
           </tbody>
         </table>

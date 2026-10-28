@@ -44,75 +44,61 @@
 
         <div class="score-grid">
           <div class="score-item score-item--hero">
-            <div class="score-label">⚡ Option Throughput</div>
+            <div class="score-label">
+              <span>⚡ Option Throughput</span>
+            </div>
             <div class="score-value"><span id="hero-ops">0</span> <span class="metric-unit">opts/s</span></div>
             <div class="score-sub">Multi-question rubric (11 options)</div>
           </div>
           <div class="score-item">
-            <div class="score-label">Boolean Decision</div>
-            <div class="score-value"><span id="hero-bool-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-label">
+              <span>Boolean Decision</span>
+              <button type="button" class="replay-btn" id="replayBool" title="Re-run Boolean Decision">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-bool-ms">0</span> <span class="metric-unit">ms</span><span id="bool-mean" hidden>0</span></div>
             <div class="score-sub">Mean across 5 runs</div>
           </div>
           <div class="score-item">
-            <div class="score-label">4-Option Choice</div>
-            <div class="score-value"><span id="hero-choice-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-label">
+              <span>4-Option Choice</span>
+              <button type="button" class="replay-btn" id="replayChoice" title="Re-run 4-Option Choice">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-choice-ms">0</span> <span class="metric-unit">ms</span><span id="choice-mean" hidden>0</span></div>
             <div class="score-sub">Mean across 5 runs</div>
           </div>
           <div class="score-item">
-            <div class="score-label">Full 3-Question Rubric</div>
-            <div class="score-value"><span id="hero-rubric-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-label">
+              <span>3-Question Rubric</span>
+              <button type="button" class="replay-btn" id="replayRubric" title="Re-run 3-Question Rubric">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-rubric-ms">0</span> <span class="metric-unit">ms</span><span id="rubric-mean" hidden>0</span></div>
             <div class="score-sub">Boolean + Choice(4) + Score(5)</div>
           </div>
         </div>
 
-        <table class="metric-breakdown-table">
+        <table class="runs-summary-table">
+          <thead>
+            <tr>
+              <th>Per-Run Breakdown</th>
+              <th>Run 1</th>
+              <th>Run 2</th>
+              <th>Run 3</th>
+              <th>Run 4</th>
+              <th>Run 5</th>
+            </tr>
+          </thead>
           <tbody>
             <tr>
-              <td class="metric-cell-info">
-                <h3>1. Boolean Decision Latency (2 options)
-                  <button type="button" class="replay-btn" id="replayBool">↻ Replay</button>
-                </h3>
-                <p>Measures <code>model.decide()</code> latency for a single boolean question across 5 runs on a warm session.</p>
-                <table class="runs-mini-table">
-                  <tr><th>Run</th><td>1 (Cold)</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
-                  <tr><th>ms</th><td id="bool-1">0</td><td id="bool-2">0</td><td id="bool-3">0</td><td id="bool-4">0</td><td id="bool-5">0</td></tr>
-                </table>
-              </td>
-              <td class="metric-cell-value">
-                <span id="bool-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
-              </td>
+              <th>Boolean Decision (ms)</th>
+              <td id="bool-1">—</td><td id="bool-2">—</td><td id="bool-3">—</td><td id="bool-4">—</td><td id="bool-5">—</td>
             </tr>
-
             <tr>
-              <td class="metric-cell-info">
-                <h3>2. Multi-Option Choice Scoring (4 options)
-                  <button type="button" class="replay-btn" id="replayChoice">↻ Replay</button>
-                </h3>
-                <p>Measures 4-way choice classification latency across 5 runs (tests shared-prefix prefill cache reuse across option clones).</p>
-                <table class="runs-mini-table">
-                  <tr><th>Run</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
-                  <tr><th>ms</th><td id="choice-1">0</td><td id="choice-2">0</td><td id="choice-3">0</td><td id="choice-4">0</td><td id="choice-5">0</td></tr>
-                </table>
-              </td>
-              <td class="metric-cell-value">
-                <span id="choice-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
-              </td>
+              <th>4-Option Choice (ms)</th>
+              <td id="choice-1">—</td><td id="choice-2">—</td><td id="choice-3">—</td><td id="choice-4">—</td><td id="choice-5">—</td>
             </tr>
-
             <tr>
-              <td class="metric-cell-info">
-                <h3>3. Full 3-Question Triage Rubric (11 options total)
-                  <button type="button" class="replay-btn" id="replayRubric">↻ Replay</button>
-                </h3>
-                <p>Runs a 3-question rubric (<code>boolean</code> + 4-way <code>choice</code> + 5-level <code>score</code>) across 5 runs and computes options/sec throughput.</p>
-                <table class="runs-mini-table">
-                  <tr><th>Run</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
-                  <tr><th>ms</th><td id="rubric-1">0</td><td id="rubric-2">0</td><td id="rubric-3">0</td><td id="rubric-4">0</td><td id="rubric-5">0</td></tr>
-                </table>
-              </td>
-              <td class="metric-cell-value">
-                <span id="rubric-mean" class="metric-big-number">0</span><span class="metric-unit">ms</span>
-              </td>
+              <th>3-Question Rubric (ms)</th>
+              <td id="rubric-1">—</td><td id="rubric-2">—</td><td id="rubric-3">—</td><td id="rubric-4">—</td><td id="rubric-5">—</td>
             </tr>
           </tbody>
         </table>
