@@ -257,6 +257,7 @@ Pse`;
     const start = performance.now();
     try {
       let session;
+      let toolCalled = false;
       try {
         ({ session } = await createSession({
           temperature: 0.001,
@@ -269,15 +270,24 @@ Pse`;
         const closedLoopTools = schemaTools.map(t => ({
           ...t,
           async execute(args) {
+            toolCalled = true;
             return JSON.stringify({ ok: true, ...args });
           },
         }));
         ({ session } = await createSession({ tools: closedLoopTools }));
       }
       try {
-        await session.prompt('What is the weather in Beijing and what time is it in Dublin? Use your tools.');
+        const res = await session.prompt('What is the weather in Beijing and what time is it in Dublin? Use your tools.');
+        if (Array.isArray(res) && res.some(p => p?.type === 'tool-call')) {
+          toolCalled = true;
+        }
       } finally {
         if (typeof session.destroy === 'function') session.destroy();
+      }
+      if (!toolCalled) {
+        document.getElementById('tool-call-ms').textContent = 'N/A';
+        document.getElementById('hero-tool-ms').textContent = 'N/A';
+        return 0;
       }
       const ms = (performance.now() - start).toFixed(2);
       document.getElementById('tool-call-ms').textContent = ms;

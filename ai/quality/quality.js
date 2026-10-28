@@ -416,7 +416,7 @@
             textParts.push(String(part.value ?? ''));
           }
         }
-        raw = textParts.join('').trim() || JSON.stringify(result);
+        raw = textParts.join('').trim();
       } else {
         raw = String(result ?? '').trim();
       }
@@ -452,7 +452,7 @@
       id: item.id,
       category: item.category,
       prompt: item.prompt,
-      output: invocations.length ? `Tool calls: ${serializedInvs}\nResponse: ${raw}` : raw,
+      output: invocations.length ? (raw ? `Tool calls: ${serializedInvs} | Text: ${raw}` : `Tool calls: ${serializedInvs}`) : raw,
       pass,
       isInvalid: !hasTools,
       elapsedMs,
