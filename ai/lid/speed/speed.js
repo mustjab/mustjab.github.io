@@ -163,10 +163,9 @@
     });
 
     document.getElementById('saveBaselineBtn').addEventListener('click', () => {
-      const slot = document.getElementById('baselineSlot').value;
-      const label = document.getElementById('runLabel').value.trim() || slot;
       const store = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      store[slot] = {
+      const label = document.getElementById('runLabel').value.trim() || `Run #${Object.keys(store).length + 1}`;
+      store[label] = {
         label,
         createMs: document.getElementById('create-mean').textContent,
         qps: document.getElementById('batch-mean').textContent,

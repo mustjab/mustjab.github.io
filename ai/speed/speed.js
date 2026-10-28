@@ -230,17 +230,14 @@ Pse`;
 
   async function runToolCallingLatencyTest() {
     showBusy(true, 'Measuring Tool Calling latency...');
-    const tools = [
+    const schemaTools = [
       {
         name: 'getWeather',
         description: 'Get the current weather for a city.',
         inputSchema: {
           type: 'object',
-          properties: { location: { type: 'string' } },
+          properties: { location: { type: 'string', description: 'City name to check.' } },
           required: ['location'],
-        },
-        async execute({ location }) {
-          return JSON.stringify({ location, temperatureC: 18, condition: 'Partly cloudy' });
         },
       },
       {
@@ -248,17 +245,31 @@ Pse`;
         description: 'Get the local time for a city.',
         inputSchema: {
           type: 'object',
-          properties: { location: { type: 'string' } },
+          properties: { location: { type: 'string', description: 'City name to check.' } },
           required: ['location'],
-        },
-        async execute({ location }) {
-          return JSON.stringify({ location, localTime: '14:30' });
         },
       },
     ];
     const start = performance.now();
     try {
-      const { session } = await createSession({ tools });
+      let session;
+      try {
+        ({ session } = await createSession({
+          temperature: 0.001,
+          topK: 1,
+          tools: schemaTools,
+          expectedInputs: [{ type: 'tool-response' }],
+          expectedOutputs: [{ type: 'text' }, { type: 'tool-call' }],
+        }));
+      } catch (_) {
+        const closedLoopTools = schemaTools.map(t => ({
+          ...t,
+          async execute(args) {
+            return JSON.stringify({ ok: true, ...args });
+          },
+        }));
+        ({ session } = await createSession({ tools: closedLoopTools }));
+      }
       try {
         await session.prompt('What is the weather in Beijing and what time is it in Dublin? Use your tools.');
       } finally {
@@ -374,11 +385,11 @@ Pse`;
   }
 
   function saveBaselineSlot() {
-    const slot = document.getElementById('baselineSlot').value;
-    const label = document.getElementById('runLabel').value.trim() || slot;
     const store = loadBaselines();
-    store[slot] = {
-      label,
+    const rawLabel = document.getElementById('runLabel').value.trim();
+    const key = rawLabel || `${getBrowserInfo()} #${Object.keys(store).length + 1}`;
+    store[key] = {
+      label: key,
       browser: getBrowserInfo(),
       ttft: document.getElementById('time-to-first-token').textContent,
       prefill: document.getElementById('time-to-prefill-1k').textContent,

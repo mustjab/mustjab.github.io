@@ -375,11 +375,42 @@
     }
 
     const invocations = [];
-    const tools = buildToolsWithSpy(invocations);
-    const session = await lm.create({ temperature: 1.0, topK: 1, tools });
+    const toolsWithSpy = buildToolsWithSpy(invocations);
+    const schemaOnlyTools = toolsWithSpy.map(({ name, description, inputSchema }) => ({
+      name,
+      description,
+      inputSchema,
+    }));
+
+    let session;
+    try {
+      session = await lm.create({
+        temperature: 0.001,
+        topK: 1,
+        tools: schemaOnlyTools,
+        expectedInputs: [{ type: 'tool-response' }],
+        expectedOutputs: [{ type: 'text' }, { type: 'tool-call' }],
+      });
+    } catch (_) {
+      session = await lm.create({ temperature: 1.0, topK: 1, tools: toolsWithSpy });
+    }
+
     let raw = '';
     try {
-      raw = String(await session.prompt(item.prompt)).trim();
+      const result = await session.prompt(item.prompt);
+      if (Array.isArray(result)) {
+        const textParts = [];
+        for (const part of result) {
+          if (part?.type === 'tool-call' && part.value) {
+            invocations.push({ name: part.value.name, args: part.value.arguments || {} });
+          } else if (part?.type === 'text') {
+            textParts.push(String(part.value ?? ''));
+          }
+        }
+        raw = textParts.join('').trim() || JSON.stringify(result);
+      } else {
+        raw = String(result ?? '').trim();
+      }
     } finally {
       if (typeof session.destroy === 'function') session.destroy();
     }
