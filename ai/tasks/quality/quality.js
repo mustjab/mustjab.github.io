@@ -190,20 +190,26 @@
     document.getElementById('statusIndicator').className = 'status-indicator ' + (anyAvailable ? 'available' : 'unavailable');
     document.getElementById('statusText').textContent = anyAvailable ? 'Task APIs Detected' : 'Task APIs Not Detected';
 
+    let lastRecords = [];
+
     document.getElementById('startBtn').addEventListener('click', async () => {
       document.getElementById('caseResultsList').innerHTML = '';
+      lastRecords = [];
       let passCount = 0;
       let sumPass = 0, sumTot = 0;
       let wrPass = 0, wrTot = 0;
       let prfPass = 0, prfTot = 0;
 
       for (let i = 0; i < CASES.length; i++) {
+        const t0 = performance.now();
         let res;
         try {
           res = await runSingleCase(CASES[i]);
         } catch (e) {
           res = { ...CASES[i], output: `Error: ${e.message}`, pass: false, detail: 'Execution error' };
         }
+        res.elapsedMs = Math.round(performance.now() - t0);
+        lastRecords.push(res);
         if (res.pass) passCount++;
         if (res.task === 'summarizer') { sumTot++; if (res.pass) sumPass++; }
         else if (res.task === 'proofreader') { prfTot++; if (res.pass) prfPass++; }
@@ -238,17 +244,29 @@
       const p = document.getElementById('totalPass').textContent;
       const t = document.getElementById('totalCount').textContent;
       const rate = document.getElementById('passRate').textContent;
-      navigator.clipboard.writeText(
-        [
-          new Date().toLocaleDateString(),
-          ...browserCols,
-          `${p}/${t}`,
-          `${rate}%`,
-          `Sum:${document.getElementById('sumScore').textContent}`,
-          `WrtRew:${document.getElementById('wrtRewScore').textContent}`,
-          `Prf:${document.getElementById('prfScore').textContent}`,
-        ].join('\t')
-      );
+      const headerLine = [
+        new Date().toLocaleDateString(),
+        ...browserCols,
+        `${p}/${t}`,
+        `${rate}%`,
+        `Sum:${document.getElementById('sumScore').textContent}`,
+        `WrtRew:${document.getElementById('wrtRewScore').textContent}`,
+        `Prf:${document.getElementById('prfScore').textContent}`,
+      ].join('\t');
+      const detailLines = [
+        'Case ID\tTask\tResult\tLatency (ms)\tDetail\tOutput',
+        ...lastRecords.map(r =>
+          [
+            r.id,
+            r.task,
+            r.pass ? 'PASS' : 'FAIL',
+            r.elapsedMs ?? 0,
+            String(r.detail || '').replace(/\s+/g, ' '),
+            String(r.output || '').replace(/\s+/g, ' ').slice(0, 200),
+          ].join('\t')
+        ),
+      ];
+      navigator.clipboard.writeText([headerLine, '', ...detailLines].join('\n'));
     });
   });
 })();

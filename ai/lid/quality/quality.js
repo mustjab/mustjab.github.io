@@ -46,10 +46,13 @@
     document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
     document.getElementById('statusText').textContent = ready ? `LanguageDetector Available (${avail})` : `LanguageDetector (${avail})`;
 
+    let lastRecords = [];
+
     document.getElementById('startBtn').addEventListener('click', async () => {
       if (!hasApi) return;
       const list = document.getElementById('caseResultsList');
       list.innerHTML = '';
+      lastRecords = [];
       const det = await LanguageDetector.create();
 
       let passCount = 0;
@@ -60,11 +63,14 @@
       try {
         for (let i = 0; i < CASES.length; i++) {
           const c = CASES[i];
+          const t0 = performance.now();
           const results = await det.detect(c.text);
+          const elapsedMs = Math.round(performance.now() - t0);
           const top = Array.isArray(results) && results.length ? results[0] : null;
           const actual = top?.detectedLanguage || 'unknown';
           const conf = top?.confidence != null ? (top.confidence * 100).toFixed(1) + '%' : '—';
           const pass = matchesLang(actual, c.expected);
+          lastRecords.push({ id: c.id, category: c.category, expected: c.expected, actual, conf, pass, elapsedMs, text: c.text });
 
           if (pass) passCount++;
           if (c.category === 'core') { coreTot++; if (pass) corePass++; }
@@ -84,7 +90,10 @@
           card.innerHTML = `
             <div class="quality-case-header">
               <span><code>${c.id}</code> (expected: <code>${c.expected}</code>)</span>
-              <span class="badge ${pass ? 'badge-pass' : 'badge-fail'}">${pass ? 'PASS' : 'FAIL'}</span>
+              <span>
+                <small style="color: var(--text-muted); margin-right: 0.45rem;">${elapsedMs} ms</small>
+                <span class="badge ${pass ? 'badge-pass' : 'badge-fail'}">${pass ? 'PASS' : 'FAIL'}</span>
+              </span>
             </div>
             <div style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.2rem;">
               <strong>Text:</strong> ${c.text}
@@ -115,17 +124,20 @@
         : ua.includes('Chrome/')
           ? ['Chrome', (ua.match(/Chrome\/([\d.]+)/) || [])[1] || '']
           : ['Browser', 'Unknown'];
-      navigator.clipboard.writeText(
-        [
-          new Date().toLocaleDateString(),
-          ...browserCols,
-          `${document.getElementById('totalPass').textContent}/${document.getElementById('totalCount').textContent}`,
-          `${document.getElementById('passRate').textContent}%`,
-          `Core:${document.getElementById('coreScore').textContent}`,
-          `Close:${document.getElementById('closeScore').textContent}`,
-          `Noisy:${document.getElementById('noisyScore').textContent}`,
-        ].join('\t')
-      );
+      const headerLine = [
+        new Date().toLocaleDateString(),
+        ...browserCols,
+        `${document.getElementById('totalPass').textContent}/${document.getElementById('totalCount').textContent}`,
+        `${document.getElementById('passRate').textContent}%`,
+        `Core:${document.getElementById('coreScore').textContent}`,
+        `Close:${document.getElementById('closeScore').textContent}`,
+        `Noisy:${document.getElementById('noisyScore').textContent}`,
+      ].join('\t');
+      const detailLines = [
+        'Case ID\tCategory\tExpected\tDetected\tConfidence\tResult\tLatency (ms)',
+        ...lastRecords.map(r => [r.id, r.category, r.expected, r.actual, r.conf, r.pass ? 'PASS' : 'FAIL', r.elapsedMs].join('\t')),
+      ];
+      navigator.clipboard.writeText([headerLine, '', ...detailLines].join('\n'));
     });
   });
 })();

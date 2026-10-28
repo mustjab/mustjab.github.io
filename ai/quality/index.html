@@ -33,16 +33,17 @@
           <div class="bench-label-group">
             <label for="suiteSelect">Benchmark Suite</label>
             <select id="suiteSelect">
-              <option value="all" selected>Full Suite (MMLU + Tool Calling + Constraints — 25 cases)</option>
+              <option value="all" selected>Full Suite (MMLU + Constraints + Tool Calling — 25 cases)</option>
               <option value="mmlu">MMLU Multiple-Choice Subset (15 questions)</option>
-              <option value="tools">Tool Calling &amp; Structured Output (10 cases)</option>
+              <option value="constraints">Constraints &amp; Structured JSON (4 cases)</option>
+              <option value="tools">Tool Calling Only (6 cases)</option>
             </select>
           </div>
 
           <div class="bench-controls">
             <button id="startTest" class="btn btn-primary">▶ Start Benchmark</button>
             <button id="stopTest" class="btn btn-secondary" disabled>⏹ Stop</button>
-            <button id="copyBtn" class="btn btn-secondary" disabled>📋 Copy Summary</button>
+            <button id="copyBtn" class="btn btn-secondary" disabled>📋 Copy Summary &amp; Details</button>
             <button id="clearResults" class="btn btn-secondary btn-small">🗑️ Clear</button>
           </div>
         </div>
@@ -55,19 +56,19 @@
             <div class="score-sub"><span id="correctCount">0</span> / <span id="questionCount">0</span> passed</div>
           </div>
           <div class="score-item">
-            <div class="score-label">MMLU Accuracy</div>
+            <div class="score-label">📚 MMLU Accuracy</div>
             <div class="score-value" id="mmluScore">—</div>
-            <div class="score-sub">Single-letter multiple-choice</div>
+            <div class="score-sub">15 multiple-choice questions</div>
           </div>
           <div class="score-item">
-            <div class="score-label">🛠️ Tool &amp; Constraint Pass</div>
+            <div class="score-label">📐 Constraints &amp; JSON</div>
+            <div class="score-value" id="constraintsScore">—</div>
+            <div class="score-sub">responseConstraint + instructions</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">🛠️ Tool Calling</div>
             <div class="score-value" id="toolsScore">—</div>
-            <div class="score-sub">Tool selection + JSON schema</div>
-          </div>
-          <div class="score-item">
-            <div class="score-label">Invalid Format / Errors</div>
-            <div class="score-value" id="nonLetterCount">0</div>
-            <div class="score-sub">Non-letter MMLU or malformed JSON</div>
+            <div class="score-sub">Tool selection &amp; restraint (<span id="nonLetterCount" hidden>0</span>6 cases)</div>
           </div>
         </div>
 

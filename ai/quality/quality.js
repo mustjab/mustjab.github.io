@@ -314,6 +314,7 @@
   }
 
   async function runMmluCase(lm, item) {
+    const t0 = performance.now();
     const letters = ['A', 'B', 'C', 'D'];
     const choicesText = item.choices.map((c, idx) => `${letters[idx]}. ${c}`).join('\n');
     const promptText = `Respond with a single letter option only (A, B, C, or D), no explanation.\n\nQuestion: ${item.question}\nChoices:\n${choicesText}\nAnswer:`;
@@ -324,6 +325,7 @@
     } finally {
       if (typeof session.destroy === 'function') session.destroy();
     }
+    const elapsedMs = Math.round(performance.now() - t0);
     const expectedLetter = letters[item.answer];
     const match = raw.match(/^\s*([A-D])\b/i) || raw.match(/\b([A-D])\s*[.)]?$/i);
     const chosen = match ? match[1].toUpperCase() : null;
@@ -336,11 +338,13 @@
       output: raw,
       pass,
       isInvalid,
+      elapsedMs,
       detail: `Expected ${expectedLetter} (${item.choices[item.answer]}), got ${chosen || 'non-letter'}`,
     };
   }
 
   async function runToolOrConstraintCase(lm, item) {
+    const t0 = performance.now();
     if (item.kind === 'constraint' || item.kind === 'instruction') {
       const session = await lm.create({ temperature: 1.0, topK: 1 });
       let raw = '';
@@ -350,6 +354,7 @@
       } finally {
         if (typeof session.destroy === 'function') session.destroy();
       }
+      const elapsedMs = Math.round(performance.now() - t0);
       try {
         const res = item.validate(raw);
         return {
@@ -359,6 +364,7 @@
           output: raw,
           pass: res.pass,
           isInvalid: !res.pass && item.kind === 'constraint',
+          elapsedMs,
           detail: res.detail,
         };
       } catch (err) {
@@ -369,6 +375,7 @@
           output: raw,
           pass: false,
           isInvalid: true,
+          elapsedMs,
           detail: `JSON parse / validation error: ${err.message}`,
         };
       }
@@ -383,6 +390,7 @@
     }));
 
     let session;
+    let toolMode = 'open-loop';
     try {
       session = await lm.create({
         temperature: 0.001,
@@ -391,7 +399,8 @@
         expectedInputs: [{ type: 'tool-response' }],
         expectedOutputs: [{ type: 'text' }, { type: 'tool-call' }],
       });
-    } catch (_) {
+    } catch (openErr) {
+      toolMode = `closed-loop (open-loop err: ${openErr?.message || openErr})`;
       session = await lm.create({ temperature: 1.0, topK: 1, tools: toolsWithSpy });
     }
 
@@ -414,6 +423,7 @@
     } finally {
       if (typeof session.destroy === 'function') session.destroy();
     }
+    const elapsedMs = Math.round(performance.now() - t0);
 
     const calledNames = invocations.map(inv => inv.name);
     const serializedInvs = JSON.stringify(invocations);
@@ -429,7 +439,8 @@
         output: raw,
         pass,
         isInvalid: !noSpurious,
-        detail: `Tools called: ${calledNames.length} | Answer: ${raw.slice(0, 80)}`,
+        elapsedMs,
+        detail: `Mode: ${toolMode} | Tools called: ${calledNames.length} | Answer: ${raw.slice(0, 80)}`,
       };
     }
 
@@ -444,7 +455,8 @@
       output: invocations.length ? `Tool calls: ${serializedInvs}\nResponse: ${raw}` : raw,
       pass,
       isInvalid: !hasTools,
-      detail: `Expected tool(s): ${item.expectedTools.join(', ')} | Observed: ${calledNames.join(', ') || 'inline/none'}`,
+      elapsedMs,
+      detail: `Mode: ${toolMode} | Expected: ${item.expectedTools.join(', ')} | Observed: ${calledNames.join(', ') || 'none'}`,
     };
   }
 
@@ -455,7 +467,10 @@
     div.innerHTML = `
       <div class="quality-case-header">
         <span><code>${res.id}</code> · ${res.category}</span>
-        <span class="badge ${res.pass ? 'badge-pass' : 'badge-fail'}">${res.pass ? 'PASS' : 'FAIL'}</span>
+        <span>
+          <small style="color: var(--text-muted); margin-right: 0.45rem;">${res.elapsedMs ?? 0} ms</small>
+          <span class="badge ${res.pass ? 'badge-pass' : 'badge-fail'}">${res.pass ? 'PASS' : 'FAIL'}</span>
+        </span>
       </div>
       <div style="font-size: 0.83rem; color: var(--text-secondary); margin-bottom: 0.25rem;">
         <strong>Prompt:</strong> ${res.prompt}
@@ -480,9 +495,12 @@
     document.getElementById('caseResultsList').innerHTML = '';
 
     const suite = document.getElementById('suiteSelect').value;
+    const constraintItems = TOOL_AND_CONSTRAINT_CASES.filter(c => c.kind === 'constraint' || c.kind === 'instruction');
+    const toolItems = TOOL_AND_CONSTRAINT_CASES.filter(c => c.kind === 'tool' || c.kind === 'tool-negative');
     const plan = [
       ...(suite === 'all' || suite === 'mmlu' ? MMLU_CASES.map(c => ({ type: 'mmlu', item: c })) : []),
-      ...(suite === 'all' || suite === 'tools' ? TOOL_AND_CONSTRAINT_CASES.map(c => ({ type: 'tool', item: c })) : []),
+      ...(suite === 'all' || suite === 'constraints' ? constraintItems.map(c => ({ type: 'constraint', item: c })) : []),
+      ...(suite === 'all' || suite === 'tools' ? toolItems.map(c => ({ type: 'tool', item: c })) : []),
     ];
 
     let total = 0;
@@ -490,8 +508,11 @@
     let invalid = 0;
     let mmluTotal = 0;
     let mmluPass = 0;
+    let constraintTotal = 0;
+    let constraintPass = 0;
     let toolTotal = 0;
     let toolPass = 0;
+    const caseRecords = [];
 
     for (let i = 0; i < plan.length && running; i++) {
       const entry = plan[i];
@@ -506,15 +527,20 @@
           output: `Error: ${err.message}`,
           pass: false,
           isInvalid: true,
+          elapsedMs: 0,
           detail: 'Execution error',
         };
       }
+      caseRecords.push(res);
       total++;
       if (res.pass) passed++;
       if (res.isInvalid) invalid++;
       if (entry.type === 'mmlu') {
         mmluTotal++;
         if (res.pass) mmluPass++;
+      } else if (entry.type === 'constraint') {
+        constraintTotal++;
+        if (res.pass) constraintPass++;
       } else {
         toolTotal++;
         if (res.pass) toolPass++;
@@ -525,12 +551,14 @@
       document.getElementById('scorePercent').textContent = ((passed / total) * 100).toFixed(1);
       document.getElementById('nonLetterCount').textContent = String(invalid);
       document.getElementById('mmluScore').textContent = mmluTotal ? `${mmluPass} / ${mmluTotal}` : '—';
+      const cScoreEl = document.getElementById('constraintsScore');
+      if (cScoreEl) cScoreEl.textContent = constraintTotal ? `${constraintPass} / ${constraintTotal}` : '—';
       document.getElementById('toolsScore').textContent = toolTotal ? `${toolPass} / ${toolTotal}` : '—';
       document.getElementById('progressBar').style.width = `${((i + 1) / plan.length) * 100}%`;
       renderCaseCard(res);
     }
 
-    lastSummary = { total, passed, invalid, mmluPass, mmluTotal, toolPass, toolTotal };
+    lastSummary = { total, passed, invalid, mmluPass, mmluTotal, constraintPass, constraintTotal, toolPass, toolTotal, caseRecords };
     running = false;
     document.getElementById('startTest').disabled = false;
     document.getElementById('stopTest').disabled = true;
@@ -551,6 +579,8 @@
       document.getElementById('scorePercent').textContent = '0';
       document.getElementById('nonLetterCount').textContent = '0';
       document.getElementById('mmluScore').textContent = '—';
+      const cScoreEl = document.getElementById('constraintsScore');
+      if (cScoreEl) cScoreEl.textContent = '—';
       document.getElementById('toolsScore').textContent = '—';
       document.getElementById('progressBar').style.width = '0%';
     });
@@ -562,16 +592,29 @@
         : ua.includes('Chrome/')
           ? ['Chrome', (ua.match(/Chrome\/([\d.]+)/) || [])[1] || '']
           : ['Browser', 'Unknown'];
-      navigator.clipboard.writeText(
-        [
-          new Date().toLocaleDateString(),
-          ...browserCols,
-          `${lastSummary.passed}/${lastSummary.total}`,
-          `${((lastSummary.passed / Math.max(1, lastSummary.total)) * 100).toFixed(1)}%`,
-          `MMLU:${lastSummary.mmluPass}/${lastSummary.mmluTotal}`,
-          `Tools:${lastSummary.toolPass}/${lastSummary.toolTotal}`,
-        ].join('\t')
-      );
+      const headerLine = [
+        new Date().toLocaleDateString(),
+        ...browserCols,
+        `${lastSummary.passed}/${lastSummary.total}`,
+        `${((lastSummary.passed / Math.max(1, lastSummary.total)) * 100).toFixed(1)}%`,
+        `MMLU:${lastSummary.mmluPass}/${lastSummary.mmluTotal}`,
+        `Constraints:${lastSummary.constraintPass}/${lastSummary.constraintTotal}`,
+        `Tools:${lastSummary.toolPass}/${lastSummary.toolTotal}`,
+      ].join('\t');
+      const detailLines = [
+        'Case ID\tCategory\tResult\tLatency (ms)\tDetail\tOutput',
+        ...(lastSummary.caseRecords || []).map(r =>
+          [
+            r.id,
+            r.category,
+            r.pass ? 'PASS' : 'FAIL',
+            r.elapsedMs ?? 0,
+            String(r.detail || '').replace(/\s+/g, ' '),
+            String(r.output || '').replace(/\s+/g, ' ').slice(0, 200),
+          ].join('\t')
+        ),
+      ];
+      navigator.clipboard.writeText([headerLine, '', ...detailLines].join('\n'));
     });
   });
 })();
