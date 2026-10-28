@@ -173,6 +173,13 @@
       </tbody>`;
   }
 
+  function getBrowserColumns() {
+    const ua = navigator.userAgent;
+    if (ua.includes('Edg/')) return ['Edge', (ua.match(/Edg\/([\d.]+)/) || [])[1] || ''];
+    if (ua.includes('Chrome/')) return ['Chrome', (ua.match(/Chrome\/([\d.]+)/) || [])[1] || ''];
+    return ['Browser', 'Unknown'];
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const anyAvailable = ['summarizer', 'writer', 'rewriter', 'proofreader'].some(k => Boolean(getApi(k)));
     document.getElementById('statusIndicator').className = 'status-indicator ' + (anyAvailable ? 'available' : 'unavailable');
@@ -199,6 +206,7 @@
     document.getElementById('copyTsvBtn').addEventListener('click', () => {
       const row = [
         new Date().toLocaleDateString(),
+        ...getBrowserColumns(),
         document.getElementById('sum-mean-cps').textContent,
         document.getElementById('wrt-mean-cps').textContent,
         document.getElementById('rew-mean-cps').textContent,
@@ -209,7 +217,7 @@
 
     document.getElementById('saveBaselineBtn').addEventListener('click', () => {
       const store = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      const label = document.getElementById('runLabel').value.trim() || `Run #${Object.keys(store).length + 1}`;
+      const label = `${getBrowserColumns().join(' ')} #${Object.keys(store).length + 1}`;
       store[label] = {
         label,
         sumCps: document.getElementById('sum-mean-cps').textContent,

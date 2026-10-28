@@ -390,8 +390,7 @@ Pse`;
 
   function saveBaselineSlot() {
     const store = loadBaselines();
-    const rawLabel = document.getElementById('runLabel').value.trim();
-    const key = rawLabel || `${getBrowserInfo()} #${Object.keys(store).length + 1}`;
+    const key = `${getBrowserInfo()} #${Object.keys(store).length + 1}`;
     store[key] = {
       label: key,
       browser: getBrowserInfo(),

@@ -30,19 +30,13 @@
     <main>
       <section class="card">
         <div class="bench-top-bar">
-          <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
-            <div class="bench-label-group">
-              <label for="suiteSelect">Benchmark Suite</label>
-              <select id="suiteSelect">
-                <option value="all" selected>Full Suite (MMLU + Tool Calling + Constraints — 25 cases)</option>
-                <option value="mmlu">MMLU Multiple-Choice Subset (15 questions)</option>
-                <option value="tools">Tool Calling &amp; Structured Output (10 cases)</option>
-              </select>
-            </div>
-            <div class="bench-label-group">
-              <label for="runLabel">Current Run Label</label>
-              <input type="text" id="runLabel" placeholder="e.g. Aion 1.1, Edge Canary, Chrome">
-            </div>
+          <div class="bench-label-group">
+            <label for="suiteSelect">Benchmark Suite</label>
+            <select id="suiteSelect">
+              <option value="all" selected>Full Suite (MMLU + Tool Calling + Constraints — 25 cases)</option>
+              <option value="mmlu">MMLU Multiple-Choice Subset (15 questions)</option>
+              <option value="tools">Tool Calling &amp; Structured Output (10 cases)</option>
+            </select>
           </div>
 
           <div class="bench-controls">

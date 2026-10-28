@@ -556,9 +556,21 @@
     });
     document.getElementById('copyBtn').addEventListener('click', () => {
       if (!lastSummary) return;
-      const label = document.getElementById('runLabel').value.trim() || 'Prompt API Quality';
+      const ua = navigator.userAgent;
+      const browserCols = ua.includes('Edg/')
+        ? ['Edge', (ua.match(/Edg\/([\d.]+)/) || [])[1] || '']
+        : ua.includes('Chrome/')
+          ? ['Chrome', (ua.match(/Chrome\/([\d.]+)/) || [])[1] || '']
+          : ['Browser', 'Unknown'];
       navigator.clipboard.writeText(
-        `${label}\t${lastSummary.passed}/${lastSummary.total}\t${((lastSummary.passed / Math.max(1, lastSummary.total)) * 100).toFixed(1)}%\tMMLU:${lastSummary.mmluPass}/${lastSummary.mmluTotal}\tTools:${lastSummary.toolPass}/${lastSummary.toolTotal}`
+        [
+          new Date().toLocaleDateString(),
+          ...browserCols,
+          `${lastSummary.passed}/${lastSummary.total}`,
+          `${((lastSummary.passed / Math.max(1, lastSummary.total)) * 100).toFixed(1)}%`,
+          `MMLU:${lastSummary.mmluPass}/${lastSummary.mmluTotal}`,
+          `Tools:${lastSummary.toolPass}/${lastSummary.toolTotal}`,
+        ].join('\t')
       );
     });
   });

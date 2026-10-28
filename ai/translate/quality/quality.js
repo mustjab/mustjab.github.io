@@ -1772,7 +1772,7 @@ class TranslationQualityBenchmark {
       regressionCorpusVersion: focused ? QualityRegressions.VERSION : undefined,
       compareStreaming: document.getElementById('compareStreaming').checked,
       ...(compareConcurrent ? { compareConcurrent, concurrency, concurrentHarnessVersion: '1' } : {}),
-      buildLabel: document.getElementById('buildLabel').value, runtimeLabel: document.getElementById('runtimeLabel').value || 'unknown',
+      buildLabel: document.getElementById('buildLabel').value || this.getBrowserInfo(), runtimeLabel: document.getElementById('runtimeLabel').value || 'unknown',
       timeoutSeconds, complete: false, requests: [], corpus: cases, qualityCorpus: qualityCases,
       importMetadata: this.importMetadata || null, importWarnings: this.importWarnings };
     const locked = ['targetLanguageSearch', 'regressionCsv', 'csvEncoding', 'corpusSelection', 'buildLabel',

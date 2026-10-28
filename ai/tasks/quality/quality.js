@@ -229,10 +229,26 @@
     });
 
     document.getElementById('copyBtn').addEventListener('click', () => {
-      const label = document.getElementById('runLabel').value.trim() || 'Task APIs Quality';
+      const ua = navigator.userAgent;
+      const browserCols = ua.includes('Edg/')
+        ? ['Edge', (ua.match(/Edg\/([\d.]+)/) || [])[1] || '']
+        : ua.includes('Chrome/')
+          ? ['Chrome', (ua.match(/Chrome\/([\d.]+)/) || [])[1] || '']
+          : ['Browser', 'Unknown'];
       const p = document.getElementById('totalPass').textContent;
       const t = document.getElementById('totalCount').textContent;
-      navigator.clipboard.writeText(`${label}\t${p}/${t}\tSum:${document.getElementById('sumScore').textContent}\tWrtRew:${document.getElementById('wrtRewScore').textContent}\tPrf:${document.getElementById('prfScore').textContent}`);
+      const rate = document.getElementById('passRate').textContent;
+      navigator.clipboard.writeText(
+        [
+          new Date().toLocaleDateString(),
+          ...browserCols,
+          `${p}/${t}`,
+          `${rate}%`,
+          `Sum:${document.getElementById('sumScore').textContent}`,
+          `WrtRew:${document.getElementById('wrtRewScore').textContent}`,
+          `Prf:${document.getElementById('prfScore').textContent}`,
+        ].join('\t')
+      );
     });
   });
 })();

@@ -1,7 +1,7 @@
 /* Quality benchmark specific styles */
 
 .quality-top-row {
-  grid-template-columns: 0.9fr auto 0.9fr 1.3fr 1.1fr;
+  grid-template-columns: 1fr auto 1fr 1.4fr;
   gap: 10px;
   margin-bottom: 12px;
 }

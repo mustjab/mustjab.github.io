@@ -109,8 +109,23 @@
     });
 
     document.getElementById('copyBtn').addEventListener('click', () => {
-      const label = document.getElementById('runLabel').value.trim() || 'LID Quality';
-      navigator.clipboard.writeText(`${label}\t${document.getElementById('totalPass').textContent}/${document.getElementById('totalCount').textContent}\tCore:${document.getElementById('coreScore').textContent}\tClose:${document.getElementById('closeScore').textContent}\tNoisy:${document.getElementById('noisyScore').textContent}`);
+      const ua = navigator.userAgent;
+      const browserCols = ua.includes('Edg/')
+        ? ['Edge', (ua.match(/Edg\/([\d.]+)/) || [])[1] || '']
+        : ua.includes('Chrome/')
+          ? ['Chrome', (ua.match(/Chrome\/([\d.]+)/) || [])[1] || '']
+          : ['Browser', 'Unknown'];
+      navigator.clipboard.writeText(
+        [
+          new Date().toLocaleDateString(),
+          ...browserCols,
+          `${document.getElementById('totalPass').textContent}/${document.getElementById('totalCount').textContent}`,
+          `${document.getElementById('passRate').textContent}%`,
+          `Core:${document.getElementById('coreScore').textContent}`,
+          `Close:${document.getElementById('closeScore').textContent}`,
+          `Noisy:${document.getElementById('noisyScore').textContent}`,
+        ].join('\t')
+      );
     });
   });
 })();

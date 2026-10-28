@@ -143,6 +143,13 @@
       </tbody>`;
   }
 
+  function getBrowserColumns() {
+    const ua = navigator.userAgent;
+    if (ua.includes('Edg/')) return ['Edge', (ua.match(/Edg\/([\d.]+)/) || [])[1] || ''];
+    if (ua.includes('Chrome/')) return ['Chrome', (ua.match(/Chrome\/([\d.]+)/) || [])[1] || ''];
+    return ['Browser', 'Unknown'];
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
     let avail = 'unavailable';
     if (typeof window.DecisionModel !== 'undefined' && typeof window.DecisionModel.availability === 'function') {
@@ -165,6 +172,7 @@
     document.getElementById('copyTsvBtn').addEventListener('click', () => {
       const row = [
         new Date().toLocaleDateString(),
+        ...getBrowserColumns(),
         document.getElementById('bool-mean').textContent,
         document.getElementById('choice-mean').textContent,
         document.getElementById('rubric-mean').textContent,
@@ -175,7 +183,7 @@
 
     document.getElementById('saveBaselineBtn').addEventListener('click', () => {
       const store = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      const label = document.getElementById('runLabel').value.trim() || `Run #${Object.keys(store).length + 1}`;
+      const label = `${getBrowserColumns().join(' ')} #${Object.keys(store).length + 1}`;
       store[label] = {
         label,
         boolMs: document.getElementById('bool-mean').textContent,

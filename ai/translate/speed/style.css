@@ -1,7 +1,7 @@
 /* Speed benchmark specific styles */
 
 .speed-lang-row {
-  grid-template-columns: 1fr auto 1fr 1.2fr;
+  grid-template-columns: 1fr auto 1fr;
   margin-bottom: 12px;
 }
 

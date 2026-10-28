@@ -64,7 +64,7 @@
                 <input type="hidden" id="targetLanguage" value="es">
               </div>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="display: none;">
               <label for="speedBuildLabel">Current Run Label</label>
               <input type="text" id="speedBuildLabel" placeholder="e.g. Local Build, Edge Canary, Chrome" value="">
             </div>
@@ -74,7 +74,7 @@
             <button id="runAll" class="btn btn-primary" disabled>▶ Run Benchmark</button>
             <button id="saveResults" class="btn btn-secondary" disabled title="Copy summary and TSV to clipboard">📋 Copy</button>
             <button id="saveSpeedSnapshot" class="btn btn-secondary" disabled title="Save current run into selected baseline slot">💾 Save Baseline</button>
-            <select id="baselineSlotSelect" class="slot-select" aria-label="Baseline slot to save into">
+            <select id="baselineSlotSelect" class="slot-select" aria-label="Baseline slot to save into" style="display: none;">
               <option value="canary" selected>Slot: Edge Canary</option>
               <option value="chrome">Slot: Chrome</option>
               <option value="custom">Slot: Custom</option>

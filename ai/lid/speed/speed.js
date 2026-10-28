@@ -130,6 +130,13 @@
       </tbody>`;
   }
 
+  function getBrowserColumns() {
+    const ua = navigator.userAgent;
+    if (ua.includes('Edg/')) return ['Edge', (ua.match(/Edg\/([\d.]+)/) || [])[1] || ''];
+    if (ua.includes('Chrome/')) return ['Chrome', (ua.match(/Chrome\/([\d.]+)/) || [])[1] || ''];
+    return ['Browser', 'Unknown'];
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
     let avail = 'unavailable';
     if ('LanguageDetector' in self && typeof LanguageDetector.availability === 'function') {
@@ -154,6 +161,7 @@
     document.getElementById('copyTsvBtn').addEventListener('click', () => {
       const row = [
         new Date().toLocaleDateString(),
+        ...getBrowserColumns(),
         document.getElementById('create-mean').textContent,
         document.getElementById('batch-mean').textContent,
         document.getElementById('para-mean').textContent,
@@ -164,7 +172,7 @@
 
     document.getElementById('saveBaselineBtn').addEventListener('click', () => {
       const store = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      const label = document.getElementById('runLabel').value.trim() || `Run #${Object.keys(store).length + 1}`;
+      const label = `${getBrowserColumns().join(' ')} #${Object.keys(store).length + 1}`;
       store[label] = {
         label,
         createMs: document.getElementById('create-mean').textContent,
