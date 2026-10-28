@@ -36,10 +36,15 @@
     return a === e || a.startsWith(e + '-');
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const hasApi = 'LanguageDetector' in self;
-    document.getElementById('statusIndicator').className = 'status-indicator ' + (hasApi ? 'available' : 'unavailable');
-    document.getElementById('statusText').textContent = hasApi ? 'LanguageDetector Available' : 'LanguageDetector Unavailable';
+  document.addEventListener('DOMContentLoaded', async () => {
+    let avail = 'unavailable';
+    if ('LanguageDetector' in self && typeof LanguageDetector.availability === 'function') {
+      try { avail = await LanguageDetector.availability(); } catch (_) {}
+    }
+    const ready = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'after-download';
+    const hasApi = ready;
+    document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
+    document.getElementById('statusText').textContent = ready ? `LanguageDetector Available (${avail})` : `LanguageDetector (${avail})`;
 
     document.getElementById('startBtn').addEventListener('click', async () => {
       if (!hasApi) return;

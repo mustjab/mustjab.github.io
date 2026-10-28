@@ -144,9 +144,13 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
-    const hasApi = typeof window.DecisionModel !== 'undefined';
-    document.getElementById('statusIndicator').className = 'status-indicator ' + (hasApi ? 'available' : 'unavailable');
-    document.getElementById('statusText').textContent = hasApi ? 'DecisionModel Available' : 'DecisionModel Unavailable';
+    let avail = 'unavailable';
+    if (typeof window.DecisionModel !== 'undefined' && typeof window.DecisionModel.availability === 'function') {
+      try { avail = await window.DecisionModel.availability(); } catch (_) {}
+    }
+    const ready = avail === 'available' || avail === 'readily';
+    document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
+    document.getElementById('statusText').textContent = ready ? `DecisionModel Available (${avail})` : `DecisionModel (${avail})`;
     renderBaselines();
 
     document.getElementById('measureAllBtn').addEventListener('click', async () => {

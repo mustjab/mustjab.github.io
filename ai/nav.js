@@ -45,6 +45,13 @@
     return { api: 'prompt', mode: 'playground' };
   }
 
+  function routeHref(base, subpath) {
+    if (window.location.protocol === 'file:') {
+      return subpath ? `${base}${subpath}index.html` : `${base}index.htm`;
+    }
+    return `${base}${subpath}`;
+  }
+
   function buildNav() {
     const navEl = document.querySelector('.demo-nav, .demo-links');
     if (!navEl) return;
@@ -56,65 +63,65 @@
       {
         id: 'prompt',
         label: '🤖 Prompt API',
-        href: `${base}`,
+        href: routeHref(base, ''),
         modes: [
-          { id: 'playground', label: '💬 Chat Playground', href: `${base}` },
-          { id: 'tools', label: '🛠️ Tool Calling', href: `${base}tools/` },
-          { id: 'speed', label: '⚡ Speed Benchmark', href: `${base}speed/` },
-          { id: 'quality', label: '🏆 Quality Benchmark', href: `${base}quality/` },
+          { id: 'playground', label: '💬 Chat Playground', href: routeHref(base, '') },
+          { id: 'tools', label: '🛠️ Tool Calling', href: routeHref(base, 'tools/') },
+          { id: 'speed', label: '⚡ Speed Benchmark', href: routeHref(base, 'speed/') },
+          { id: 'quality', label: '🏆 Quality Benchmark', href: routeHref(base, 'quality/') },
         ],
       },
       {
         id: 'tasks',
         label: '✍️ Task APIs',
-        href: `${base}tasks/`,
+        href: routeHref(base, 'tasks/'),
         modes: [
-          { id: 'playground', label: '✍️ Task Playground', href: `${base}tasks/` },
-          { id: 'speed', label: '⚡ Speed Benchmark', href: `${base}tasks/speed/` },
-          { id: 'quality', label: '🏆 Quality Benchmark', href: `${base}tasks/quality/` },
+          { id: 'playground', label: '✍️ Task Playground', href: routeHref(base, 'tasks/') },
+          { id: 'speed', label: '⚡ Speed Benchmark', href: routeHref(base, 'tasks/speed/') },
+          { id: 'quality', label: '🏆 Quality Benchmark', href: routeHref(base, 'tasks/quality/') },
         ],
       },
       {
         id: 'decisions',
         label: '⚖️ Decisions API',
-        href: `${base}decisions/`,
+        href: routeHref(base, 'decisions/'),
         modes: [
-          { id: 'playground', label: '⚖️ Decisions Playground', href: `${base}decisions/` },
-          { id: 'speed', label: '⚡ Speed Benchmark', href: `${base}decisions/speed/` },
-          { id: 'quality', label: '🏆 Quality Benchmark', href: `${base}decisions/quality/` },
+          { id: 'playground', label: '⚖️ Decisions Playground', href: routeHref(base, 'decisions/') },
+          { id: 'speed', label: '⚡ Speed Benchmark', href: routeHref(base, 'decisions/speed/') },
+          { id: 'quality', label: '🏆 Quality Benchmark', href: routeHref(base, 'decisions/quality/') },
         ],
       },
       {
         id: 'translate',
         label: '🌐 Translator API',
-        href: `${base}translate/`,
+        href: routeHref(base, 'translate/'),
         modes: [
-          { id: 'playground', label: '🌐 Translator Playground', href: `${base}translate/` },
-          { id: 'speed', label: '⚡ Speed Benchmark', href: `${base}translate/speed/` },
-          { id: 'quality', label: '🏆 Quality Benchmark', href: `${base}translate/quality/` },
+          { id: 'playground', label: '🌐 Translator Playground', href: routeHref(base, 'translate/') },
+          { id: 'speed', label: '⚡ Speed Benchmark', href: routeHref(base, 'translate/speed/') },
+          { id: 'quality', label: '🏆 Quality Benchmark', href: routeHref(base, 'translate/quality/') },
         ],
       },
       {
         id: 'lid',
         label: '🔍 Language Detection',
-        href: `${base}lid/`,
+        href: routeHref(base, 'lid/'),
         modes: [
-          { id: 'playground', label: '🔍 Detector Playground', href: `${base}lid/` },
-          { id: 'speed', label: '⚡ Speed Benchmark', href: `${base}lid/speed/` },
-          { id: 'quality', label: '🏆 Quality Benchmark', href: `${base}lid/quality/` },
+          { id: 'playground', label: '🔍 Detector Playground', href: routeHref(base, 'lid/') },
+          { id: 'speed', label: '⚡ Speed Benchmark', href: routeHref(base, 'lid/speed/') },
+          { id: 'quality', label: '🏆 Quality Benchmark', href: routeHref(base, 'lid/quality/') },
         ],
       },
       {
         id: 'e2e',
         label: '🔗 E2E Pipeline',
-        href: `${base}e2e/`,
+        href: routeHref(base, 'e2e/'),
         modes: [],
       },
     ];
 
     const currentApi = apis.find(item => item.id === api) || apis[0];
 
-    navEl.classList.add('demo-nav-2tier');
+    navEl.classList.add('demo-nav', 'demo-nav-2tier');
     const primaryLinks = apis
       .map(item => {
         const active = item.id === currentApi.id;
