@@ -32,7 +32,7 @@ test('UMD exposes version1 and identical stable twenty-five-case multilingual pu
     assert.ok(spec(target, 'lead-paragraph-16-dom-tags').source.includes('<b111>computing</b111>'));
     assert.deepEqual(spec(target, 'literal-phrasefix-syntax').mustPreserve, ['42', 'qa@example.com']);
     assert.deepEqual(spec(target, 'batch-padding-acropora').mustNotContain, ['Acropura']);
-    assert.deepEqual(spec(target, 'time-am-pm-conversion').mustNotContain, ['16:4:05', '9 9']);
+    assert.deepEqual(spec(target, 'time-am-pm-conversion').mustNotContain, ['16:4:05', '9 9', 'de 9 a 9', '6 p. m. 6']);
     assert.deepEqual(spec(target, 'month-day-year-order').mustNotContain, ['5 月 2017 日', '5月2017日', '19 年 4 月', '19年4月']);
     assert.ok(spec(target, 'decimal-million-billion').mustNotContain.includes('4.1 万'));
     assert.deepEqual(spec(target, 'bare-and-negative-number').mustNotContain, ['1684年', '1684 年', '△22']);
