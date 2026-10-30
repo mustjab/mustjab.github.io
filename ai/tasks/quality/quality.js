@@ -69,6 +69,26 @@
       },
     },
     {
+      id: 'rewriter:casual-numeric-preservation',
+      task: 'rewriter',
+      options: { tone: 'more-casual', length: 'as-is', format: 'plain-text' },
+      input: `Please be advised that the Q4 budget allocation of $42 million has been approved for the 18 regional teams.`,
+      check(out) {
+        const pass = /42/.test(out) && /18/.test(out);
+        return { pass, detail: pass ? 'Preserved $42M and 18 teams in casual rewrite' : 'Dropped key numbers during rewrite' };
+      },
+    },
+    {
+      id: 'rewriter:url-preservation',
+      task: 'rewriter',
+      options: { tone: 'more-formal', length: 'shorter', format: 'plain-text' },
+      input: `You can grab the latest benchmark report over at https://mustjab.github.io/ai/speed/ whenever you have a minute.`,
+      check(out) {
+        const pass = /mustjab\.github\.io\/ai\/speed/i.test(out);
+        return { pass, detail: pass ? 'Preserved benchmark URL during formal/shorter rewrite' : 'Corrupted or dropped URL' };
+      },
+    },
+    {
       id: 'writer:release-note-draft',
       task: 'writer',
       options: { tone: 'formal', length: 'short', format: 'plain-text' },
@@ -86,6 +106,26 @@
       check(out) {
         const pass = out.trim().length >= 30 && /[-*1-3]/.test(out);
         return { pass, detail: `Generated checklist (${out.trim().length} chars)` };
+      },
+    },
+    {
+      id: 'writer:status-email-entities',
+      task: 'writer',
+      options: { tone: 'formal', length: 'short', format: 'plain-text' },
+      input: `Write a brief status update stating that build 2026.10.22.1 passed all 34 quality checks.`,
+      check(out) {
+        const pass = /2026\.10\.22\.1/.test(out) && /34/.test(out);
+        return { pass, detail: pass ? 'Included build 2026.10.22.1 and 34 checks' : 'Omitted required version or count' };
+      },
+    },
+    {
+      id: 'writer:incident-notice',
+      task: 'writer',
+      options: { tone: 'neutral', length: 'short', format: 'plain-text' },
+      input: `Write a two-sentence maintenance notice for Sunday at 02:00 UTC.`,
+      check(out) {
+        const pass = /sunday/i.test(out) && /02:00|2:00/i.test(out);
+        return { pass, detail: pass ? 'Included Sunday and 02:00 UTC window' : 'Missing day or time' };
       },
     },
     {
@@ -185,10 +225,48 @@
     list.appendChild(div);
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const anyAvailable = ['summarizer', 'writer', 'rewriter', 'proofreader'].some(k => Boolean(getApi(k)));
-    document.getElementById('statusIndicator').className = 'status-indicator ' + (anyAvailable ? 'available' : 'unavailable');
-    document.getElementById('statusText').textContent = anyAvailable ? 'Task APIs Detected' : 'Task APIs Not Detected';
+  const TASK_LABELS = {
+    summarizer: 'Summarizer API',
+    writer: 'Writer API',
+    rewriter: 'Rewriter API',
+    proofreader: 'Proofreader API',
+  };
+
+  function getActiveTaskFromUrl() {
+    const params = new URLSearchParams(window.location.search || '');
+    const t = (params.get('api') || '').toLowerCase();
+    return ['summarizer', 'writer', 'rewriter', 'proofreader'].includes(t) ? t : null;
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const activeTask = getActiveTaskFromUrl();
+    const activeCases = activeTask ? CASES.filter(c => c.task === activeTask) : CASES;
+
+    if (activeTask) {
+      const titlePrefix = TASK_LABELS[activeTask];
+      document.title = `${titlePrefix} - Quality Benchmark`;
+      const h1 = document.querySelector('header h1');
+      if (h1) h1.textContent = `${titlePrefix} - Quality Benchmark`;
+      document.getElementById('startBtn').textContent = `▶ Run ${titlePrefix.replace(' API', '')} Quality Suite (${activeCases.length} cases)`;
+      document.getElementById('totalCount').textContent = String(activeCases.length);
+    } else {
+      document.getElementById('startBtn').textContent = `▶ Run Quality Suite (${activeCases.length} cases)`;
+      document.getElementById('totalCount').textContent = String(activeCases.length);
+    }
+
+    const checkTarget = activeTask || 'summarizer';
+    const api = getApi(checkTarget);
+    let avail = 'unavailable';
+    if (api && typeof api.availability === 'function') {
+      try { avail = await api.availability(); } catch (_) {}
+    } else if (api) {
+      avail = 'available';
+    }
+    const ready = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'after-download';
+    document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
+    document.getElementById('statusText').textContent = activeTask
+      ? `${TASK_LABELS[activeTask]}: ${avail}`
+      : (ready ? `Task APIs Detected (${avail})` : 'Task APIs Not Detected');
 
     let lastRecords = [];
 
@@ -200,13 +278,13 @@
       let wrPass = 0, wrTot = 0;
       let prfPass = 0, prfTot = 0;
 
-      for (let i = 0; i < CASES.length; i++) {
+      for (let i = 0; i < activeCases.length; i++) {
         const t0 = performance.now();
         let res;
         try {
-          res = await runSingleCase(CASES[i]);
+          res = await runSingleCase(activeCases[i]);
         } catch (e) {
-          res = { ...CASES[i], output: `Error: ${e.message}`, pass: false, detail: 'Execution error' };
+          res = { ...activeCases[i], output: `Error: ${e.message}`, pass: false, detail: 'Execution error' };
         }
         res.elapsedMs = Math.round(performance.now() - t0);
         lastRecords.push(res);
@@ -221,7 +299,7 @@
         document.getElementById('sumScore').textContent = sumTot ? `${sumPass} / ${sumTot}` : '—';
         document.getElementById('wrtRewScore').textContent = wrTot ? `${wrPass} / ${wrTot}` : '—';
         document.getElementById('prfScore').textContent = prfTot ? `${prfPass} / ${prfTot}` : '—';
-        document.getElementById('progressBar').style.width = `${((i + 1) / CASES.length) * 100}%`;
+        document.getElementById('progressBar').style.width = `${((i + 1) / activeCases.length) * 100}%`;
         renderCard(res);
       }
       document.getElementById('copyBtn').disabled = false;

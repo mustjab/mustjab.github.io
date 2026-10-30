@@ -21,13 +21,19 @@
 
   function detectActiveRoute() {
     const path = (window.location.pathname || '').replace(/\\/g, '/').toLowerCase();
+    const params = new URLSearchParams(window.location.search || '');
+    const taskApi = (params.get('api') || 'summarizer').toLowerCase();
+    const validTask = ['summarizer', 'writer', 'rewriter', 'proofreader'].includes(taskApi)
+      ? taskApi
+      : 'summarizer';
+
     if (path.includes('/ai/translate/speed')) return { api: 'translate', mode: 'speed' };
     if (path.includes('/ai/translate/quality')) return { api: 'translate', mode: 'quality' };
     if (path.includes('/ai/translate')) return { api: 'translate', mode: 'playground' };
 
-    if (path.includes('/ai/tasks/speed')) return { api: 'tasks', mode: 'speed' };
-    if (path.includes('/ai/tasks/quality')) return { api: 'tasks', mode: 'quality' };
-    if (path.includes('/ai/tasks')) return { api: 'tasks', mode: 'playground' };
+    if (path.includes('/ai/tasks/speed')) return { api: validTask, mode: 'speed' };
+    if (path.includes('/ai/tasks/quality')) return { api: validTask, mode: 'quality' };
+    if (path.includes('/ai/tasks')) return { api: validTask, mode: 'playground' };
 
     if (path.includes('/ai/decisions/speed')) return { api: 'decisions', mode: 'speed' };
     if (path.includes('/ai/decisions/quality')) return { api: 'decisions', mode: 'quality' };
@@ -45,11 +51,11 @@
     return { api: 'prompt', mode: 'playground' };
   }
 
-  function routeHref(base, subpath) {
+  function routeHref(base, subpath, query = '') {
     if (window.location.protocol === 'file:') {
-      return subpath ? `${base}${subpath}index.html` : `${base}index.htm`;
+      return subpath ? `${base}${subpath}index.html${query}` : `${base}index.htm${query}`;
     }
-    return `${base}${subpath}`;
+    return `${base}${subpath}${query}`;
   }
 
   function buildNav() {
@@ -72,13 +78,43 @@
         ],
       },
       {
-        id: 'tasks',
-        label: '✍️ Task APIs',
-        href: routeHref(base, 'tasks/'),
+        id: 'summarizer',
+        label: '📝 Summarizer',
+        href: routeHref(base, 'tasks/', '?api=summarizer'),
         modes: [
-          { id: 'playground', label: '✍️ Task Playground', href: routeHref(base, 'tasks/') },
-          { id: 'speed', label: '⚡ Speed Benchmark', href: routeHref(base, 'tasks/speed/') },
-          { id: 'quality', label: '🏆 Quality Benchmark', href: routeHref(base, 'tasks/quality/') },
+          { id: 'playground', label: '📝 Summarizer Playground', href: routeHref(base, 'tasks/', '?api=summarizer') },
+          { id: 'speed', label: '⚡ Speed Benchmark', href: routeHref(base, 'tasks/speed/', '?api=summarizer') },
+          { id: 'quality', label: '🏆 Quality Benchmark', href: routeHref(base, 'tasks/quality/', '?api=summarizer') },
+        ],
+      },
+      {
+        id: 'writer',
+        label: '✍️ Writer',
+        href: routeHref(base, 'tasks/', '?api=writer'),
+        modes: [
+          { id: 'playground', label: '✍️ Writer Playground', href: routeHref(base, 'tasks/', '?api=writer') },
+          { id: 'speed', label: '⚡ Speed Benchmark', href: routeHref(base, 'tasks/speed/', '?api=writer') },
+          { id: 'quality', label: '🏆 Quality Benchmark', href: routeHref(base, 'tasks/quality/', '?api=writer') },
+        ],
+      },
+      {
+        id: 'rewriter',
+        label: '✨ Rewriter',
+        href: routeHref(base, 'tasks/', '?api=rewriter'),
+        modes: [
+          { id: 'playground', label: '✨ Rewriter Playground', href: routeHref(base, 'tasks/', '?api=rewriter') },
+          { id: 'speed', label: '⚡ Speed Benchmark', href: routeHref(base, 'tasks/speed/', '?api=rewriter') },
+          { id: 'quality', label: '🏆 Quality Benchmark', href: routeHref(base, 'tasks/quality/', '?api=rewriter') },
+        ],
+      },
+      {
+        id: 'proofreader',
+        label: '✅ Proofreader',
+        href: routeHref(base, 'tasks/', '?api=proofreader'),
+        modes: [
+          { id: 'playground', label: '✅ Proofreader Playground', href: routeHref(base, 'tasks/', '?api=proofreader') },
+          { id: 'speed', label: '⚡ Speed Benchmark', href: routeHref(base, 'tasks/speed/', '?api=proofreader') },
+          { id: 'quality', label: '🏆 Quality Benchmark', href: routeHref(base, 'tasks/quality/', '?api=proofreader') },
         ],
       },
       {

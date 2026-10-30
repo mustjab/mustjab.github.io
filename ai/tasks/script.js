@@ -17,8 +17,25 @@
     return null;
   }
 
+  const TASK_TITLES = {
+    summarizer: 'Summarizer API',
+    writer: 'Writer API',
+    rewriter: 'Rewriter API',
+    proofreader: 'Proofreader API',
+  };
+
+  function getActiveTaskFromUrl() {
+    const params = new URLSearchParams(window.location.search || '');
+    const t = (params.get('api') || '').toLowerCase();
+    return ['summarizer', 'writer', 'rewriter', 'proofreader'].includes(t) ? t : null;
+  }
+
   function updateTaskOptionsUI() {
     const task = document.getElementById('taskSelector').value;
+    const titlePrefix = TASK_TITLES[task] || 'Task APIs';
+    document.title = `${titlePrefix} - Playground`;
+    const h1 = document.querySelector('header h1');
+    if (h1) h1.textContent = `${titlePrefix} Playground`;
     const g1 = document.getElementById('optGroup1');
     const g2 = document.getElementById('optGroup2');
     const g3 = document.getElementById('optGroup3');
@@ -145,8 +162,15 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    const urlTask = getActiveTaskFromUrl();
+    const sel = document.getElementById('taskSelector');
+    if (urlTask && sel) {
+      sel.value = urlTask;
+      const wrapper = sel.closest('.bench-label-group');
+      if (wrapper) wrapper.style.display = 'none';
+    }
     updateTaskOptionsUI();
-    document.getElementById('taskSelector').addEventListener('change', updateTaskOptionsUI);
+    sel.addEventListener('change', updateTaskOptionsUI);
     document.getElementById('processBtn').addEventListener('click', runTask);
     document.getElementById('clearBtn').addEventListener('click', () => {
       document.getElementById('outputContent').textContent = 'Output will appear here...';

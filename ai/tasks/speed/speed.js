@@ -180,17 +180,62 @@
     return ['Browser', 'Unknown'];
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const anyAvailable = ['summarizer', 'writer', 'rewriter', 'proofreader'].some(k => Boolean(getApi(k)));
-    document.getElementById('statusIndicator').className = 'status-indicator ' + (anyAvailable ? 'available' : 'unavailable');
-    document.getElementById('statusText').textContent = anyAvailable ? 'Task APIs Detected' : 'Task APIs Not Detected';
+  const TASK_LABELS = {
+    summarizer: 'Summarizer API',
+    writer: 'Writer API',
+    rewriter: 'Rewriter API',
+    proofreader: 'Proofreader API',
+  };
+
+  function getActiveTaskFromUrl() {
+    const params = new URLSearchParams(window.location.search || '');
+    const t = (params.get('api') || '').toLowerCase();
+    return ['summarizer', 'writer', 'rewriter', 'proofreader'].includes(t) ? t : null;
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const activeTask = getActiveTaskFromUrl();
+    if (activeTask) {
+      const titlePrefix = TASK_LABELS[activeTask];
+      document.title = `${titlePrefix} - Speed Benchmark`;
+      const h1 = document.querySelector('header h1');
+      if (h1) h1.textContent = `${titlePrefix} - Speed Benchmark`;
+      document.getElementById('measureAllBtn').textContent = `▶ Measure ${titlePrefix.replace(' API', '')}`;
+
+      // Highlight the selected task's scorecard tile
+      const tiles = document.querySelectorAll('.score-grid .score-item');
+      const idxMap = { summarizer: 0, writer: 1, rewriter: 2, proofreader: 3 };
+      tiles.forEach((tile, idx) => {
+        tile.classList.toggle('score-item--hero', idx === idxMap[activeTask]);
+      });
+    }
+
+    const checkTarget = activeTask || 'summarizer';
+    const api = getApi(checkTarget);
+    let avail = 'unavailable';
+    if (api && typeof api.availability === 'function') {
+      try { avail = await api.availability(); } catch (_) {}
+    } else if (api) {
+      avail = 'available';
+    }
+    const ready = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'after-download';
+    document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
+    document.getElementById('statusText').textContent = activeTask
+      ? `${TASK_LABELS[activeTask]}: ${avail}`
+      : (ready ? `Task APIs Detected (${avail})` : 'Task APIs Not Detected');
     renderBaselines();
 
     document.getElementById('measureAllBtn').addEventListener('click', async () => {
-      await runSummarizerBench();
-      await runWriterBench();
-      await runRewriterBench();
-      await runProofreaderBench();
+      if (activeTask === 'summarizer') await runSummarizerBench();
+      else if (activeTask === 'writer') await runWriterBench();
+      else if (activeTask === 'rewriter') await runRewriterBench();
+      else if (activeTask === 'proofreader') await runProofreaderBench();
+      else {
+        await runSummarizerBench();
+        await runWriterBench();
+        await runRewriterBench();
+        await runProofreaderBench();
+      }
     });
 
     document.querySelectorAll('[data-replay]').forEach(btn => {
