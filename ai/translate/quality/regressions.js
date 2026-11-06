@@ -137,9 +137,9 @@
       expectedInvariant: 'Preserve standalone bare number 1684 and negative number -22 without appending 年 (1684年) or localizing the minus sign to triangle notation (△22).'},
     {name: 'dotnet-version-modifier', id: 'opaque_identity', regressionRule: 'identity',
       source: 'ASP.NET Core Runtime 8 icon',
-      mustPreserve: ['ASP.NET Core Runtime', '8'], exactTokens: ['ASP.NET Core Runtime'],
+      mustPreserve: ['ASP.NET', '8'], exactTokens: ['ASP.NET'],
       mustNotContain: ['Icono 8 de ASP.NET', 'Ícono 8 de ASP.NET'],
-      expectedInvariant: 'Keep version 8 attached to ASP.NET Core Runtime (Icono de ASP.NET Core Runtime 8) rather than shifting 8 onto Icono.'},
+      expectedInvariant: 'Keep version 8 attached to ASP.NET Core Runtime (Icono de ASP.NET Core Runtime 8 / ASP.NET Core ランタイム 8 アイコン / ASP.NET Core 运行时 8 图标) rather than shifting 8 onto Icono.'},
     ...[['cyrillic-be', '\u0411'], ['cyrillic-komi', '\u0500'], ['latin-accent', '\u00c9']].map(([name, code]) => ({
       name, id: 'code_identity', regressionRule: 'identity',
       source: `The product code is ${code}.`, mustPreserve: [code], exactTokens: [code],
