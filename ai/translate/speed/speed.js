@@ -1,20 +1,20 @@
-// Standardized benchmark texts for batch test (~300-500 chars each, ~5500 total)
+// Standardized benchmark texts for batch test (15 multi-sentence paragraphs: 5 plain prose, 5 numeric/technical, 5 inline <bN> DOM-tagged)
 const BENCHMARK_TEXTS = [
-  "The rapid advancement of artificial intelligence has fundamentally transformed how businesses operate across virtually every industry. Companies are leveraging machine learning algorithms to automate complex processes, predict market trends, and deliver personalized customer experiences at unprecedented scale.",
-  "In the field of modern medicine, researchers are making remarkable breakthroughs by combining genomic data analysis with sophisticated computational models. These innovations enable earlier disease detection, more targeted therapeutic interventions, and the development of precision medicine approaches tailored to individual genetic profiles.",
-  "The global transition toward renewable energy sources represents one of the most significant economic and environmental shifts in human history. Solar and wind power installations continue to grow exponentially, while advances in battery storage technology are addressing the intermittency challenges that previously limited widespread adoption of clean energy alternatives.",
-  "International trade agreements and diplomatic negotiations require exceptional linguistic precision to ensure that all parties fully understand the terms and implications of complex multilateral arrangements. Professional translators play a crucial role in facilitating cross-cultural communication and preventing costly misunderstandings between nations.",
-  "Urban planning and sustainable city design have become increasingly important as the global population continues to concentrate in metropolitan areas. Innovative approaches to public transportation, green infrastructure, and mixed-use development are helping cities reduce their environmental footprint while improving quality of life for residents.",
-  "The evolution of cybersecurity practices reflects the growing sophistication of digital threats facing organizations and individuals worldwide. Advanced persistent threats, ransomware attacks, and social engineering schemes require comprehensive defense strategies that combine technical safeguards with ongoing employee education and awareness programs.",
-  "Marine biology research has revealed fascinating insights into the complex ecosystems that exist beneath the ocean surface. Scientists studying coral reef degradation, deep-sea hydrothermal vents, and marine biodiversity patterns are contributing valuable knowledge that informs conservation policies and environmental protection efforts around the world.",
-  "The democratization of financial services through technology has opened new pathways for economic participation among previously underserved populations. Mobile banking platforms, peer-to-peer lending networks, and cryptocurrency systems are creating alternative financial infrastructure that operates alongside traditional banking institutions.",
-  "Archaeological discoveries continue to reshape our understanding of ancient civilizations and the complex societies that flourished thousands of years before the modern era. Advanced imaging technologies and DNA analysis techniques are providing researchers with unprecedented tools to reconstruct historical narratives and understand human migration patterns.",
-  "The intersection of neuroscience and computer science has given rise to brain-computer interface technologies that hold enormous potential for treating neurological disorders and enhancing human cognitive capabilities. Researchers are developing implantable devices that can interpret neural signals and translate them into commands for external systems.",
-  "Agricultural innovation is essential for feeding a growing global population while minimizing environmental degradation and preserving natural resources for future generations. Precision farming techniques, drought-resistant crop varieties, and vertical farming operations represent promising approaches to sustainable food production in an era of climate uncertainty.",
-  "The publishing industry has undergone dramatic transformation with the rise of digital content platforms, self-publishing tools, and audiobook services that have expanded access to literature and educational materials. These changes have created new opportunities for authors while challenging traditional business models.",
-  "International space agencies and private aerospace companies are collaborating on ambitious missions to establish a sustained human presence beyond Earth orbit. The development of reusable launch vehicles, advanced life support systems, and in-situ resource utilization technologies are bringing the dream of interplanetary exploration closer to reality.",
-  "Educational psychology research demonstrates that effective learning environments incorporate multiple modalities, encourage active participation, and provide timely feedback to students. Technology-enhanced learning platforms are increasingly able to adapt instructional content to individual learning styles and pace.",
-  "The preservation of linguistic diversity is a critical challenge as globalization and digital communication continue to reshape how communities interact and share knowledge. Language documentation projects and revitalization programs are working to ensure that endangered languages and the cultural heritage they embody are not lost to future generations."
+  "The rapid advancement of artificial intelligence has fundamentally transformed how businesses operate across virtually every industry. Companies are leveraging machine learning algorithms to automate complex processes, predict market trends, and deliver personalized customer experiences at unprecedented scale. As deployment expands from cloud data centers to client devices, low-latency local inference has become essential for interactive applications.",
+  "In the field of modern medicine, researchers are making remarkable breakthroughs by combining genomic data analysis with sophisticated computational models. These innovations enable earlier disease detection, more targeted therapeutic interventions, and the development of precision medicine approaches tailored to individual genetic profiles. Clinical trials increasingly rely on real-time multilingual collaboration across research hospitals.",
+  "The global transition toward renewable energy sources represents one of the most significant economic and environmental shifts in human history. Solar and wind power installations continue to grow exponentially, while advances in battery storage technology are addressing the intermittency challenges that previously limited widespread adoption of clean energy alternatives. Grid operators are modernizing transmission infrastructure to balance regional supply and demand.",
+  "International trade agreements and diplomatic negotiations require exceptional linguistic precision to ensure that all parties fully understand the terms and implications of complex multilateral arrangements. Professional translators play a crucial role in facilitating cross-cultural communication and preventing costly misunderstandings between nations. Accurate terminology management remains vital when reviewing regulatory frameworks.",
+  "Urban planning and sustainable city design have become increasingly important as the global population continues to concentrate in metropolitan areas. Innovative approaches to public transportation, green infrastructure, and mixed-use development are helping cities reduce their environmental footprint while improving quality of life for residents. Municipal leaders are prioritizing pedestrian-friendly neighborhoods and resilient utility networks.",
+  "Global cloud infrastructure spending reached $154 billion in Q4 2025, with annual capital expenditures projected between $150 and $200 billion across major providers. Upgrading clusters to .NET 8 and Node.js 22.4.1 reduced median API latency from 245.8 ms to 112.4 ms across 14,500 production nodes. Full telemetry dashboards and release notes are published at https://example.com/docs/2.8.15?id=676 for platform engineers.",
+  "Modern battery packs deliver 285 Wh/kg energy density and retain 91.5% capacity after 1,500 charge cycles at temperatures between -10°C and 45°C. Charging from 10% to 80% requires 18 minutes on a 350 kW DC fast charger, adding 420 km of highway range. Fleet operators tracking 12,840 electric vehicles reported $18.6 million in fuel and maintenance savings during 2025.",
+  "The astronomical survey cataloged 4,280 exoplanet candidates across 1,150 star systems located between 12.5 and 640 light-years from Earth. Spectroscopic observations at wavelengths from 0.6 to 28.5 micrometers detected water vapor and carbon dioxide in 38 planetary atmospheres. Researchers published the 208.96 GB dataset under identifier PRD-2026-0513 for independent verification.",
+  "Enterprise cybersecurity teams mitigated 3,420 intrusion attempts per day in March 2026, blocking 99.4% of automated phishing payloads within 150 ms. Updating TLS 1.3 cipher suites and enforcing hardware security keys across 48,000 employee accounts eliminated credential-stuffing breaches. Incident response playbooks can be downloaded from /docs/security/2.8.15?id=676 or requested via support@example.com.",
+  "Semiconductor fabs operating 2 nm EUV lithography lines achieved a 78.5% wafer yield while reducing power consumption by 24% at 3.6 GHz clock speeds. Each processor integrates 1,024 matrix units delivering 45 TOPS for on-device neural network inference within a 15 W thermal envelope. Volume shipments of 2.5 million units are scheduled for October 24, 2026.",
+  "The <b10>James Webb Space Telescope</b10> (<b11>JWST</b11>) is a space telescope designed primarily to conduct <b12>infrared astronomy</b12><b13><b14>[</b14>12<b15>]</b15></b13>. As the largest optical telescope in space, its high resolution and sensitivity allow it to view objects too old, distant, or faint for the <b16>Hubble Space Telescope</b16>. This enables investigations across many fields of <b17>astronomy</b17> and <b18>cosmology</b18>, such as observation of the first stars and the formation of the first <b19>galaxies</b19>.",
+  "In <b10>computer science</b10>, <b11>neural machine translation</b11> (<b12>NMT</b12>) is an approach to <b13>machine translation</b13> that uses an <b14>artificial neural network</b14> to predict the likelihood of a sequence of words<b15><b16>[</b16>1<b17>]</b17></b15>. Unlike traditional <b18>statistical machine translation</b18>, which translates individual phrases separately, neural models consider the entire input sentence context at once. Modern <b19>transformer architectures</b19> have significantly improved fluency and grammatical accuracy across dozens of languages.",
+  "<b10>Photosynthesis</b10> is a biological process used by many cellular organisms to convert <b11>light energy</b11> into <b12>chemical energy</b12>, which is stored in <b13>organic compounds</b13> that can later be metabolized through <b14>cellular respiration</b14> to fuel the organism's activities<b15><b16>[</b16>4<b17>]</b17></b15>. In <b18>plants</b18>, <b19>algae</b19>, and <b20>cyanobacteria</b20>, photosynthesis uses carbon dioxide and water, releasing <b21>oxygen</b21> as a byproduct. This process is responsible for producing and maintaining the oxygen content of the Earth's atmosphere.",
+  "The <b10>Industrial Revolution</b10> was the transition to new manufacturing processes in <b11>Great Britain</b11>, continental <b12>Europe</b12>, and the <b13>United States</b13>, in the period from about 1760 to sometime between 1820 and 1840<b14><b15>[</b15>2<b16>]</b16></b14>. This transition included going from <b17>hand production methods</b17> to <b18>machines</b18>, new chemical manufacturing and <b19>iron production</b19> processes, the increasing use of <b20>water power</b20> and <b21>steam power</b21>, and the rise of the <b22>mechanized factory system</b22>. Output increased dramatically, leading to an unprecedented rise in population growth.",
+  "The <b10>World Wide Web</b10> (<b11>WWW</b11> or simply the <b12>Web</b12>) is an information system that enables content sharing over the <b13>Internet</b13> through user-friendly ways meant to appeal to users beyond IT specialists and hobbyists<b14><b15>[</b15>3<b16>]</b16></b14>. It allows documents and other web resources to be accessed over the network according to specific rules of the <b17>Hypertext Transfer Protocol</b17> (<b18>HTTP</b18>). The Web was invented by English computer scientist <b19>Tim Berners-Lee</b19> while at <b20>CERN</b20> in 1989 and opened to the public in 1991."
 ];
 
 // Throughput test texts (increasing length: ~200, ~500, ~1000, ~1500, ~2000 chars)
@@ -99,9 +99,10 @@ const LANGUAGE_NAMES = {
 // Modeled after typical content-heavy pages (news, docs, e-commerce).
 
 // Numbers (including slash-dates and colon-times, excluding prose percentages
-// like 15%), Cyrillic Supplement product codes, URLs, relative query paths, and
-// emails use phrase-fix span annotations before the model sees them.
-const PROTECTED_SPAN_RE = /\b\d+(?:[.,:/]\d+)*(?![.,:/]?\d|\s*%)|[\u0500-\u052F]+|https?:\/\/\S+|\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+\?[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+|\bwww\.\S+|\S+@\S+\.\w+/;
+// like 15%), Cyrillic Supplement product codes, URLs, relative query paths,
+// emails, and inline <bN>...</bN> DOM tags use phrase-fix span annotations.
+const DOM_TAG_SPAN_RE = /<\/?b\d+>/;
+const PROTECTED_SPAN_RE = /<\/?b\d+>|\b\d+(?:[.,:/]\d+)*(?![.,:/]?\d|\s*%)|[\u0500-\u052F]+|https?:\/\/\S+|\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+\?[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+|\bwww\.\S+|\S+@\S+\.\w+/;
 
 const PAGE_SIM_SEGMENTS = {
   nav: [
@@ -222,26 +223,26 @@ const PAGE_SIM_SEGMENTS = {
     'Jump to: Top | Comments | Related',
   ],
   paragraphs: [
-    'Our platform leverages cutting-edge artificial intelligence to deliver seamless translation experiences across more than forty languages. Whether you are a small business expanding internationally or a large enterprise managing multilingual content, our tools are designed to meet your needs.',
-    'The latest update includes significant improvements to translation accuracy for East Asian languages, with particular attention to context-dependent terminology and idiomatic expressions. Users can expect up to thirty percent faster processing times thanks to optimized neural network inference.',
-    'Customer satisfaction remains our top priority. Our support team is available around the clock to assist with technical questions, account management, and integration guidance. We pride ourselves on an average response time of under two hours for all support tickets.',
-    'Security is built into every layer of our infrastructure. All data is encrypted in transit and at rest using industry-standard protocols. We undergo regular third-party security audits and maintain compliance with major international data protection regulations.',
-    'Getting started is simple: create a free account, select your source and target languages, and begin translating immediately. No credit card is required for the free tier, which includes up to one hundred thousand characters per month.',
-    'The API supports both synchronous and streaming translation modes. Synchronous mode returns the complete translation in a single response, while streaming mode delivers results progressively, allowing your application to display partial translations as they become available.',
-    'Machine translation quality has improved dramatically over the past decade thanks to advances in deep learning and natural language processing. Modern neural translation models can handle complex grammatical structures, preserve formatting, and maintain consistent terminology across long documents.',
-    'We recommend using the batch translation endpoint for processing multiple text segments simultaneously. This approach significantly reduces total latency compared to making individual API calls for each segment, as the model can share context across related texts.',
-    'Our enterprise plan includes dedicated infrastructure, custom model training, and priority support with guaranteed response times. Contact our sales team to discuss volume pricing and deployment options tailored to your organization\'s specific requirements.',
-    'The translation memory feature automatically stores and reuses previously translated segments, improving consistency across your content while reducing costs. This is especially valuable for technical documentation and marketing materials that share common phrases and terminology.',
-    'Browser-based translation runs entirely on the user\'s device, ensuring that sensitive content never leaves the local machine. This privacy-preserving approach is ideal for healthcare, legal, and financial applications where data confidentiality is paramount.',
-    'Accessibility is a core design principle. Our interface supports screen readers, keyboard navigation, and high-contrast display modes. Translation output preserves semantic HTML structure to maintain accessibility in the target language.',
-    'Performance monitoring dashboards provide real-time visibility into translation throughput, error rates, and latency percentiles. Automated alerts notify your team when quality metrics fall below configured thresholds, enabling rapid response to potential issues.',
-    'The glossary management feature allows you to define custom translation rules for brand names, technical terms, and industry-specific vocabulary. These rules take precedence over the model\'s default translations, ensuring consistency with your organization\'s preferred terminology.',
-    'Regular model updates incorporate the latest research findings and training data improvements. We follow a staged rollout process with automated quality gates to ensure that updates maintain or improve translation accuracy across all supported language pairs.',
-    'Integration is available through REST APIs, client SDKs for major programming languages, and pre-built plugins for popular content management systems. Comprehensive documentation and code samples make it easy to add translation capabilities to your existing workflows.',
-    'Our quality evaluation framework uses a combination of automated metrics and human review to continuously monitor translation accuracy. We publish quarterly quality reports for all supported language pairs, demonstrating our commitment to transparency and continuous improvement.',
-    'The collaborative review feature enables bilingual team members to provide feedback on translations directly within the platform. Accepted corrections are incorporated into the translation memory, creating a continuous learning loop that improves quality over time.',
-    'For high-volume applications, our content delivery network caches frequently requested translations at edge locations worldwide, reducing latency for end users and lowering costs through reduced API calls to the translation backend.',
-    'We are committed to supporting linguistic diversity and have partnered with academic institutions and language preservation organizations to expand coverage to underrepresented languages. Our goal is to make high-quality machine translation accessible to every language community.',
+    'Our platform leverages cutting-edge artificial intelligence to deliver seamless translation experiences across more than forty languages. Whether you are a small business expanding internationally or a large enterprise managing multilingual content, our tools are designed to meet your needs. Dedicated regional clusters keep response times predictable throughout peak traffic hours.',
+    'The latest update includes significant improvements to translation accuracy for East Asian languages, with particular attention to context-dependent terminology and idiomatic expressions. Users can expect faster processing times thanks to optimized neural network inference. Continuous evaluation across domain benchmarks ensures consistent terminology.',
+    'Customer satisfaction remains our top priority across every product tier. Our support team is available around the clock to assist with technical questions, account management, and integration guidance. We pride ourselves on rapid resolution for all engineering and billing inquiries.',
+    'Security is built into every layer of our infrastructure from day one. All data is encrypted in transit and at rest using industry-standard cryptographic protocols. We undergo regular third-party security audits and maintain compliance with major international data protection regulations.',
+    'The API supports both synchronous and streaming translation modes for web applications. Synchronous mode returns the complete translation in a single response, while streaming mode delivers results progressively as each segment finishes. This allows your interface to display partial translations immediately while longer passages continue decoding.',
+    'Machine translation quality has improved dramatically over the past decade thanks to advances in deep learning and natural language processing. Modern neural translation models can handle complex grammatical structures, preserve formatting, and maintain consistent terminology across long documents. Hybrid phrase-fixing safeguards keep structured spans intact.',
+    'Getting started is simple: create a free account, select your source and target languages, and begin translating immediately. No credit card is required for the free tier, which includes 100,000 characters per month and 250 requests per minute. Enterprise plans scale from $150 to $200 billion in annual processed volume across 48 global regions.',
+    'Upgrading the runtime to .NET 8 and ONNX Runtime 1.21.2 reduced average batch latency from 1,744.2 ms to 1,115.5 ms per 1,000 characters on 4-core client devices. Memory footprint stayed under 420 MB while translating 1,250 concurrent segments. Full benchmark reports are available at https://example.com/benchmarks/2.8.15?id=676.',
+    'We recommend using the batch translation endpoint with width 512 and batch size 4 when processing 12 to 64 text segments simultaneously. In production telemetry across 18,400 sessions, dynamic batching improved throughput from 1,280 chars/sec to 2,640 chars/sec. Contact support@example.com for custom quota adjustments.',
+    'Browser-based translation runs entirely on the user\'s device, ensuring that sensitive records never leave the local machine. Version 159.0.4372.0 processes 24.5 MB language packs using INT4 quantization with zero network round-trips. This privacy-preserving architecture is ideal for healthcare, legal, and financial workflows.',
+    'Performance monitoring dashboards provide real-time visibility into p50, p95, and p99 latency percentiles across 142 supported language pairs. Automated alerts notify engineering teams within 60 seconds if error rates exceed 0.25% or throughput drops below 1,100 chars/sec. Historical logs are retained for 90 days at /logs/metrics/2.8.15?id=676.',
+    'Regular model updates incorporate the latest training data and tokenizer refinements on a 14-day release cadence. Each candidate model must pass 34 automated regression checks and 1,500 sentence-level BLEU evaluations before shipping to Canary. Rollback takes less than 5 minutes if a regression is detected.',
+    'The <b10>James Webb Space Telescope</b10> (<b11>JWST</b11>) is a space telescope designed primarily to conduct <b12>infrared astronomy</b12><b13><b14>[</b14>12<b15>]</b15></b13>. As the largest optical telescope in space, its high resolution and sensitivity allow it to view objects too old, distant, or faint for the <b16>Hubble Space Telescope</b16>. This enables investigations across many fields of <b17>astronomy</b17> and <b18>cosmology</b18>.',
+    'In <b10>computer science</b10>, <b11>neural machine translation</b11> (<b12>NMT</b12>) is an approach to <b13>machine translation</b13> that uses an <b14>artificial neural network</b14> to predict the likelihood of a sequence of words<b15><b16>[</b16>1<b17>]</b17></b15>. Unlike traditional <b18>statistical machine translation</b18>, neural models translate entire sentences in context. Modern <b19>transformer models</b19> preserve inline markup tags during page translation.',
+    '<b10>Photosynthesis</b10> is a biological process used by cellular organisms to convert <b11>light energy</b11> into <b12>chemical energy</b12>, which is stored in <b13>organic compounds</b13> and later metabolized through <b14>cellular respiration</b14><b15><b16>[</b16>4<b17>]</b17></b15>. In <b18>plants</b18>, <b19>algae</b19>, and <b20>cyanobacteria</b20>, photosynthesis uses carbon dioxide and water while releasing <b21>oxygen</b21>.',
+    'The <b10>World Wide Web</b10> (<b11>WWW</b11> or simply the <b12>Web</b12>) is an information system that enables content sharing over the <b13>Internet</b13><b14><b15>[</b15>3<b16>]</b16></b14>. It allows documents and web resources to be accessed according to the rules of the <b17>Hypertext Transfer Protocol</b17> (<b18>HTTP</b18>). The Web was invented by <b19>Tim Berners-Lee</b19> at <b20>CERN</b20> in 1989.',
+    'The <b10>International Space Station</b10> (<b11>ISS</b11>) is a modular <b12>space station</b12> in <b13>low Earth orbit</b13><b14><b15>[</b15>6<b16>]</b16></b14>. It is a multinational collaborative project involving five participating space agencies: <b17>NASA</b17>, <b18>Roscosmos</b18>, <b19>JAXA</b19>, <b20>ESA</b20>, and <b21>CSA</b21>. The station serves as a <b22>microgravity</b22> and space environment research laboratory.',
+    '<b10>Quantum computing</b10> is a multidisciplinary field comprising aspects of <b11>computer science</b11>, <b12>physics</b12>, and <b13>mathematics</b13> that utilizes <b14>quantum mechanics</b14> to solve complex problems faster than on <b15>classical computers</b15><b16><b17>[</b17>8<b18>]</b18></b16>. The field includes hardware research and <b19>quantum algorithm</b19> development using <b20>qubits</b20>.',
+    'An <b10>operating system</b10> (<b11>OS</b11>) is <b12>system software</b12> that manages <b13>computer hardware</b13> and <b14>software</b14> resources, and provides common services for <b15>computer programs</b15><b16><b17>[</b17>9<b18>]</b18></b16>. Time-sharing operating systems schedule tasks for efficient use of the system and may also include accounting software for processor time and <b19>mass storage</b19>.',
+    'The <b10>ribosome</b10> is a complex <b11>molecular machine</b11> found within all living <b12>cells</b12> that serves as the site of biological <b13>protein synthesis</b13> (<b14>translation</b14>)<b15><b16>[</b16>11<b17>]</b17></b15>. Ribosomes link <b18>amino acids</b18> together in the order specified by <b19>messenger RNA</b19> (<b20>mRNA</b20>) molecules to form <b21>polypeptide</b21> chains.',
   ],
 };
 
@@ -620,19 +621,32 @@ class TranslationSpeedBenchmark {
     this.showStatus('Running sequential batch benchmark (1×15)...', true);
 
     const totalChars = BENCHMARK_TEXTS.reduce((sum, text) => sum + text.length, 0);
-    const seqStart = performance.now();
+    const seqGroupMs = { plain: 0, numeric: 0, domTag: 0 };
+    const groupChars = { plain: 0, numeric: 0, domTag: 0 };
+    const groupKeyFor = text => DOM_TAG_SPAN_RE.test(text)
+      ? 'domTag'
+      : PROTECTED_SPAN_RE.test(text) ? 'numeric' : 'plain';
+    for (const text of BENCHMARK_TEXTS) {
+      groupChars[groupKeyFor(text)] += text.length;
+    }
 
+    const seqStart = performance.now();
     for (let i = 0; i < BENCHMARK_TEXTS.length; i++) {
       this.setProgress(Math.round(((i + 1) / (BENCHMARK_TEXTS.length * 2)) * 100));
       const text = BENCHMARK_TEXTS[i];
+      const itemStart = performance.now();
       await this.translator.translate(text);
+      seqGroupMs[groupKeyFor(text)] += (performance.now() - itemStart);
     }
 
     const seqMs = performance.now() - seqStart;
     const seqCps = Math.round((totalChars / seqMs) * 1000);
+    const seqMsPer1k = totalChars > 0 ? (seqMs / totalChars) * 1000 : 0;
 
     document.getElementById('batchThroughput').textContent = seqCps;
     document.getElementById('batchTotalTime').textContent = seqMs.toFixed(1);
+    const seqMsPer1kEl = document.getElementById('batchSeqMsPer1k');
+    if (seqMsPer1kEl) seqMsPer1kEl.textContent = seqMsPer1k.toFixed(1);
 
     this.showStatus('Running concurrent batch benchmark (15×1 Promise.all)...', true);
     let completed = 0;
@@ -646,11 +660,14 @@ class TranslationSpeedBenchmark {
     ));
     const concMs = performance.now() - concStart;
     const concCps = Math.round((totalChars / concMs) * 1000);
+    const concMsPer1k = totalChars > 0 ? (concMs / totalChars) * 1000 : 0;
     const speedup = concMs > 0 ? (seqMs / concMs) : 1;
     const speedupText = `${speedup.toFixed(2)}\u00d7`;
 
     const concTimeEl = document.getElementById('batchConcTime');
     if (concTimeEl) concTimeEl.textContent = concMs.toFixed(1);
+    const concMsPer1kEl = document.getElementById('batchConcMsPer1k');
+    if (concMsPer1kEl) concMsPer1kEl.textContent = concMsPer1k.toFixed(1);
     const concCpsEl = document.getElementById('batchConcThroughput');
     if (concCpsEl) concCpsEl.textContent = concCps;
     const speedupEl = document.getElementById('batchSpeedup');
@@ -660,9 +677,9 @@ class TranslationSpeedBenchmark {
     const concMirrorEl = document.getElementById('batchConcMirror');
     if (concMirrorEl) concMirrorEl.textContent = concCps;
     const seqSumEl = document.getElementById('batchSeqSummary');
-    if (seqSumEl) seqSumEl.textContent = seqMs.toFixed(1);
+    if (seqSumEl) seqSumEl.textContent = `${seqMs.toFixed(1)} ms (${seqMsPer1k.toFixed(0)} ms/1k)`;
     const concSumEl = document.getElementById('batchConcSummary');
-    if (concSumEl) concSumEl.textContent = concMs.toFixed(1);
+    if (concSumEl) concSumEl.textContent = `${concMs.toFixed(1)} ms (${concMsPer1k.toFixed(0)} ms/1k)`;
     const badgeEl = document.getElementById('batchSpeedupBadge');
     if (badgeEl) badgeEl.textContent = speedupText;
     const highlightEl = document.getElementById('batchSpeedupHighlight');
@@ -672,7 +689,20 @@ class TranslationSpeedBenchmark {
       if (mirrorBadgeEl) mirrorBadgeEl.textContent = `${speedupText} (${seqCps} \u2192 ${concCps} chars/sec)`;
     }
 
-    this.batchResult = { totalChars, seqMs, seqCps, concMs, concCps, speedup };
+    for (const [key, prefix] of [['plain', 'batchPlain'], ['numeric', 'batchNumeric'], ['domTag', 'batchDomTag']]) {
+      const chars = groupChars[key];
+      const ms = seqGroupMs[key];
+      const msPer1k = chars > 0 ? (ms / chars) * 1000 : 0;
+      const cps = ms > 0 ? Math.round((chars / ms) * 1000) : 0;
+      const msEl = document.getElementById(`${prefix}SeqMs`);
+      if (msEl) msEl.textContent = ms.toFixed(1);
+      const ms1kEl = document.getElementById(`${prefix}MsPer1k`);
+      if (ms1kEl) ms1kEl.textContent = msPer1k.toFixed(1);
+      const cpsEl = document.getElementById(`${prefix}Cps`);
+      if (cpsEl) cpsEl.textContent = String(cps);
+    }
+
+    this.batchResult = { totalChars, seqMs, seqCps, seqMsPer1k, concMs, concCps, concMsPer1k, speedup, seqGroupMs, groupChars };
     this.setProgress(100);
     this.showStatus('Ready');
     this.enableResultActions();
@@ -788,6 +818,7 @@ class TranslationSpeedBenchmark {
     // Cross-cutting split: segments carrying protected spans are spread across
     // every type, so their cost is invisible in the per-type breakdown.
     const bySpan = {
+      domTags: { count: 0, totalLen: 0, totalTime: 0 },
       withSpans: { count: 0, totalLen: 0, totalTime: 0 },
       noSpans: { count: 0, totalLen: 0, totalTime: 0 },
     };
@@ -810,6 +841,12 @@ class TranslationSpeedBenchmark {
         spanBucket.count++;
         spanBucket.totalLen += seg.text.length;
         spanBucket.totalTime += elapsed;
+
+        if (DOM_TAG_SPAN_RE.test(seg.text)) {
+          bySpan.domTags.count++;
+          bySpan.domTags.totalLen += seg.text.length;
+          bySpan.domTags.totalTime += elapsed;
+        }
 
         // Update progress
         const pct = Math.round(((i + 1) / segments.length) * 100);
@@ -844,31 +881,39 @@ class TranslationSpeedBenchmark {
 
       // Protected-span split, normalized per 100 chars so the comparison is not
       // just a restatement of segment length.
-      const spanMap = { withSpans: 'simSpan', noSpans: 'simNoSpan' };
+      const spanMap = { domTags: 'simDomTag', withSpans: 'simSpan', noSpans: 'simNoSpan' };
       for (const [key, prefix] of Object.entries(spanMap)) {
         const d = bySpan[key];
         const avgLen = d.count > 0 ? d.totalLen / d.count : 0;
         const avgTime = d.count > 0 ? d.totalTime / d.count : 0;
-        document.getElementById(prefix + 'Count').textContent = d.count;
-        document.getElementById(prefix + 'AvgLen').textContent = Math.round(avgLen);
-        document.getElementById(prefix + 'AvgTime').textContent = avgTime.toFixed(1);
-        document.getElementById(prefix + 'Per100').textContent =
-          avgLen > 0 ? (avgTime / avgLen * 100).toFixed(1) : '0';
+        const countEl = document.getElementById(prefix + 'Count');
+        if (countEl) countEl.textContent = String(d.count);
+        const lenEl = document.getElementById(prefix + 'AvgLen');
+        if (lenEl) lenEl.textContent = String(Math.round(avgLen));
+        const timeEl = document.getElementById(prefix + 'AvgTime');
+        if (timeEl) timeEl.textContent = avgTime.toFixed(1);
+        const per100El = document.getElementById(prefix + 'Per100');
+        if (per100El) per100El.textContent = avgLen > 0 ? (avgTime / avgLen * 100).toFixed(1) : '0';
       }
+      const domPer100 = bySpan.domTags.totalLen > 0
+        ? (bySpan.domTags.totalTime / bySpan.domTags.totalLen * 100) : 0;
       const withPer100 = bySpan.withSpans.totalLen > 0
         ? (bySpan.withSpans.totalTime / bySpan.withSpans.totalLen * 100) : 0;
       const noPer100 = bySpan.noSpans.totalLen > 0
         ? (bySpan.noSpans.totalTime / bySpan.noSpans.totalLen * 100) : 0;
       const taxStr = noPer100 > 0 ? (withPer100 / noPer100).toFixed(2) + '\u00d7' : '-';
+      const domTaxStr = noPer100 > 0 && domPer100 > 0 ? (domPer100 / noPer100).toFixed(2) + '\u00d7' : '-';
       document.getElementById('simSpanTax').textContent = taxStr;
       const taxMirror = document.getElementById('simSpanTaxMirror');
       if (taxMirror) taxMirror.textContent = taxStr;
+      const domTaxEl = document.getElementById('simDomTagTax');
+      if (domTaxEl) domTaxEl.textContent = domTaxStr;
       const simCps = totalTime > 0 ? Math.round((totalChars / totalTime) * 1000) : 0;
       const simScoreEl = document.getElementById('simScoreCps');
       if (simScoreEl) simScoreEl.textContent = String(simCps);
       const simScoreMirror = document.getElementById('simScoreCpsMirror');
       if (simScoreMirror) simScoreMirror.textContent = String(simCps);
-      this.pageSimResult.spanTax = { withPer100, noPer100, bySpan };
+      this.pageSimResult.spanTax = { domPer100, withPer100, noPer100, bySpan };
       this.pageSimResult.cps = simCps;
 
       progressEl.style.display = 'none';
@@ -1043,9 +1088,12 @@ class TranslationSpeedBenchmark {
         avgThroughputCps: num('avgThroughput'),
         batchSeqThroughputCps: num('batchThroughput'),
         batchSeqTotalMs: num('batchTotalTime'),
+        batchSeqMsPer1k: num('batchSeqMsPer1k'),
         batchConcThroughputCps: num('batchConcThroughput'),
         batchConcTotalMs: num('batchConcTime'),
+        batchConcMsPer1k: num('batchConcMsPer1k'),
         batchSpeedup: num('batchSpeedup'),
+        batchDomTagMsPer1k: num('batchDomTagMsPer1k'),
         syncTimeMs: num('cmpSyncTime'),
         streamTimeMs: num('cmpStreamTime'),
         streamCps: num('cmpStreamCps'),
@@ -1054,6 +1102,8 @@ class TranslationSpeedBenchmark {
         pageSimTotalMs: num('simTotalTime'),
         pageSimAvgMs: num('simAvgPerCall'),
         pageSimCps: num('simScoreCps'),
+        domTagPer100Ms: num('simDomTagPer100'),
+        domTagTax: num('simDomTagTax'),
         spanPer100Ms: num('simSpanPer100'),
         prosePer100Ms: num('simNoSpanPer100'),
         spanTax: num('simSpanTax'),
@@ -1080,13 +1130,16 @@ class TranslationSpeedBenchmark {
       { key: 'avgThroughputCps', label: '2. Long-Passage Throughput (chars/sec)', unit: 'chars/sec', lowerBetter: false },
       { key: 'batchConcThroughputCps', label: '3. Batched 15× Throughput (chars/sec)', unit: 'chars/sec', lowerBetter: false },
       { key: 'batchConcTotalMs', label: '   Batched 15× Total Time (ms)', unit: 'ms', lowerBetter: true },
+      { key: 'batchConcMsPer1k', label: '   Batched 15× (ms / 1k chars)', unit: 'ms/1k', lowerBetter: true },
       { key: 'batchSeqTotalMs', label: '   Sequential 1×15 Total Time (ms)', unit: 'ms', lowerBetter: true },
+      { key: 'batchDomTagMsPer1k', label: '   Inline <bN> DOM Tags (ms / 1k chars)', unit: 'ms/1k', lowerBetter: true },
       { key: 'batchSpeedup', label: '   Batching Speedup (×)', unit: '×', lowerBetter: false },
       { key: 'streamCps', label: '4. Streaming Throughput (chars/sec)', unit: 'chars/sec', lowerBetter: false },
       { key: 'firstChunkMs', label: '   Streaming 1st Chunk (ms)', unit: 'ms', lowerBetter: true },
       { key: 'pageSimCps', label: '5. Real-Page Mix Speed (chars/sec)', unit: 'chars/sec', lowerBetter: false },
       { key: 'pageSimTotalMs', label: '   Page Simulation Total (ms)', unit: 'ms', lowerBetter: true },
       { key: 'spanTax', label: '   Protected-Span Tax (×)', unit: '×', lowerBetter: true },
+      { key: 'domTagTax', label: '   Inline <bN> DOM-Tag Tax (×)', unit: '×', lowerBetter: true },
       { key: 'initMs', label: 'Translator Init (ms)', unit: 'ms', lowerBetter: true },
     ];
     return defs.flatMap(def => {
@@ -1410,5 +1463,6 @@ if (typeof module !== 'undefined' && module.exports) {
     STREAMING_TEST_TEXT,
     PAGE_SIM_SEGMENTS,
     PROTECTED_SPAN_RE,
+    DOM_TAG_SPAN_RE,
   };
 }

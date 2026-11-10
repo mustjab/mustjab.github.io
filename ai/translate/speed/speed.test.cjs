@@ -99,6 +99,7 @@ function createSpeedHarness(translatorImpl = {}) {
     BENCHMARK_TEXTS,
     PAGE_SIM_SEGMENTS,
     PROTECTED_SPAN_RE,
+    DOM_TAG_SPAN_RE,
   } = context.module.exports;
 
   const bench = Object.create(TranslationSpeedBenchmark.prototype);
@@ -116,6 +117,7 @@ function createSpeedHarness(translatorImpl = {}) {
     BENCHMARK_TEXTS,
     PAGE_SIM_SEGMENTS,
     PROTECTED_SPAN_RE,
+    DOM_TAG_SPAN_RE,
   };
 }
 
@@ -156,8 +158,8 @@ test('measureBatch runs both sequential (1x15) and concurrent/batched (15x1 Prom
   assert.equal(harness.bench.batchResult.speedup, 2);
 });
 
-test('PROTECTED_SPAN_RE matches numbers, URLs, relative query paths, and emails while excluding prose percentages', () => {
-  const { PROTECTED_SPAN_RE, PAGE_SIM_SEGMENTS } = createSpeedHarness();
+test('PROTECTED_SPAN_RE matches inline <bN> DOM tags, numbers, URLs, relative query paths, and emails while excluding prose percentages', () => {
+  const { PROTECTED_SPAN_RE, DOM_TAG_SPAN_RE, PAGE_SIM_SEGMENTS, BENCHMARK_TEXTS } = createSpeedHarness();
 
   assert.equal(PROTECTED_SPAN_RE.test('Version 3.2.1'), true);
   assert.equal(PROTECTED_SPAN_RE.test('Timestamp: 6/16/2026 2:11:58 AM'), true);
@@ -165,6 +167,9 @@ test('PROTECTED_SPAN_RE matches numbers, URLs, relative query paths, and emails 
   assert.equal(PROTECTED_SPAN_RE.test('Docs: https://example.com/docs/2.8.15?id=676'), true);
   assert.equal(PROTECTED_SPAN_RE.test('Release path: /docs/release/2.8.15?id=676'), true);
   assert.equal(PROTECTED_SPAN_RE.test('Support: support@example.com'), true);
+  assert.equal(PROTECTED_SPAN_RE.test('The <b10>James Webb Space Telescope</b10>'), true);
+  assert.equal(DOM_TAG_SPAN_RE.test('The <b10>James Webb Space Telescope</b10>'), true);
+  assert.equal(DOM_TAG_SPAN_RE.test('Version 3.2.1'), false);
 
   // Pure prose percentages should not be counted as protected spans
   assert.equal(PROTECTED_SPAN_RE.test('Material: 100% organic cotton'), false);
@@ -174,14 +179,18 @@ test('PROTECTED_SPAN_RE matches numbers, URLs, relative query paths, and emails 
   assert.ok(PAGE_SIM_SEGMENTS.short.some(s => s.includes('https://example.com/docs/2.8.15?id=676')));
   assert.ok(PAGE_SIM_SEGMENTS.short.some(s => s.includes('/docs/release/2.8.15?id=676')));
   assert.ok(PAGE_SIM_SEGMENTS.short.some(s => s.includes('support@example.com')));
+  assert.equal(BENCHMARK_TEXTS.filter(s => DOM_TAG_SPAN_RE.test(s)).length, 5);
+  assert.equal(PAGE_SIM_SEGMENTS.paragraphs.filter(s => DOM_TAG_SPAN_RE.test(s)).length, 8);
 });
 
-test('measurePageSimulation computes per-type timings and normalized protected-span tax', async () => {
+test('measurePageSimulation computes per-type timings and normalized protected-span and DOM-tag tax', async () => {
   let harness;
   const translator = {
     async translate(text) {
-      // Simulate protected spans costing 2x per character vs plain prose
-      const perCharMs = harness.PROTECTED_SPAN_RE.test(text) ? 0.4 : 0.2;
+      // Simulate DOM tags costing 3x and other protected spans costing 2x per character vs plain prose
+      const perCharMs = harness.DOM_TAG_SPAN_RE.test(text)
+        ? 0.6
+        : harness.PROTECTED_SPAN_RE.test(text) ? 0.4 : 0.2;
       harness.advanceTime(text.length * perCharMs);
       return text;
     },
@@ -190,7 +199,8 @@ test('measurePageSimulation computes per-type timings and normalized protected-s
 
   await harness.bench.measurePageSimulation();
 
-  assert.equal(harness.getElement('simSpanTax').textContent, '2.00×');
+  assert.equal(harness.getElement('simDomTagTax').textContent, '3.00×');
+  assert.equal(harness.getElement('simDomTagCount').textContent, '8');
   assert.ok(Number(harness.getElement('simSpanCount').textContent) > 0);
   assert.ok(Number(harness.getElement('simNoSpanCount').textContent) > 0);
 });

@@ -204,27 +204,56 @@
                   <h3>3. Batching &amp; Concurrency (15 texts)
                     <span class="replay-btn" id="replayBatch" title="Re-run this test">↻</span>
                   </h3>
-                  <p>Runs 15 benchmark texts (~5,500 chars) sequentially (<code>1×15</code>) and then concurrently as a single wave (<code>Promise.all</code>) to measure dynamic batching speedup.</p>
+                  <p>Runs 15 multi-sentence benchmark paragraphs (~6,700 chars: 5 plain prose, 5 numeric/URLs, 5 inline <code>&lt;bN&gt;</code> DOM-tagged) sequentially (<code>1×15</code>) and concurrently (<code>Promise.all</code>).</p>
                   <details class="pillar-details">
                     <summary>View sequential vs. batched breakdown &amp; concurrency scaling</summary>
                     <table class="inner-table">
                       <tr>
                         <th>Execution Mode</th>
                         <th>Total Time (ms)</th>
+                        <th>ms / 1,000 chars</th>
                         <th>Chars/Sec</th>
                         <th>Speedup</th>
                       </tr>
                       <tr>
                         <td>Sequential (1×15)</td>
                         <td id="batchTotalTime">0</td>
+                        <td id="batchSeqMsPer1k">0</td>
                         <td id="batchThroughput">0</td>
                         <td>1.00×</td>
                       </tr>
                       <tr>
                         <td>Batched / Concurrent (15×1)</td>
                         <td id="batchConcTime">0</td>
+                        <td id="batchConcMsPer1k">0</td>
                         <td id="batchConcThroughput">0</td>
                         <td id="batchSpeedup">-</td>
+                      </tr>
+                    </table>
+                    <table class="inner-table" style="margin-top: 8px;">
+                      <tr>
+                        <th>Sequential Sub-Workload (5 texts each)</th>
+                        <th>Total Time (ms)</th>
+                        <th>ms / 1,000 chars</th>
+                        <th>Chars/Sec</th>
+                      </tr>
+                      <tr>
+                        <td>Plain multi-sentence prose</td>
+                        <td id="batchPlainSeqMs">0</td>
+                        <td id="batchPlainMsPer1k">0</td>
+                        <td id="batchPlainCps">0</td>
+                      </tr>
+                      <tr>
+                        <td>Numbers, scales &amp; URLs</td>
+                        <td id="batchNumericSeqMs">0</td>
+                        <td id="batchNumericMsPer1k">0</td>
+                        <td id="batchNumericCps">0</td>
+                      </tr>
+                      <tr>
+                        <td>Inline <code>&lt;bN&gt;...&lt;/bN&gt;</code> DOM tags</td>
+                        <td id="batchDomTagSeqMs">0</td>
+                        <td id="batchDomTagMsPer1k">0</td>
+                        <td id="batchDomTagCps">0</td>
                       </tr>
                     </table>
                     <div style="margin-top: 8px;">
@@ -252,7 +281,7 @@
                     <span id="batchConcMirror" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
                   </div>
                   <div class="metric-sub">
-                    Seq: <span id="batchSeqSummary">0</span> ms · Batch: <span id="batchConcSummary">0</span> ms
+                    Seq: <span id="batchSeqSummary">0 ms</span> · Batch: <span id="batchConcSummary">0 ms</span>
                   </div>
                   <div class="metric-highlight" id="batchSpeedupHighlight" style="display: none;">
                     <span class="highlight-label">Batch Speedup</span>
@@ -339,7 +368,8 @@
                         <th>Avg Time (ms)</th>
                         <th>ms / 100 chars</th>
                       </tr>
-                      <tr><td>Contains numbers / URLs / emails</td><td id="simSpanCount">0</td><td id="simSpanAvgLen">0</td><td id="simSpanAvgTime">0</td><td id="simSpanPer100">0</td></tr>
+                      <tr><td>Inline <code>&lt;bN&gt;...&lt;/bN&gt;</code> DOM tags</td><td id="simDomTagCount">0</td><td id="simDomTagAvgLen">0</td><td id="simDomTagAvgTime">0</td><td id="simDomTagPer100">0</td></tr>
+                      <tr><td>All protected spans (DOM tags / numbers / URLs)</td><td id="simSpanCount">0</td><td id="simSpanAvgLen">0</td><td id="simSpanAvgTime">0</td><td id="simSpanPer100">0</td></tr>
                       <tr><td>Plain prose</td><td id="simNoSpanCount">0</td><td id="simNoSpanAvgLen">0</td><td id="simNoSpanAvgTime">0</td><td id="simNoSpanPer100">0</td></tr>
                     </table>
                   </details>
@@ -355,7 +385,7 @@
                     <span id="simScoreCpsMirror" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
                   </div>
                   <div class="metric-sub"><span id="simTotalTime">0</span> ms total · <span id="simAvgPerCall">0</span> ms/seg</div>
-                  <div class="metric-sub">Span tax: <strong id="simSpanTaxMirror">-</strong></div>
+                  <div class="metric-sub">Span tax: <strong id="simSpanTaxMirror">-</strong> · DOM tag tax: <strong id="simDomTagTax">-</strong></div>
                 </td>
               </tr>
             </tbody>
