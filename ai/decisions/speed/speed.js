@@ -160,14 +160,33 @@
     document.getElementById('statusText').textContent = ready ? `DecisionModel Available (${avail})` : `DecisionModel (${avail})`;
     renderBaselines();
 
-    document.getElementById('measureAllBtn').addEventListener('click', async () => {
+    let isRunning = false;
+    async function runExclusive(fn) {
+      if (isRunning) return;
+      isRunning = true;
+      ['measureAllBtn', 'replayBool', 'replayChoice', 'replayRubric'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = true;
+      });
+      try {
+        return await fn();
+      } finally {
+        isRunning = false;
+        ['measureAllBtn', 'replayBool', 'replayChoice', 'replayRubric'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = false;
+        });
+      }
+    }
+
+    document.getElementById('measureAllBtn').addEventListener('click', () => runExclusive(async () => {
       await runBoolBench();
       await runChoiceBench();
       await runRubricBench();
-    });
-    document.getElementById('replayBool').addEventListener('click', runBoolBench);
-    document.getElementById('replayChoice').addEventListener('click', runChoiceBench);
-    document.getElementById('replayRubric').addEventListener('click', runRubricBench);
+    }));
+    document.getElementById('replayBool').addEventListener('click', () => runExclusive(runBoolBench));
+    document.getElementById('replayChoice').addEventListener('click', () => runExclusive(runChoiceBench));
+    document.getElementById('replayRubric').addEventListener('click', () => runExclusive(runRubricBench));
 
     document.getElementById('copyTsvBtn').addEventListener('click', () => {
       const row = [

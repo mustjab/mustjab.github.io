@@ -16,6 +16,7 @@ Main articles: Creation of NASA and National Advisory Committee for Aeronautics
 A U.S. Air Force Bell X-1 test flight
 NASA traces its roots to the National Advisory Committee for Aeronautics (NACA). Despite being the birthplace of aviation, by 1914 the United States recognized that it was far behind Europe in aviation capability. Determined to regain American leadership in aviation, the United States Congress created the Aviation Section of the U.S. Army Signal Corps in 1914 and established NACA in 1915 to foster aeronautical research and development. Over the next forty years, NACA would conduct aeronautical research in support of the U.S. Air Force, U.S. Army, U.S. Navy, and the civil aviation sector. After the end of World War II, NACA became interested in the possibilities of guided missiles and supersonic aircraft, developing and testing the Bell X-1 in a joint program with the U.S. Air Force. NACA's interest in space grew out of its rocketry program at the Pilotless Aircraft Research Division.[4]
 
+
 Launch of the Army Ballistic Missile Agency's Explorer 1, America's first satellite
 The Soviet Union's launch of Sputnik 1 ushered in the Space Age and kicked off the Space Race. Despite NACA's early rocketry program, the responsibility for launching the first American satellite fell to the Naval Research Laboratory's Project Vanguard, whose operational issues ensured the Army Ballistic Missile Agency would launch Explorer 1, America's first satellite, on February 1, 1958.
 
@@ -25,12 +26,25 @@ As the United States' premier aeronautics agency, NACA formed the core of NASA's
 
 First orbital and hypersonic flights
 Main article: Project Mercury
+
 Launch of Friendship 7, NASA's first orbital flight, February 20, 1962
 Plans for human spaceflight began in`;
 
   const k1KTokenPrompt2 = `Summarize this text: In computer science, the Earley parser is an algorithm for parsing strings that belong to a given context-free language, though (depending on the variant) it may suffer problems with certain nullable grammars.[1] The algorithm, named after its inventor, Jay Earley, is a chart parser that uses dynamic programming; it is mainly used for parsing in computational linguistics. It was first introduced in his dissertation[2] in 1968 (and later appeared in an abbreviated, more legible, form in a journal[3]).
 
-Earley parsers are appealing because they can parse all context-free languages, unlike LR parsers and LL parsers, which are more typically used in compilers but which can only handle restricted classes of languages. The Earley parser executes in cubic time in the general case O(n^3), where n is the length of the parsed string, quadratic time for unambiguous grammars O(n^2),[4] and linear time for all deterministic context-free grammars. It performs particularly well when the rules are written left-recursively.
+Earley parsers are appealing because they can parse all context-free languages, unlike LR parsers and LL parsers, which are more typically used in compilers but which can only handle restricted classes of languages. The Earley parser executes in cubic time in the general case 
+O
+(
+n
+3
+)
+{\\displaystyle {O}(n^{3})}, where n is the length of the parsed string, quadratic time for unambiguous grammars 
+O
+(
+n
+2
+)
+{\\displaystyle {O}(n^{2})},[4] and linear time for all deterministic context-free grammars. It performs particularly well when the rules are written left-recursively.
 
 Earley recogniser
 The following algorithm describes the Earley recogniser. The recogniser can be modified to create a parse tree as it recognises, and in that way can be turned into a parser.
@@ -41,6 +55,7 @@ In the following descriptions, α, β, and γ represent any string of terminals/
 Earley's algorithm is a top-down dynamic programming algorithm. In the following, we use Earley's dot notation: given a production X → αβ, the notation X → α • β represents a condition in which α has already been parsed and β is expected.
 
 Input position 0 is the position prior to input. Input position n is the position after accepting the nth token. (Informally, input positions can be thought of as locations at token boundaries.) For every input position, the parser generates a state set. Each state is a tuple (X → α • β, i), consisting of
+
 the production currently being matched (X → α β)
 the current position in that production (visually represented by the dot •)
 the position i in the input at which the matching of this production began: the origin position
@@ -114,21 +129,48 @@ Pse`;
     return { session, controller };
   }
 
+  let isRunning = false;
+
+  function setControlsDisabled(disabled) {
+    ['bench', 'replayTtft', 'replayPrefill', 'replayTps', 'replayTools'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = disabled;
+    });
+  }
+
+  async function runExclusive(fn) {
+    if (isRunning) return;
+    isRunning = true;
+    setControlsDisabled(true);
+    try {
+      return await fn();
+    } finally {
+      isRunning = false;
+      setControlsDisabled(false);
+    }
+  }
+
   async function measureLoadTime(prompt, elementId) {
     showBusy(true, 'Measuring first-token latency...');
     const start = performance.now();
-    const { session, controller } = await createSession();
+    const { session } = await createSession();
     let end = start;
     try {
       const stream = session.promptStreaming(prompt);
       let first = true;
+      // Drain the full stream after recording the first-token timestamp so the
+      // backend OgaSession / EdgeLLMScheduler finishes cleanly before the next
+      // benchmark run starts (matching sushanthr.github.io/PromptAPI/speed.js).
       for await (const _chunk of stream) {
         if (first) {
           first = false;
           end = performance.now();
-        } else {
-          controller.abort();
-          break;
+          const firstMs = end - start;
+          const el = document.getElementById(elementId);
+          if (el) el.textContent = firstMs.toFixed(2);
+          if (elementId === 'time-to-first-token') {
+            document.getElementById('hero-ttft').textContent = firstMs.toFixed(1);
+          }
         }
       }
     } catch (_err) {
@@ -173,6 +215,9 @@ Pse`;
 
     try {
       const stream = session.promptStreaming(prompt);
+      // Drain the stream through completion so the underlying OgaSession is idle
+      // before the next run starts; timestamps at tokens 10, 50, and 100 are
+      // captured inline as those tokens arrive.
       for await (const chunk of stream) {
         count++;
         if (scratchEl) scratchEl.textContent = chunk;
@@ -187,7 +232,6 @@ Pse`;
           const end = performance.now();
           interval2 = ((numFinal - numInitial) * kMillisecond) / Math.max(1, end - start);
           document.getElementById(el2Id).textContent = interval2.toFixed(2);
-          break;
         }
       }
       if (count > numIgnore && interval1 === 0) {
@@ -195,6 +239,10 @@ Pse`;
         interval1 = ((count - numIgnore) * kMillisecond) / Math.max(1, end - start);
         document.getElementById(el1Id).textContent = interval1.toFixed(2);
         interval2 = interval1;
+        document.getElementById(el2Id).textContent = interval2.toFixed(2);
+      } else if (count > numInitial && interval2 === 0) {
+        const end = performance.now();
+        interval2 = ((count - numInitial) * kMillisecond) / Math.max(1, end - start);
         document.getElementById(el2Id).textContent = interval2.toFixed(2);
       }
     } finally {
@@ -417,11 +465,11 @@ Pse`;
   document.addEventListener('DOMContentLoaded', () => {
     checkAvailability();
     renderBaselines();
-    document.getElementById('bench').addEventListener('click', measureAll);
-    document.getElementById('replayTtft').addEventListener('click', () => measureLoadTime('Hi', 'time-to-first-token'));
-    document.getElementById('replayPrefill').addEventListener('click', runPrefillTest);
-    document.getElementById('replayTps').addEventListener('click', runTPSTest);
-    document.getElementById('replayTools').addEventListener('click', runToolCallingLatencyTest);
+    document.getElementById('bench').addEventListener('click', () => runExclusive(measureAll));
+    document.getElementById('replayTtft').addEventListener('click', () => runExclusive(() => measureLoadTime('Hi', 'time-to-first-token')));
+    document.getElementById('replayPrefill').addEventListener('click', () => runExclusive(runPrefillTest));
+    document.getElementById('replayTps').addEventListener('click', () => runExclusive(runTPSTest));
+    document.getElementById('replayTools').addEventListener('click', () => runExclusive(runToolCallingLatencyTest));
     document.getElementById('save').addEventListener('click', saveResultsToClipboard);
     document.getElementById('saveBaselineBtn').addEventListener('click', saveBaselineSlot);
     document.getElementById('clearBaselinesBtn').addEventListener('click', () => {

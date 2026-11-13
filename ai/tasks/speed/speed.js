@@ -225,7 +225,24 @@
       : (ready ? `Task APIs Detected (${avail})` : 'Task APIs Not Detected');
     renderBaselines();
 
-    document.getElementById('measureAllBtn').addEventListener('click', async () => {
+    let isRunning = false;
+    async function runExclusive(fn) {
+      if (isRunning) return;
+      isRunning = true;
+      const measureBtn = document.getElementById('measureAllBtn');
+      const replayBtns = document.querySelectorAll('[data-replay]');
+      if (measureBtn) measureBtn.disabled = true;
+      replayBtns.forEach(b => { b.disabled = true; });
+      try {
+        return await fn();
+      } finally {
+        isRunning = false;
+        if (measureBtn) measureBtn.disabled = false;
+        replayBtns.forEach(b => { b.disabled = false; });
+      }
+    }
+
+    document.getElementById('measureAllBtn').addEventListener('click', () => runExclusive(async () => {
       if (activeTask === 'summarizer') await runSummarizerBench();
       else if (activeTask === 'writer') await runWriterBench();
       else if (activeTask === 'rewriter') await runRewriterBench();
@@ -236,16 +253,16 @@
         await runRewriterBench();
         await runProofreaderBench();
       }
-    });
+    }));
 
     document.querySelectorAll('[data-replay]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', () => runExclusive(async () => {
         const t = btn.getAttribute('data-replay');
-        if (t === 'summarizer') runSummarizerBench();
-        if (t === 'writer') runWriterBench();
-        if (t === 'rewriter') runRewriterBench();
-        if (t === 'proofreader') runProofreaderBench();
-      });
+        if (t === 'summarizer') await runSummarizerBench();
+        if (t === 'writer') await runWriterBench();
+        if (t === 'rewriter') await runRewriterBench();
+        if (t === 'proofreader') await runProofreaderBench();
+      }));
     });
 
     document.getElementById('copyTsvBtn').addEventListener('click', () => {

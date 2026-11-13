@@ -147,16 +147,35 @@
     document.getElementById('statusText').textContent = ready ? `LanguageDetector Available (${avail})` : `LanguageDetector (${avail})`;
     renderBaselines();
 
-    document.getElementById('measureAllBtn').addEventListener('click', async () => {
+    let isRunning = false;
+    async function runExclusive(fn) {
+      if (isRunning) return;
+      isRunning = true;
+      ['measureAllBtn', 'replayCreate', 'replayBatch', 'replayPara', 'replayDoc'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = true;
+      });
+      try {
+        return await fn();
+      } finally {
+        isRunning = false;
+        ['measureAllBtn', 'replayCreate', 'replayBatch', 'replayPara', 'replayDoc'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = false;
+        });
+      }
+    }
+
+    document.getElementById('measureAllBtn').addEventListener('click', () => runExclusive(async () => {
       await runCreateBench();
       await runBatchBench();
       await runParaBench();
       await runDocBench();
-    });
-    document.getElementById('replayCreate').addEventListener('click', runCreateBench);
-    document.getElementById('replayBatch').addEventListener('click', runBatchBench);
-    document.getElementById('replayPara').addEventListener('click', runParaBench);
-    document.getElementById('replayDoc').addEventListener('click', runDocBench);
+    }));
+    document.getElementById('replayCreate').addEventListener('click', () => runExclusive(runCreateBench));
+    document.getElementById('replayBatch').addEventListener('click', () => runExclusive(runBatchBench));
+    document.getElementById('replayPara').addEventListener('click', () => runExclusive(runParaBench));
+    document.getElementById('replayDoc').addEventListener('click', () => runExclusive(runDocBench));
 
     document.getElementById('copyTsvBtn').addEventListener('click', () => {
       const row = [
