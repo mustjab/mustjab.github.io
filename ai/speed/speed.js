@@ -150,28 +150,26 @@ Pse`;
     }
   }
 
+  const kInterRunCooldownMs = 200;
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   async function measureLoadTime(prompt, elementId) {
     showBusy(true, 'Measuring first-token latency...');
     const start = performance.now();
-    const { session } = await createSession();
+    const { session, controller } = await createSession();
     let end = start;
     try {
-      const stream = session.promptStreaming(prompt);
-      let first = true;
-      // Drain the full stream after recording the first-token timestamp so the
-      // backend OgaSession / EdgeLLMScheduler finishes cleanly before the next
-      // benchmark run starts (matching sushanthr.github.io/PromptAPI/speed.js).
+      // Pass controller.signal to promptStreaming() (not just create()) so
+      // controller.abort() triggers StreamingResponder::OnAborted() in Blink
+      // as soon as the first token arrives.
+      const stream = session.promptStreaming(prompt, { signal: controller.signal });
       for await (const _chunk of stream) {
-        if (first) {
-          first = false;
-          end = performance.now();
-          const firstMs = end - start;
-          const el = document.getElementById(elementId);
-          if (el) el.textContent = firstMs.toFixed(2);
-          if (elementId === 'time-to-first-token') {
-            document.getElementById('hero-ttft').textContent = firstMs.toFixed(1);
-          }
-        }
+        end = performance.now();
+        controller.abort();
+        break;
       }
     } catch (_err) {
       if (end === start) end = performance.now();
@@ -184,6 +182,9 @@ Pse`;
     if (elementId === 'time-to-first-token') {
       document.getElementById('hero-ttft').textContent = ms.toFixed(1);
     }
+    // Allow the async Mojo disconnect + in-flight single token step (~28ms) to
+    // settle in the on_device_model service before the next run's timer starts.
+    await sleep(kInterRunCooldownMs);
     showBusy(false);
     return ms;
   }
@@ -203,7 +204,7 @@ Pse`;
 
   async function measureTPS(prompt, el1Id, el2Id, scratchEl) {
     showBusy(true, `Measuring TPS (${prompt.slice(0, 28)}...)`);
-    const { session } = await createSession();
+    const { session, controller } = await createSession();
     let start = 0;
     let interval1 = 0;
     let interval2 = 0;
@@ -214,10 +215,7 @@ Pse`;
     if (scratchEl) scratchEl.textContent = '';
 
     try {
-      const stream = session.promptStreaming(prompt);
-      // Drain the stream through completion so the underlying OgaSession is idle
-      // before the next run starts; timestamps at tokens 10, 50, and 100 are
-      // captured inline as those tokens arrive.
+      const stream = session.promptStreaming(prompt, { signal: controller.signal });
       for await (const chunk of stream) {
         count++;
         if (scratchEl) scratchEl.textContent = chunk;
@@ -232,6 +230,8 @@ Pse`;
           const end = performance.now();
           interval2 = ((numFinal - numInitial) * kMillisecond) / Math.max(1, end - start);
           document.getElementById(el2Id).textContent = interval2.toFixed(2);
+          controller.abort();
+          break;
         }
       }
       if (count > numIgnore && interval1 === 0) {
@@ -245,8 +245,11 @@ Pse`;
         interval2 = ((count - numInitial) * kMillisecond) / Math.max(1, end - start);
         document.getElementById(el2Id).textContent = interval2.toFixed(2);
       }
+    } catch (_err) {
+      // Ignore AbortError thrown when aborting stream at token 100.
     } finally {
       if (typeof session.destroy === 'function') session.destroy();
+      await sleep(kInterRunCooldownMs);
       showBusy(false);
     }
     return { interval1, interval2: interval2 || interval1 };
