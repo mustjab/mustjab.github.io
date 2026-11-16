@@ -373,13 +373,16 @@ class TranslationSpeedBenchmark {
     this.translator = null;
     this.sourceSelect = null;
     this.targetSelect = null;
+    this.detectedGpuInfo = null;
+    this.lastAutoHardwareValue = '';
+    this.hardwareEditedByUser = false;
     this.init();
   }
 
   async init() {
     this.setupLanguageSelectors();
     this.setupEventListeners();
-    await this.checkAPI();
+    await Promise.all([this.initHardwareField(), this.checkAPI()]);
   }
 
   setupLanguageSelectors() {
@@ -416,6 +419,12 @@ class TranslationSpeedBenchmark {
     if (clrSnapBtn) clrSnapBtn.addEventListener('click', () => this.clearSnapshot());
     const snapFile = document.getElementById('speedSnapshotFile');
     if (snapFile) snapFile.addEventListener('change', (e) => this.importSnapshot(e.target.files[0]));
+    const hwInput = document.getElementById('speedHardwareLabel');
+    if (hwInput) {
+      hwInput.addEventListener('input', () => {
+        this.hardwareEditedByUser = true;
+      });
+    }
 
     document.getElementById('sourceLanguage').addEventListener('change', () => this.resetTranslator());
     document.getElementById('targetLanguage').addEventListener('change', () => this.resetTranslator());
@@ -1435,16 +1444,177 @@ class TranslationSpeedBenchmark {
     return 'Unknown';
   }
 
-  getGpuInfo() {
+  getWebGlRenderer(powerPreference = 'high-performance') {
     try {
       const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      const attrs = powerPreference ? { powerPreference } : undefined;
+      const gl =
+        canvas.getContext('webgl2', attrs) ||
+        canvas.getContext('webgl', attrs) ||
+        canvas.getContext('experimental-webgl', attrs) ||
+        canvas.getContext('webgl') ||
+        canvas.getContext('experimental-webgl');
       if (!gl) return 'WebGL not supported';
       const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-      return gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+      const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Standard WebGL';
+      const loseCtx = gl.getExtension('WEBGL_lose_context');
+      if (loseCtx && typeof loseCtx.loseContext === 'function') loseCtx.loseContext();
+      return renderer || 'Standard WebGL';
     } catch {
       return 'Unknown';
     }
+  }
+
+  async queryWebGpuAdapter(powerPreference, timeoutMs = 2500) {
+    if (typeof navigator === 'undefined' || !navigator.gpu || typeof navigator.gpu.requestAdapter !== 'function') {
+      return null;
+    }
+    let timer = null;
+    try {
+      const adapterPromise = navigator.gpu.requestAdapter(powerPreference ? { powerPreference } : undefined);
+      const timeoutPromise = new Promise(resolve => {
+        timer = setTimeout(() => resolve(null), timeoutMs);
+      });
+      const adapter = await Promise.race([adapterPromise, timeoutPromise]);
+      if (!adapter) return null;
+      const info =
+        adapter.info ||
+        (typeof adapter.requestAdapterInfo === 'function' ? await adapter.requestAdapterInfo() : null);
+      if (!info) return null;
+      return {
+        vendor: String(info.vendor || '').trim(),
+        architecture: String(info.architecture || '').trim(),
+        device: String(info.device || '').trim(),
+        description: String(info.description || '').trim(),
+        isFallbackAdapter: Boolean(info.isFallbackAdapter),
+      };
+    } catch {
+      return null;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  static formatWebGpuAdapter(info) {
+    if (!info) return null;
+    const vendorNames = {
+      nvidia: 'NVIDIA',
+      amd: 'AMD',
+      intel: 'Intel',
+      apple: 'Apple',
+      qualcomm: 'Qualcomm',
+      arm: 'ARM',
+      microsoft: 'Microsoft',
+      google: 'Google',
+      mesa: 'Mesa',
+      samsung: 'Samsung',
+      broadcom: 'Broadcom',
+      imgtec: 'Imagination',
+    };
+    const vendorKey = info.vendor.toLowerCase();
+    const vendorLabel = vendorNames[vendorKey] || info.vendor;
+    if (info.description) {
+      const hasVendor = vendorKey && info.description.toLowerCase().includes(vendorKey);
+      const parts = hasVendor || !vendorLabel ? [info.description] : [vendorLabel, info.description];
+      return `WebGPU (${parts.join(', ')})`;
+    }
+    const parts = [vendorLabel, info.architecture, info.device].filter(Boolean);
+    return parts.length ? `WebGPU (${parts.join(', ')})` : null;
+  }
+
+  static doesWebGlMatchWebGpu(webglRenderer, gpuInfo) {
+    if (!webglRenderer || webglRenderer === 'WebGL not supported' || webglRenderer === 'Standard WebGL' || webglRenderer === 'Unknown') {
+      return false;
+    }
+    if (!gpuInfo || !gpuInfo.vendor) return true;
+    const patterns = {
+      nvidia: /nvidia|geforce|quadro|\brtx\b|\bgtx\b|nouveau|\bnvk\b/i,
+      amd: /\bamd\b|radeon|\bati\b|\bgfx\d+/i,
+      intel: /intel|iris|\buhd\b|\barc\b/i,
+      apple: /apple/i,
+      qualcomm: /qualcomm|adreno/i,
+      arm: /\barm\b|mali|immortalis/i,
+      microsoft: /microsoft|basic render|warp/i,
+      google: /swiftshader|google/i,
+    };
+    const vendorKey = gpuInfo.vendor.toLowerCase();
+    const pattern = patterns[vendorKey];
+    return pattern ? pattern.test(webglRenderer) : webglRenderer.toLowerCase().includes(vendorKey);
+  }
+
+  async detectHardwareDetails() {
+    const [highPerfGpu, lowPowerGpu] = await Promise.all([
+      this.queryWebGpuAdapter('high-performance'),
+      this.queryWebGpuAdapter('low-power'),
+    ]);
+    const webglHighPerf = this.getWebGlRenderer('high-performance');
+    const webglLowPower = this.getWebGlRenderer('low-power');
+    const webgpuLabel = TranslationSpeedBenchmark.formatWebGpuAdapter(highPerfGpu);
+
+    let primary = webglHighPerf;
+    if (highPerfGpu && !highPerfGpu.isFallbackAdapter && webgpuLabel) {
+      if (highPerfGpu.description) {
+        primary = webgpuLabel;
+      } else {
+        const vendorMatches = TranslationSpeedBenchmark.doesWebGlMatchWebGpu(webglHighPerf, highPerfGpu);
+        const sameAdapter =
+          Boolean(lowPowerGpu) &&
+          highPerfGpu.vendor === lowPowerGpu.vendor &&
+          highPerfGpu.architecture === lowPowerGpu.architecture &&
+          highPerfGpu.device === lowPowerGpu.device &&
+          highPerfGpu.description === lowPowerGpu.description;
+        const dualGpuStuckOnDisplayAdapter = Boolean(lowPowerGpu) && !sameAdapter && webglHighPerf === webglLowPower;
+        primary = vendorMatches && !dualGpuStuckOnDisplayAdapter ? webglHighPerf : webgpuLabel;
+      }
+    }
+
+    const presets = [];
+    for (const opt of [primary, webgpuLabel, webglHighPerf, 'CPU', 'NPU']) {
+      if (opt && opt !== 'WebGL not supported' && opt !== 'Unknown' && !presets.includes(opt)) {
+        presets.push(opt);
+      }
+    }
+    if (!presets.includes('CPU')) presets.push('CPU');
+    if (!presets.includes('NPU')) presets.push('NPU');
+
+    return { primary: primary || 'Unknown', presets };
+  }
+
+  applyDetectedHardware(details) {
+    this.detectedGpuInfo = details.primary;
+    const input = document.getElementById('speedHardwareLabel');
+    if (input && !this.hardwareEditedByUser && (!input.value.trim() || input.value === this.lastAutoHardwareValue)) {
+      input.value = details.primary;
+      this.lastAutoHardwareValue = details.primary;
+    }
+    const datalist = document.getElementById('speedHardwarePresets');
+    if (datalist) {
+      const esc = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      datalist.innerHTML = details.presets.map(opt => `<option value="${esc(opt)}"></option>`).join('');
+    }
+    return details;
+  }
+
+  async initHardwareField() {
+    const startedHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    const details = this.applyDetectedHardware(await this.detectHardwareDetails());
+    if (startedHidden && typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      const onVisible = async () => {
+        if (document.visibilityState === 'visible') {
+          document.removeEventListener('visibilitychange', onVisible);
+          this.applyDetectedHardware(await this.detectHardwareDetails());
+        }
+      };
+      document.addEventListener('visibilitychange', onVisible);
+    }
+    return details;
+  }
+
+  getGpuInfo() {
+    const override = document.getElementById('speedHardwareLabel')?.value?.trim();
+    if (override) return override;
+    if (this.detectedGpuInfo) return this.detectedGpuInfo;
+    return this.getWebGlRenderer('high-performance');
   }
 }
 

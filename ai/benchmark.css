@@ -94,6 +94,10 @@
   font-size: 0.84rem;
 }
 
+.bench-label-group input {
+  width: clamp(210px, 26vw, 340px);
+}
+
 /* Hero Scorecard */
 .score-grid {
   display: grid;

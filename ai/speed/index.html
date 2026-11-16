@@ -36,6 +36,11 @@
             <button id="saveBaselineBtn" class="btn btn-secondary" title="Save current run to comparison table">💾 Save Baseline</button>
             <button id="clearBaselinesBtn" class="btn btn-secondary btn-small" title="Clear saved baselines">🗑️ Clear</button>
           </div>
+          <div class="bench-label-group">
+            <label for="hardwareLabel" title="Auto-detected high-performance GPU; override with CPU or NPU when testing non-GPU backends">Hardware / Backend</label>
+            <input type="text" id="hardwareLabel" list="hardwarePresets" placeholder="Detecting GPU..." autocomplete="off">
+            <datalist id="hardwarePresets"></datalist>
+          </div>
         </div>
 
         <!-- Hero Scorecard with inline Replay actions -->

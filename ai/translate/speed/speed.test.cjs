@@ -293,3 +293,42 @@ test('speed baseline snapshot saves, imports, and compares Edge Canary vs Local 
   const spanTaxRow = rows.find(r => r.key === 'spanTax');
   assert.equal(spanTaxRow.status, 'improved');
 });
+
+test('detectHardwareDetails prefers high-performance WebGPU when hybrid WebGL reports display iGPU and respects manual CPU override', async () => {
+  const harness = createSpeedHarness();
+  harness.bench.queryWebGpuAdapter = async (pref) => (
+    pref === 'low-power'
+      ? { vendor: 'intel', architecture: 'gen-12lp', device: '', description: '', isFallbackAdapter: false }
+      : { vendor: 'nvidia', architecture: 'lovelace', device: '', description: '', isFallbackAdapter: false }
+  );
+  harness.bench.getWebGlRenderer = () => 'ANGLE (Intel, Mesa Intel(R) Iris(R) Xe Graphics (RPL-P), OpenGL ES 3.2)';
+
+  const details = await harness.bench.initHardwareField();
+  assert.equal(details.primary, 'WebGPU (NVIDIA, lovelace)');
+  assert.equal(harness.getElement('speedHardwareLabel').value, 'WebGPU (NVIDIA, lovelace)');
+  assert.equal(harness.bench.buildSnapshot().gpu, 'WebGPU (NVIDIA, lovelace)');
+  assert.ok(details.presets.includes('CPU'));
+  assert.ok(details.presets.includes('NPU'));
+
+  // Manual override (e.g. CPU) takes precedence in snapshots and TSV copy
+  harness.getElement('speedHardwareLabel').value = 'CPU';
+  assert.equal(harness.bench.buildSnapshot().gpu, 'CPU');
+  harness.bench.saveResults();
+  assert.match(harness.getClipboard(), /GPU:\s+CPU/);
+});
+
+test('detectHardwareDetails retains unmasked WebGL model name when WebGL matches high-performance WebGPU vendor', async () => {
+  const harness = createSpeedHarness();
+  harness.bench.queryWebGpuAdapter = async () => ({
+    vendor: 'nvidia',
+    architecture: 'lovelace',
+    device: '',
+    description: '',
+    isFallbackAdapter: false,
+  });
+  harness.bench.getWebGlRenderer = () => 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+
+  const details = await harness.bench.detectHardwareDetails();
+  assert.equal(details.primary, 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)');
+});
+

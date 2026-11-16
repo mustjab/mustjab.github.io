@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../theme.css">
   <link rel="stylesheet" href="../style.css">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
   <link rel="icon" href="../../../icon.png">
 </head>
 
@@ -63,6 +63,11 @@
                 <div class="searchable-select-dropdown" id="targetLanguageDropdown" style="display: none;"></div>
                 <input type="hidden" id="targetLanguage" value="es">
               </div>
+            </div>
+            <div class="form-group speed-hardware-field">
+              <label for="speedHardwareLabel" title="Auto-detected high-performance GPU; override with CPU or NPU when testing non-GPU backends">Hardware / Backend</label>
+              <input type="text" id="speedHardwareLabel" list="speedHardwarePresets" placeholder="Detecting GPU..." autocomplete="off">
+              <datalist id="speedHardwarePresets"></datalist>
             </div>
             <div class="form-group" style="display: none;">
               <label for="speedBuildLabel">Current Run Label</label>
@@ -409,7 +414,7 @@
   </div>
 
   <script src="../../nav.js"></script>
-  <script src="speed.js?v=2"></script>
+  <script src="speed.js?v=3"></script>
 </body>
 
 </html>

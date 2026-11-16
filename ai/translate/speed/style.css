@@ -1,7 +1,7 @@
 /* Speed benchmark specific styles */
 
 .speed-lang-row {
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto 1fr 1.15fr;
   margin-bottom: 12px;
 }
 
@@ -23,6 +23,12 @@
 
 .file-btn {
   margin: 0 !important;
+}
+
+@media (max-width: 900px) {
+  .speed-hardware-field {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Unified 6-tile Scorecard */
