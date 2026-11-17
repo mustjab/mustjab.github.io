@@ -119,6 +119,7 @@
     {name: 'time-am-pm-conversion', id: 'placeholder_integrity', regressionRule: 'identity',
       source: 'Jun 12, 4:05 PM\nAvailable M-F 9 AM to 6 PM.',
       mustPreserve: ['12', '05', '9'],
+      allowedTokens: {'05': ['05', '5분', '5分']},
       mustNotContain: ['16:4:05', '9 9', 'de 9 a 9', '6 p. m. 6'],
       expectedInvariant: 'Convert or preserve 12-hour AM/PM times cleanly (4:05 PM -> 16:05 or 4:05 PM; 9 AM to 6 PM) without hybrid 16:4:05 or duplicated 9 a 9 / 6 p. m. 6.'},
     {name: 'month-day-year-order', id: 'placeholder_integrity', regressionRule: 'identity',
@@ -154,6 +155,7 @@
     return definitions.map(({name, ...spec}) => ({
       ...spec, caseId: `focused:${name}`, sourceLanguage: 'en', lang: target,
       ...(spec.mustPreserve ? {mustPreserve: [...spec.mustPreserve]} : {}),
+      ...(spec.allowedTokens ? {allowedTokens: structuredClone(spec.allowedTokens)} : {}),
       ...(spec.exactTokens ? {exactTokens: [...spec.exactTokens]} : {}),
       ...(spec.mustNotContain ? {mustNotContain: [...spec.mustNotContain]} : {}),
       ...(spec.reviewTopics ? {reviewTopics: [...spec.reviewTopics]} : {}),

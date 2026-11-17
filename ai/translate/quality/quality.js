@@ -727,21 +727,46 @@ class TranslationQualityBenchmark {
         ...QualityChecks.cases,
       ].filter(test => test.lang === target);
     } else if (target && target !== 'en') {
-      const seenSources = new Set();
-      const universalDefects = [];
+      const isChineseVariant = ['zh-hant', 'yue', 'lzh'].includes(target);
+      const isLatinTarget = /^(?:af|bs|ca|ceb|cs|cy|da|de|dsb|es|et|eu|fi|fil|fj|fo|fr|ga|gl|ha|haw|hr|hsb|ht|hu|id|ig|ikt|is|it|iu-latn|jv|kin|kmr|la|lb|lg|ln|lt|luo|lv|mg|mi|ms|mt|mww|nb|nl|nso|nya|oc|otq|pl|pt|ro|run|rw|sk|sl|sm|sn|so|sq|sr-latn|st|su|sv|sw|tet|tlh-latn|tn|to|tr|ty|uz|vi|xh|yo|yua|zu)(?:-|$)/i.test(target);
+      const preferredLang = isChineseVariant ? 'zh-hans' : isLatinTarget ? 'es' : 'ja';
+      const bySourceKey = new Map();
       for (const test of DEFECT_TEST_DATA) {
         if ((!test.mustPreserve || test.mustPreserve.length === 0) && !test.minSentences) continue;
+        if (!isLatinTarget && test.id === 'brand_translated' && test.lang === 'es' &&
+            !DEFECT_TEST_DATA.some(other => other.id === test.id && other.source === test.source && other.lang !== 'es')) {
+          continue;
+        }
         const key = `${test.id}|${test.source}`;
-        if (seenSources.has(key)) continue;
-        seenSources.add(key);
+        const existing = bySourceKey.get(key);
+        if (!existing || test.lang === preferredLang ||
+            (existing.lang === 'es' && !isLatinTarget && test.lang !== 'es')) {
+          bySourceKey.set(key, test);
+        }
+      }
+      const universalDefects = [];
+      for (const test of bySourceKey.values()) {
+        let mustPreserve = [...(test.mustPreserve || [])];
+        let allowedTokens = test.allowedTokens ? structuredClone(test.allowedTokens) : undefined;
+        if (isChineseVariant && test.id === 'proper_noun_error' && allowedTokens) {
+          if (allowedTokens['Albert Einstein']) allowedTokens['Albert Einstein'].push('阿爾伯特·愛因斯坦', '愛因斯坦');
+          if (allowedTokens['MIT']) allowedTokens['MIT'].push('麻省理工學院');
+        } else if (!isLatinTarget && test.id === 'proper_noun_error' && mustPreserve.includes('Albert Einstein')) {
+          // Non-Latin scripts (e.g. ko, ar, hi, ru) transliterate person/lab names while keeping acronyms like MIT.
+          mustPreserve = mustPreserve.filter(tok => tok === 'MIT');
+          allowedTokens = undefined;
+        }
         universalDefects.push({
           id: test.id,
           lang: target,
           sourceLanguage: 'en',
           source: test.source,
           caseId: `builtin:${target}:${universalDefects.length}`,
-          mustPreserve: [...(test.mustPreserve || [])],
-          mustNotContain: test.lang === 'es' ? [...(test.mustNotContain || [])] : [],
+          mustPreserve,
+          ...(allowedTokens ? { allowedTokens } : {}),
+          mustNotContain: isChineseVariant && test.lang === 'zh-hans'
+            ? [...(test.mustNotContain || [])]
+            : test.lang === 'es' && target.startsWith('es') ? [...(test.mustNotContain || [])] : [],
           ...(test.minSentences ? { minSentences: test.minSentences } : {}),
         });
       }
@@ -2083,21 +2108,23 @@ const MAGNITUDE_PATTERNS = [
   [/(\d+(?:\.\d+)?)\s*billions?/gi, '$1B'],
   [/(\d+(?:\.\d+)?)\s*millions?/gi, '$1M'],
   [/(\d+(?:\.\d+)?)\s*thousands?/gi, '$1K'],
+  // Spaced abbreviated suffix before currency symbol (e.g. French "3,8 M$" -> "3.8M$")
+  [/(\d+(?:\.\d+)?)\s+([KMB])(?=\s*[$€£¥]|\b)/gi, '$1$2'],
 ];
 
-// Currency-word substitutions that map a trailing currency word back to
-// the leading symbol form. Lets us treat "3.8M de dólares" as equivalent
-// to "$3.8M" when the model drops the symbol and uses the word instead.
+// Currency-word substitutions that map a trailing currency word or symbol back to
+// the leading symbol form. Lets us treat "3.8M de dólares", "3.8M $", or "3.8M 美元" as equivalent
+// to "$3.8M" when the model places the currency word/symbol after the number.
 // Applied AFTER MAGNITUDE_PATTERNS so suffixes are already collapsed.
 const CURRENCY_PATTERNS = [
-  // USD: "3.8M de dólares" / "3.8M dólares" / "3.8M dollars" / "3.8M USD"
-  [/(\d+(?:\.\d+)?[KMB]?)\s+(?:de\s+|d'\s*)?(?:d[óo]lares?|dollars?|dollari|доллар(?:а|ов)?|دولار(?:ات)?|डॉलर|달러|USD|US\$)/giu, '$$$1'],
+  // USD: "3.8M de dólares" / "3.8M dollars" / "3.8M $" / "3.8M 美元" / "3.8M USD"
+  [/(\d+(?:\.\d+)?[KMB]?)\s*(?:(?:de\s+|d'\s*)?(?:d[óo]lares?|dollars?|dollari|доллар(?:а|ов)?|دولار(?:ات)?|डॉलर|달러|美元|美金|米ドル|ドル|USD|US\$)|\$)/giu, '$$$1'],
   // EUR
-  [/(\d+(?:\.\d+)?[KMB]?)\s+(?:de\s+)?(?:euros?|EUR)/gi, '€$1'],
+  [/(\d+(?:\.\d+)?[KMB]?)\s*(?:(?:de\s+)?(?:euros?|EUR)|€)/gi, '€$1'],
   // GBP
-  [/(\d+(?:\.\d+)?[KMB]?)\s+(?:de\s+)?(?:pounds?|libras?|GBP)/gi, '£$1'],
+  [/(\d+(?:\.\d+)?[KMB]?)\s*(?:(?:de\s+)?(?:pounds?|libras?|GBP)|£)/gi, '£$1'],
   // JPY
-  [/(\d+(?:\.\d+)?[KMB]?)\s+(?:de\s+)?(?:yen|円|JPY)/gi, '¥$1'],
+  [/(\d+(?:\.\d+)?[KMB]?)\s*(?:(?:de\s+)?(?:yen|円|JPY)|¥)/gi, '¥$1'],
 ];
 
 // Normalises numeric / currency strings so locale-equivalent renderings
@@ -2115,8 +2142,8 @@ function normalizeNumeric(s, lang) {
     }
     return char;
   });
-  // Collapse whitespace after currency symbol: "$ 3.8" -> "$3.8".
-  t = t.replace(/([$€£¥¢])\s+/g, '$1');
+  // Collapse whitespace after a leading currency symbol before digits: "$ 3.8" -> "$3.8".
+  t = t.replace(/([$€£¥¢])\s+(?=\d)/g, '$1');
   // Decimal separator: "," or "٫" between digits -> "." in comma-decimal / Arabic locales.
   if (COMMA_DECIMAL_LANGS.has(lang) || ['ar', 'fa', 'prs', 'ur', 'ps', 'ug'].includes(lang)) {
     t = t.replace(/(\d)[,٫](\d)/g, '$1.$2');

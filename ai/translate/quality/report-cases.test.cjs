@@ -47,7 +47,10 @@ test('brand translation is flagged and semantic tag placement remains a review o
 
   const jaTime = checks.cases.find(row => row.caseId === 'report:ja:time-am-pm-conversion');
   assert.equal(checks.evaluate(jaTime, '6月12日、午後4時05分。月から金の午前9時から午後6時まで利用可能。').pass, true);
+  assert.equal(checks.evaluate(jaTime, '6月12日、午後4時5分。月から金の午前9時から午後6時まで利用可能。').pass, true);
   assert.equal(checks.evaluate(jaTime, '6月12日 16:4:05。月から金の午前9時から午後6時まで利用可能。').pass, false);
+  const koTime = checks.getCases('ko').find(row => row.caseId === 'report:ko:time-am-pm-conversion');
+  assert.equal(checks.evaluate(koTime, '6월 12일 오후 4시 5분. 월요일부터 금요일 오전 9시부터 오후 6시까지 이용 가능합니다.').pass, true);
 
   const zhDotnet = checks.cases.find(row => row.caseId === 'report:zh-hans:dotnet-version-modifier');
   assert.equal(checks.evaluate(zhDotnet, 'ASP.NET Core 运行时 8 图标').pass, true);

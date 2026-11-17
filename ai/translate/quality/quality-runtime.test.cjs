@@ -46,8 +46,9 @@ function createHarness(translatorFactory) {
     clearTimeout: id => timers.delete(id),
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'quality.js'), 'utf8') +
-    '\nglobalThis.Benchmark = TranslationQualityBenchmark;', context);
+    '\nglobalThis.Benchmark = TranslationQualityBenchmark; globalThis.evaluateDefect = evaluateDefectCase;', context);
   const bench = Object.create(context.Benchmark.prototype);
+  bench.evaluateDefect = context.evaluateDefect;
   bench.runController = new AbortController();
   bench.run = { timeoutSeconds: 60, requests: [] };
   return {
@@ -366,6 +367,31 @@ test('focused selection supports any non-English target language', async () => {
   const builtinAr = bench.getDefectCases();
   assert.ok(builtinAr.length >= 45);
   assert.ok(builtinAr.every(row => row.lang === 'ar'));
+
+  // Secondary non-Latin targets (zh-hant, ko) use script-appropriate proper-noun rules and currency normalization
+  elements.set('targetLanguage', { value: 'zh-hant' });
+  const builtinZht = bench.getDefectCases();
+  const zhtEinstein = builtinZht.find(row => row.source.includes('Albert Einstein'));
+  assert.ok(zhtEinstein.allowedTokens['Albert Einstein'].includes('阿爾伯特·愛因斯坦'));
+  assert.ok(zhtEinstein.allowedTokens['MIT'].includes('麻省理工學院'));
+  assert.equal(builtinZht.some(row => row.source.includes('Amazon Kindle')), false);
+  const zhtWin = builtinZht.find(row => row.source.startsWith('Upgrade to version 7.0'));
+  assert.equal(zhtWin.mustPreserve.includes('$3.8M'), false);
+  assert.ok(zhtWin.mustNotContain.includes('Windows 7.0'));
+
+  elements.set('targetLanguage', { value: 'ko' });
+  const builtinKo = bench.getDefectCases();
+  const koEinstein = builtinKo.find(row => row.source.includes('Albert Einstein'));
+  assert.equal(JSON.stringify(koEinstein.mustPreserve), '["MIT"]');
+
+  elements.set('targetLanguage', { value: 'fr' });
+  const builtinFr = bench.getDefectCases();
+  const frWin = builtinFr.find(row => row.source.startsWith('Upgrade to version 7.0'));
+  assert.ok(frWin.mustPreserve.includes('$3.8M'));
+  assert.equal(bench.evaluateDefect(frWin,
+    'Passez à la version 7.0 pour Windows 11 pour gérer le budget de 3,8 M$ cette année.').pass, true);
+  assert.equal(bench.evaluateDefect(frWin,
+    'Passez à la version 7.0 pour Windows 11 pour gérer le budget de 3.8M $ cette année.').pass, true);
 });
 test('summary separates completed execution, coverage flags and semantic verdicts with missing APIs retained', () => {
   const { bench, elements } = createHarness(async () => null);
