@@ -44,6 +44,15 @@ test('brand translation is flagged and semantic tag placement remains a review o
   assert.ok(droppedBracket.failures.includes('required_token_missing'));
   const cleanDom = checks.evaluate(domCite, '<b10></b10>...同じ時期に<b11> </b11>...<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>');
   assert.equal(cleanDom.pass, true);
+
+  const jaTime = checks.cases.find(row => row.caseId === 'report:ja:time-am-pm-conversion');
+  assert.equal(checks.evaluate(jaTime, '6月12日、午後4時05分。月から金の午前9時から午後6時まで利用可能。').pass, true);
+  assert.equal(checks.evaluate(jaTime, '6月12日 16:4:05。月から金の午前9時から午後6時まで利用可能。').pass, false);
+
+  const zhDotnet = checks.cases.find(row => row.caseId === 'report:zh-hans:dotnet-version-modifier');
+  assert.equal(checks.evaluate(zhDotnet, 'ASP.NET Core 运行时 8 图标').pass, true);
+  const esDotnet = checks.cases.find(row => row.caseId === 'report:es:dotnet-version-modifier');
+  assert.equal(checks.evaluate(esDotnet, 'Icono 8 de ASP.NET Core Runtime').pass, false);
 });
 
 test('public cases have unique descriptive IDs rather than internal regression IDs', () => {
