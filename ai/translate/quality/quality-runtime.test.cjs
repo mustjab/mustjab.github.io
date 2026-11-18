@@ -379,6 +379,9 @@ test('focused selection supports any non-English target language', async () => {
   assert.equal(zhtWin.mustPreserve.includes('$3.8M'), false);
   assert.ok(zhtWin.mustNotContain.includes('Windows 7.0'));
 
+  assert.equal(bench.evaluateDefect(zhtEinstein,
+    '阿爾伯特·愛因斯坦在加入倫敦的 DeepMind 之前曾在麻省理工學院工作。').pass, true);
+
   elements.set('targetLanguage', { value: 'ko' });
   const builtinKo = bench.getDefectCases();
   const koEinstein = builtinKo.find(row => row.source.includes('Albert Einstein'));
@@ -392,6 +395,18 @@ test('focused selection supports any non-English target language', async () => {
     'Passez à la version 7.0 pour Windows 11 pour gérer le budget de 3,8 M$ cette année.').pass, true);
   assert.equal(bench.evaluateDefect(frWin,
     'Passez à la version 7.0 pour Windows 11 pour gérer le budget de 3.8M $ cette année.').pass, true);
+  assert.equal(bench.evaluateDefect({ ...frWin, lang: 'de' },
+    'Upgrade auf Version 7.0 für Windows 11, um das Budget von 3.8M US-Dollar in diesem Jahr zu bewältigen.').pass, true);
+  assert.equal(bench.evaluateDefect({ ...frWin, lang: 'it' },
+    'Aggiorna alla versione 7.0 per Windows 11 per gestire il budget di 3.8M di dollari quest\'anno.').pass, true);
+  assert.equal(bench.evaluateDefect({ ...frWin, lang: 'vi' },
+    'Nâng cấp lên phiên bản 7.0 cho Windows 11 để xử lý ngân sách 3.8M đô la trong năm nay.').pass, true);
+
+  elements.set('corpusSelection', { value: 'focused' });
+  elements.set('targetLanguage', { value: 'de' });
+  const deDatetime = bench.getDefectCases().find(row => row.caseId === 'focused:datetime');
+  assert.equal(bench.evaluateDefect(deDatetime,
+    'Die Sitzung ist für den 15. März 2025 um 14:30 Uhr angesetzt.').pass, true);
 });
 test('summary separates completed execution, coverage flags and semantic verdicts with missing APIs retained', () => {
   const { bench, elements } = createHarness(async () => null);

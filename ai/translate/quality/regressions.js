@@ -42,6 +42,7 @@
     {name: 'datetime', id: 'placeholder_integrity', regressionRule: 'datetime',
       source: 'The meeting is scheduled for March 15, 2025, at 2:30 PM.',
       mustPreserve: ['15', '2025', '2', '30'],
+      allowedTokens: {'2': ['2', '14', '二', '十四']},
       expectedInvariant: 'Meeting on March 15, 2025 at 2:30 PM (14:30); preserve each value and its date/time role.'},
     {name: 'literal-braces', id: 'literal_identity', regressionRule: 'identity',
       source: 'Keep the exact literal markers {2} and {3 in this example.',

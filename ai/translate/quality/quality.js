@@ -2117,8 +2117,8 @@ const MAGNITUDE_PATTERNS = [
 // to "$3.8M" when the model places the currency word/symbol after the number.
 // Applied AFTER MAGNITUDE_PATTERNS so suffixes are already collapsed.
 const CURRENCY_PATTERNS = [
-  // USD: "3.8M de dólares" / "3.8M dollars" / "3.8M $" / "3.8M 美元" / "3.8M USD"
-  [/(\d+(?:\.\d+)?[KMB]?)\s*(?:(?:de\s+|d'\s*)?(?:d[óo]lares?|dollars?|dollari|доллар(?:а|ов)?|دولار(?:ات)?|डॉलर|달러|美元|美金|米ドル|ドル|USD|US\$)|\$)/giu, '$$$1'],
+  // USD: "3.8M de dólares" / "3.8M di dollari" / "3.8M US-Dollar" / "3.8M đô la" / "3.8M $" / "3.8M 美元"
+  [/(\d+(?:\.\d+)?[KMB]?)\s*(?:(?:de\s+|di\s+|d'\s*)?(?:US[-\s]?dollars?|d[óo]lares?|dollari|dollars?|đô\s*la(?:\s*Mỹ)?|доллар(?:а|ов)?|دولار(?:ات)?|डॉलर|달러|美元|美金|米ドル|ドル|USD|US\$)|\$)/giu, '$$$1'],
   // EUR
   [/(\d+(?:\.\d+)?[KMB]?)\s*(?:(?:de\s+)?(?:euros?|EUR)|€)/gi, '€$1'],
   // GBP

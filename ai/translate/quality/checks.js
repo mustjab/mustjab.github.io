@@ -5,12 +5,21 @@
   const regressions = root.QualityRegressions || (typeof module !== 'undefined' ? require('./regressions.js') : null);
   const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+  function nonOverlappingOccurrences(text, variants) {
+    const unique = [...new Set(variants.filter(Boolean))].sort((a, b) => b.length - a.length);
+    if (!unique.length) return 0;
+    const alts = unique.map(token => {
+      const before = /^\p{N}/u.test(token) ? '(?<!\\p{N})' :
+        /^[\p{Script=Latin}_]/u.test(token) ? '(?<![\\p{Script=Latin}\\p{N}_])' : '';
+      const after = /\p{N}$/u.test(token) ? '(?!\\p{N})' :
+        /[\p{Script=Latin}_]$/u.test(token) ? '(?![\\p{Script=Latin}\\p{N}_])' : '';
+      return `(?:${before}${escapeRegex(token)}${after})`;
+    });
+    return [...text.matchAll(new RegExp(alts.join('|'), 'gu'))].length;
+  }
+
   function occurrences(text, token) {
-    const before = /^\p{N}/u.test(token) ? '(?<!\\p{N})' :
-      /^[\p{Script=Latin}_]/u.test(token) ? '(?<![\\p{Script=Latin}\\p{N}_])' : '';
-    const after = /\p{N}$/u.test(token) ? '(?!\\p{N})' :
-      /[\p{Script=Latin}_]$/u.test(token) ? '(?![\\p{Script=Latin}\\p{N}_])' : '';
-    return [...text.matchAll(new RegExp(before + escapeRegex(token) + after, 'gu'))].length;
+    return nonOverlappingOccurrences(text, [token]);
   }
 
   function markers(text) {
@@ -97,7 +106,7 @@
     ];
     for (const token of new Set([...(test.mustPreserve || []), ...opaqueTokens])) {
       const variants = test.allowedTokens?.[token] || [token];
-      const count = variants.reduce((total, variant) => total + occurrences(output, variant), 0);
+      const count = nonOverlappingOccurrences(output, variants);
       const expected = Math.max(1, occurrences(source, token));
       const exact = opaqueTokens.includes(token) || (test.exactTokens || []).includes(token);
       const normalizedCount = count || (exact ? 0 : occurrences(normalize(output, test.lang), normalize(token, test.lang)));
