@@ -2,6 +2,23 @@
 (function () {
   'use strict';
 
+  const PROMPT_API_ORIGIN_TRIAL_TOKEN =
+    'AzfmQd5WeCR1czyG5r870L/lVteg6zZW240+bw4KWXXMJWNHC1DvPbBhkPNEIbKoPykxzUFsVBTlfLH0MnFuUFIAAABpeyJvcmlnaW4iOiJodHRwczovL211c3RqYWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJBSVByb21wdEFQSSIsImV4cGlyeSI6MTgwMjkwNzc4NCwiaXNTdWJkb21haW4iOnRydWV9';
+
+  function ensureOriginTrialMeta() {
+    if (typeof document === 'undefined' || !document.head) return;
+    const existing = document.head.querySelectorAll('meta[http-equiv="origin-trial"]');
+    for (const meta of existing) {
+      if (meta.getAttribute('content') === PROMPT_API_ORIGIN_TRIAL_TOKEN) return;
+    }
+    const meta = document.createElement('meta');
+    meta.httpEquiv = 'origin-trial';
+    meta.content = PROMPT_API_ORIGIN_TRIAL_TOKEN;
+    document.head.appendChild(meta);
+  }
+
+  ensureOriginTrialMeta();
+
   function getAiBasePrefix() {
     const scripts = document.querySelectorAll('script[src]');
     for (const s of scripts) {
