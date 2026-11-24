@@ -33,9 +33,15 @@
         <div class="bench-top-bar">
           <div class="bench-controls">
             <button id="measureAllBtn" class="btn btn-primary">▶ Measure All</button>
+            <button id="stopBench" class="btn btn-secondary" disabled>⏹ Stop</button>
             <button id="copyTsvBtn" class="btn btn-secondary">📋 Copy TSV</button>
             <button id="saveBaselineBtn" class="btn btn-secondary">💾 Save Baseline</button>
             <button id="clearBaselinesBtn" class="btn btn-secondary btn-small">🗑️ Clear</button>
+          </div>
+          <div class="bench-label-group">
+            <label for="hardwareLabel" title="Auto-detected high-performance GPU; override with CPU or NPU when testing non-GPU backends">Hardware / Backend</label>
+            <input type="text" id="hardwareLabel" list="hardwarePresets" placeholder="Detecting GPU..." autocomplete="off">
+            <datalist id="hardwarePresets"></datalist>
           </div>
         </div>
 
@@ -114,7 +120,8 @@
   </div>
 
   <script src="../../nav.js"></script>
-  <script src="speed.js"></script>
+  <script src="../../hardware-detect.js?v=1"></script>
+  <script src="speed.js?v=2"></script>
 </body>
 
 </html>

@@ -255,3 +255,87 @@ test('Background tab timeout falls back without hanging and upgrades to WebGPU a
   assert.equal(getElement('hardwareLabel').value, 'WebGPU (NVIDIA, lovelace)');
 });
 
+test('Prompt API measureLoadTime & runPrefillTest use samplingMode most-predictable, separate download provisioning, skip empty chunks, and record 1K token counts', async () => {
+  let clock = 1000;
+  let availState = 'downloadable';
+  const createCalls = [];
+  let destroyedCount = 0;
+  const elements = new Map();
+  const getElement = (id) => {
+    if (!elements.has(id)) {
+      elements.set(id, { id, value: '', textContent: '0', innerHTML: '', style: {}, addEventListener() {} });
+    }
+    return elements.get(id);
+  };
+
+  function FakeLanguageModel() {}
+  FakeLanguageModel.prototype.samplingMode = 'most-predictable';
+  FakeLanguageModel.availability = async () => availState;
+  FakeLanguageModel.create = async (opts) => {
+    createCalls.push(opts);
+    if (availState !== 'available') {
+      clock += 900; // download time must NOT be included in TTFT
+      availState = 'available';
+      return { destroy() { destroyedCount++; } };
+    }
+    clock += 30; // session creation = 30 ms
+    return {
+      samplingMode: 'most-predictable',
+      async *promptStreaming() {
+        clock += 10;
+        yield ''; // empty chunk ignored
+        clock += 45; // first non-empty token at +55 ms
+        yield 'Hello';
+      },
+      async measureContextUsage(p) {
+        return p.includes('Earley') ? 1024 : 998;
+      },
+      destroy() { destroyedCount++; },
+    };
+  };
+
+  const ctx = vm.createContext({
+    document: { addEventListener() {}, getElementById: getElement, createElement: () => ({ getContext: () => null }) },
+    window: { LanguageModel: FakeLanguageModel, addEventListener() {} },
+    localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    navigator: { userAgent: 'Edg/160.0.0.0', clipboard: { async writeText() {} } },
+    performance: { now: () => clock },
+    AbortController,
+    setTimeout: (fn) => { fn(); return 1; },
+    clearTimeout() {},
+    module: { exports: {} },
+  });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, 'speed.js'), 'utf8'), ctx);
+
+  const ttft = await ctx.module.exports.measureLoadTime('Hi', 'time-to-first-token', true);
+  // 30ms session create + (10 + 45)ms prompt TTFT = 85 ms (excludes 900ms download!)
+  assert.equal(ttft, 85);
+  assert.equal(createCalls[1].samplingMode, 'most-predictable');
+  assert.equal(getElement('ttft-sub').textContent, 'Create 30.0 ms + Prompt 55.0 ms');
+
+  await ctx.module.exports.runPrefillTest(true);
+  assert.equal(getElement('1k-tokens-1').textContent, '1,024');
+  assert.equal(getElement('1k-tokens-2').textContent, '998');
+  assert.ok(destroyedCount >= 7);
+});
+
+test('All 5 AI speed pages include Stop controls and Hardware / Backend override support', () => {
+  const aiRoot = path.resolve(__dirname, '..');
+  const pages = [
+    { rel: 'speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench' },
+    { rel: 'tasks/speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench' },
+    { rel: 'lid/speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench' },
+    { rel: 'decisions/speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench' },
+    { rel: 'translate/speed/index.html', hwId: 'speedHardwareLabel', stopId: 'stopSpeedBench' },
+  ];
+  for (const p of pages) {
+    const html = fs.readFileSync(path.join(aiRoot, p.rel), 'utf8');
+    assert.ok(html.includes(`id="${p.hwId}"`), `Missing ${p.hwId} in ${p.rel}`);
+    assert.ok(html.includes(`id="${p.stopId}"`), `Missing ${p.stopId} in ${p.rel}`);
+  }
+  const hwDetect = require('../hardware-detect.js');
+  assert.equal(typeof hwDetect.detectHardwareDetails, 'function');
+  assert.equal(typeof hwDetect.createHardwareController, 'function');
+});
+
+

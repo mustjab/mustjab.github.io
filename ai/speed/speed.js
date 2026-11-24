@@ -116,17 +116,68 @@ Pse`;
     }
   }
 
+  function supportsSamplingMode(lm) {
+    return Boolean(lm?.prototype && 'samplingMode' in lm.prototype);
+  }
+
+  function getDeterministicSamplingOptions(lm) {
+    return supportsSamplingMode(lm) ? { samplingMode: 'most-predictable' } : { temperature: 1.0, topK: 1 };
+  }
+
+  let activeRunController = null;
+
+  async function ensureModelProvisioned(lm, options, signal) {
+    if (typeof lm.availability !== 'function') return;
+    const avail = await lm.availability(options);
+    signal?.throwIfAborted();
+    if (avail === 'unavailable' || avail === 'no') {
+      throw new Error('LanguageModel is unavailable. Enable On-device AI in browser settings/flags.');
+    }
+    if (avail !== 'available' && avail !== 'readily') {
+      showBusy(true, 'Downloading on-device model...');
+      const prov = await lm.create({
+        ...options,
+        ...(signal ? { signal } : {}),
+        monitor(m) {
+          m.addEventListener('downloadprogress', e => {
+            const frac = e.total > 0 ? e.loaded / e.total : e.loaded;
+            setStatus('', `Model: Downloading ${Math.round(frac * 100)}%`);
+          });
+        },
+      });
+      if (prov && typeof prov.destroy === 'function') prov.destroy();
+      signal?.throwIfAborted();
+      setStatus('available', 'Model: Available');
+    }
+  }
+
   async function createSession(extraOptions = {}) {
     const lm = getLanguageModel();
     if (!lm) throw new Error('LanguageModel API is not available in this browser.');
+    const baseOpts = { ...getDeterministicSamplingOptions(lm), ...extraOptions };
+    await ensureModelProvisioned(lm, baseOpts, activeRunController?.signal);
     const controller = new AbortController();
-    const session = await lm.create({
-      temperature: 1.0,
-      topK: 1,
-      signal: controller.signal,
-      ...extraOptions,
-    });
-    return { session, controller };
+    const onRunAbort = () => controller.abort(activeRunController.signal.reason);
+    if (activeRunController) {
+      if (activeRunController.signal.aborted) controller.abort(activeRunController.signal.reason);
+      else activeRunController.signal.addEventListener('abort', onRunAbort, { once: true });
+    }
+    try {
+      const createStart = performance.now();
+      const session = await lm.create({
+        ...baseOpts,
+        signal: controller.signal,
+      });
+      const creationTime = performance.now() - createStart;
+      if (baseOpts.samplingMode && session.samplingMode && session.samplingMode !== baseOpts.samplingMode) {
+        if (typeof session.destroy === 'function') session.destroy();
+        throw new Error('Sampling modes are not supported or enabled.');
+      }
+      return { session, controller, creationTime, detachRunAbort: () => activeRunController?.signal.removeEventListener('abort', onRunAbort) };
+    } catch (err) {
+      activeRunController?.signal.removeEventListener('abort', onRunAbort);
+      throw err;
+    }
   }
 
   let isRunning = false;
@@ -136,15 +187,33 @@ Pse`;
       const el = document.getElementById(id);
       if (el) el.disabled = disabled;
     });
+    const stopBtn = document.getElementById('stopBench');
+    if (stopBtn) stopBtn.disabled = !disabled;
+  }
+
+  function stopBenchmark() {
+    if (activeRunController) {
+      activeRunController.abort();
+    }
   }
 
   async function runExclusive(fn) {
     if (isRunning) return;
     isRunning = true;
+    activeRunController = new AbortController();
     setControlsDisabled(true);
     try {
       return await fn();
+    } catch (e) {
+      if (activeRunController?.signal.aborted) {
+        showBusy(false);
+        const st = document.getElementById('benchmark-status');
+        if (st) st.textContent = 'Canceled';
+      } else {
+        throw e;
+      }
     } finally {
+      activeRunController = null;
       isRunning = false;
       setControlsDisabled(false);
     }
@@ -156,31 +225,42 @@ Pse`;
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  async function measureLoadTime(prompt, elementId) {
+  async function measureLoadTime(prompt, elementId, showSessionBreakdown = false) {
+    activeRunController?.signal.throwIfAborted();
     showBusy(true, 'Measuring first-token latency...');
-    const start = performance.now();
-    const { session, controller } = await createSession();
-    let end = start;
+    const { session, controller, creationTime, detachRunAbort } = await createSession();
+    const promptStart = performance.now();
+    let promptEnd = null;
     try {
       // Pass controller.signal to promptStreaming() (not just create()) so
       // controller.abort() triggers StreamingResponder::OnAborted() in Blink
-      // as soon as the first token arrives.
+      // as soon as the first non-empty token arrives.
       const stream = session.promptStreaming(prompt, { signal: controller.signal });
-      for await (const _chunk of stream) {
-        end = performance.now();
+      for await (const chunk of stream) {
+        if (!chunk) continue;
+        promptEnd = performance.now();
         controller.abort();
         break;
       }
     } catch (_err) {
-      if (end === start) end = performance.now();
+      if (promptEnd === null && !activeRunController?.signal.aborted) {
+        promptEnd = performance.now();
+      }
     } finally {
+      detachRunAbort();
       if (typeof session.destroy === 'function') session.destroy();
     }
-    const ms = end - start;
+    activeRunController?.signal.throwIfAborted();
+    const promptTtft = Math.max(0, (promptEnd ?? performance.now()) - promptStart);
+    const ms = creationTime + promptTtft;
     const el = document.getElementById(elementId);
     if (el) el.textContent = ms.toFixed(2);
     if (elementId === 'time-to-first-token') {
       document.getElementById('hero-ttft').textContent = ms.toFixed(1);
+      if (showSessionBreakdown) {
+        const sub = document.getElementById('ttft-sub');
+        if (sub) sub.textContent = `Create ${creationTime.toFixed(1)} ms + Prompt ${promptTtft.toFixed(1)} ms`;
+      }
     }
     // Allow the async Mojo disconnect + in-flight single token step (~28ms) to
     // settle in the on_device_model service before the next run's timer starts.
@@ -189,22 +269,52 @@ Pse`;
     return ms;
   }
 
-  async function runPrefillTest() {
-    const prompts = [k1KTokenPrompt2, k1KTokenPrompt, k1KTokenPrompt2, k1KTokenPrompt, k1KTokenPrompt2];
-    let total = 0;
-    for (let i = 0; i < prompts.length; i++) {
-      document.getElementById('progressBar').style.width = `${((i + 1) / prompts.length) * 100}%`;
-      total += await measureLoadTime(prompts[i], `1kt${i + 1}`);
+  const kPrefillPrompts = [k1KTokenPrompt2, k1KTokenPrompt, k1KTokenPrompt2, k1KTokenPrompt, k1KTokenPrompt2];
+
+  async function measurePrefillTokenCounts() {
+    let session = null;
+    let detach = () => {};
+    try {
+      activeRunController?.signal.throwIfAborted();
+      const created = await createSession();
+      session = created.session;
+      detach = created.detachRunAbort;
+      const measureFn =
+        typeof session.measureContextUsage === 'function' ? p => session.measureContextUsage(p)
+        : typeof session.measureInputUsage === 'function' ? p => session.measureInputUsage(p)
+        : null;
+      if (!measureFn) return;
+      for (let i = 0; i < kPrefillPrompts.length; i++) {
+        activeRunController?.signal.throwIfAborted();
+        const count = await measureFn(kPrefillPrompts[i]);
+        const cell = document.getElementById(`1k-tokens-${i + 1}`);
+        if (cell && Number.isFinite(count)) cell.textContent = Math.round(count).toLocaleString();
+      }
+    } catch (_err) {
+      // Optional post-benchmark metadata; preserve measured timings if unsupported.
+    } finally {
+      detach();
+      if (session && typeof session.destroy === 'function') session.destroy();
     }
-    const avg = (total / prompts.length).toFixed(2);
+  }
+
+  async function runPrefillTest(measureTokensAfter = true) {
+    let total = 0;
+    for (let i = 0; i < kPrefillPrompts.length; i++) {
+      document.getElementById('progressBar').style.width = `${((i + 1) / kPrefillPrompts.length) * 100}%`;
+      total += await measureLoadTime(kPrefillPrompts[i], `1kt${i + 1}`);
+    }
+    const avg = (total / kPrefillPrompts.length).toFixed(2);
     document.getElementById('time-to-prefill-1k').textContent = avg;
     document.getElementById('hero-prefill').textContent = Number(avg).toFixed(1);
+    if (measureTokensAfter) await measurePrefillTokenCounts();
     return Number(avg);
   }
 
   async function measureTPS(prompt, el1Id, el2Id, scratchEl) {
+    activeRunController?.signal.throwIfAborted();
     showBusy(true, `Measuring TPS (${prompt.slice(0, 28)}...)`);
-    const { session, controller } = await createSession();
+    const { session, controller, detachRunAbort } = await createSession();
     let start = 0;
     let interval1 = 0;
     let interval2 = 0;
@@ -248,10 +358,12 @@ Pse`;
     } catch (_err) {
       // Ignore AbortError thrown when aborting stream at token 100.
     } finally {
+      detachRunAbort();
       if (typeof session.destroy === 'function') session.destroy();
-      await sleep(kInterRunCooldownMs);
+      if (!activeRunController?.signal.aborted) await sleep(kInterRunCooldownMs);
       showBusy(false);
     }
+    activeRunController?.signal.throwIfAborted();
     return { interval1, interval2: interval2 || interval1 };
   }
 
@@ -308,9 +420,10 @@ Pse`;
     const start = performance.now();
     try {
       let session;
+      let detachRunAbort = () => {};
       let toolCalled = false;
       try {
-        ({ session } = await createSession({
+        ({ session, detachRunAbort } = await createSession({
           temperature: 0.001,
           topK: 1,
           tools: schemaTools,
@@ -325,14 +438,16 @@ Pse`;
             return JSON.stringify({ ok: true, ...args });
           },
         }));
-        ({ session } = await createSession({ tools: closedLoopTools }));
+        ({ session, detachRunAbort } = await createSession({ tools: closedLoopTools }));
       }
       try {
-        const res = await session.prompt('What is the weather in Beijing and what time is it in Dublin? Use your tools.');
+        const opts = activeRunController?.signal ? { signal: activeRunController.signal } : undefined;
+        const res = await session.prompt('What is the weather in Beijing and what time is it in Dublin? Use your tools.', opts);
         if (Array.isArray(res) && res.some(p => p?.type === 'tool-call')) {
           toolCalled = true;
         }
       } finally {
+        detachRunAbort();
         if (typeof session.destroy === 'function') session.destroy();
       }
       if (!toolCalled) {
@@ -355,12 +470,15 @@ Pse`;
 
   async function measureAll() {
     try {
-      await measureLoadTime('Hi', 'time-to-first-token');
-      await runPrefillTest();
+      await measureLoadTime('Hi', 'time-to-first-token', true);
+      await runPrefillTest(false);
       await runTPSTest();
       await runToolCallingLatencyTest();
+      await measurePrefillTokenCounts();
     } catch (e) {
-      setStatus('unavailable', e.message || String(e));
+      if (!activeRunController?.signal.aborted) {
+        setStatus('unavailable', e.message || String(e));
+      }
       showBusy(false);
     }
   }
@@ -679,10 +797,15 @@ Pse`;
       checkAvailability();
       renderBaselines();
       document.getElementById('bench').addEventListener('click', () => runExclusive(measureAll));
-      document.getElementById('replayTtft').addEventListener('click', () => runExclusive(() => measureLoadTime('Hi', 'time-to-first-token')));
-      document.getElementById('replayPrefill').addEventListener('click', () => runExclusive(runPrefillTest));
+      const stopBtn = document.getElementById('stopBench');
+      if (stopBtn) stopBtn.addEventListener('click', stopBenchmark);
+      document.getElementById('replayTtft').addEventListener('click', () => runExclusive(() => measureLoadTime('Hi', 'time-to-first-token', true)));
+      document.getElementById('replayPrefill').addEventListener('click', () => runExclusive(() => runPrefillTest(true)));
       document.getElementById('replayTps').addEventListener('click', () => runExclusive(runTPSTest));
       document.getElementById('replayTools').addEventListener('click', () => runExclusive(runToolCallingLatencyTest));
+      if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+        window.addEventListener('pagehide', stopBenchmark);
+      }
       document.getElementById('save').addEventListener('click', saveResultsToClipboard);
       document.getElementById('saveBaselineBtn').addEventListener('click', saveBaselineSlot);
       document.getElementById('clearBaselinesBtn').addEventListener('click', () => {
@@ -701,6 +824,8 @@ Pse`;
       saveResultsToClipboard,
       saveBaselineSlot,
       renderBaselines,
+      measureLoadTime,
+      runPrefillTest,
     };
   }
 })();

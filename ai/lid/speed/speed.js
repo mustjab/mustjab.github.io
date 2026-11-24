@@ -3,6 +3,26 @@
   'use strict';
 
   const STORAGE_KEY = 'edge-ai-lid-speed-baselines-v1';
+  const hwDetect =
+    (typeof window !== 'undefined' && window.AIHardwareDetect) ||
+    (typeof require === 'function' ? require('../../hardware-detect.js') : null);
+  const hw = hwDetect ? hwDetect.createHardwareController('hardwareLabel', 'hardwarePresets') : null;
+  const escapeHtml = hwDetect ? hwDetect.escapeHtml : s => String(s ?? '');
+  let activeRunController = null;
+
+  async function ensureLidProvisioned(signal) {
+    if (!('LanguageDetector' in self) || typeof LanguageDetector.availability !== 'function') return;
+    const avail = await LanguageDetector.availability();
+    signal?.throwIfAborted();
+    if (avail === 'unavailable' || avail === 'no') {
+      throw new Error('LanguageDetector is unavailable.');
+    }
+    if (avail !== 'available' && avail !== 'readily') {
+      const prov = await LanguageDetector.create(signal ? { signal } : undefined);
+      if (prov && typeof prov.destroy === 'function') prov.destroy();
+      signal?.throwIfAborted();
+    }
+  }
 
   const SHORT_SENTENCES = [
     'The quick brown fox jumps over the lazy dog.',
@@ -29,10 +49,13 @@
 
   async function runCreateBench() {
     if (!('LanguageDetector' in self)) return;
+    const signal = activeRunController?.signal;
+    await ensureLidProvisioned(signal);
     let sumWarm = 0;
     for (let i = 0; i < 5; i++) {
+      signal?.throwIfAborted();
       const start = performance.now();
-      const det = await LanguageDetector.create();
+      const det = await LanguageDetector.create(signal ? { signal } : undefined);
       const ms = performance.now() - start;
       if (det && typeof det.destroy === 'function') det.destroy();
       document.getElementById(`create-${i + 1}`).textContent = ms.toFixed(2);
@@ -45,13 +68,17 @@
 
   async function runBatchBench() {
     if (!('LanguageDetector' in self)) return;
-    const det = await LanguageDetector.create();
+    const signal = activeRunController?.signal;
+    await ensureLidProvisioned(signal);
+    const det = await LanguageDetector.create(signal ? { signal } : undefined);
     let sumQps = 0;
     try {
       for (let i = 0; i < 5; i++) {
+        signal?.throwIfAborted();
         const start = performance.now();
         for (const s of SHORT_SENTENCES) {
-          await det.detect(s);
+          signal?.throwIfAborted();
+          await det.detect(s, signal ? { signal } : undefined);
         }
         const elapsedSec = Math.max(0.0001, (performance.now() - start) / 1000);
         const qps = SHORT_SENTENCES.length / elapsedSec;
@@ -68,12 +95,15 @@
 
   async function runParaBench() {
     if (!('LanguageDetector' in self)) return;
-    const det = await LanguageDetector.create();
+    const signal = activeRunController?.signal;
+    await ensureLidProvisioned(signal);
+    const det = await LanguageDetector.create(signal ? { signal } : undefined);
     let sum = 0;
     try {
       for (let i = 0; i < 5; i++) {
+        signal?.throwIfAborted();
         const start = performance.now();
-        await det.detect(PARAGRAPH_TEXT);
+        await det.detect(PARAGRAPH_TEXT, signal ? { signal } : undefined);
         const ms = performance.now() - start;
         document.getElementById(`para-${i + 1}`).textContent = ms.toFixed(2);
         sum += ms;
@@ -88,12 +118,15 @@
 
   async function runDocBench() {
     if (!('LanguageDetector' in self)) return;
-    const det = await LanguageDetector.create();
+    const signal = activeRunController?.signal;
+    await ensureLidProvisioned(signal);
+    const det = await LanguageDetector.create(signal ? { signal } : undefined);
     let sum = 0;
     try {
       for (let i = 0; i < 5; i++) {
+        signal?.throwIfAborted();
         const start = performance.now();
-        await det.detect(LONG_DOC_TEXT);
+        await det.detect(LONG_DOC_TEXT, signal ? { signal } : undefined);
         const ms = performance.now() - start;
         document.getElementById(`doc-${i + 1}`).textContent = ms.toFixed(2);
         sum += ms;
@@ -118,13 +151,13 @@
     sec.style.display = 'block';
     tbl.innerHTML = `
       <thead>
-        <tr><th>Slot / Label</th><th>Create (ms)</th><th>Batch (det/s)</th><th>Paragraph (ms)</th><th>Long Doc (ms)</th></tr>
+        <tr><th>Slot / Label</th><th>Hardware / Backend</th><th>Create (ms)</th><th>Batch (det/s)</th><th>Paragraph (ms)</th><th>Long Doc (ms)</th></tr>
       </thead>
       <tbody>
         ${keys
           .map(k => {
             const b = store[k];
-            return `<tr><td><strong>${b.label || k}</strong></td><td>${b.createMs}</td><td><strong>${b.qps}</strong></td><td>${b.paraMs}</td><td>${b.docMs}</td></tr>`;
+            return `<tr><td><strong>${escapeHtml(b.label || k)}</strong></td><td>${escapeHtml(b.gpu || '-')}</td><td>${escapeHtml(b.createMs)}</td><td><strong>${escapeHtml(b.qps)}</strong></td><td>${escapeHtml(b.paraMs)}</td><td>${escapeHtml(b.docMs)}</td></tr>`;
           })
           .join('')}
       </tbody>`;
@@ -145,25 +178,42 @@
     const ready = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'after-download';
     document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
     document.getElementById('statusText').textContent = ready ? `LanguageDetector Available (${avail})` : `LanguageDetector (${avail})`;
+    if (hw) hw.init();
     renderBaselines();
 
     let isRunning = false;
+    function stopBenchmark() {
+      if (activeRunController) activeRunController.abort();
+    }
     async function runExclusive(fn) {
       if (isRunning) return;
       isRunning = true;
+      activeRunController = new AbortController();
+      const stopBtn = document.getElementById('stopBench');
+      if (stopBtn) stopBtn.disabled = false;
       ['measureAllBtn', 'replayCreate', 'replayBatch', 'replayPara', 'replayDoc'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = true;
       });
       try {
         return await fn();
+      } catch (e) {
+        if (!activeRunController?.signal.aborted) throw e;
       } finally {
+        activeRunController = null;
         isRunning = false;
+        if (stopBtn) stopBtn.disabled = true;
         ['measureAllBtn', 'replayCreate', 'replayBatch', 'replayPara', 'replayDoc'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.disabled = false;
         });
       }
+    }
+
+    const stopBtn = document.getElementById('stopBench');
+    if (stopBtn) stopBtn.addEventListener('click', stopBenchmark);
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('pagehide', stopBenchmark);
     }
 
     document.getElementById('measureAllBtn').addEventListener('click', () => runExclusive(async () => {
@@ -177,23 +227,27 @@
     document.getElementById('replayPara').addEventListener('click', () => runExclusive(runParaBench));
     document.getElementById('replayDoc').addEventListener('click', () => runExclusive(runDocBench));
 
-    document.getElementById('copyTsvBtn').addEventListener('click', () => {
+    document.getElementById('copyTsvBtn').addEventListener('click', async () => {
+      const gpu = hw ? await hw.resolveGpuInfo() : 'Unknown GPU';
       const row = [
         new Date().toLocaleDateString(),
         ...getBrowserColumns(),
+        gpu,
         document.getElementById('create-mean').textContent,
         document.getElementById('batch-mean').textContent,
         document.getElementById('para-mean').textContent,
         document.getElementById('doc-mean').textContent,
       ].join('\t');
-      navigator.clipboard.writeText(row);
+      await navigator.clipboard.writeText(row);
     });
 
-    document.getElementById('saveBaselineBtn').addEventListener('click', () => {
+    document.getElementById('saveBaselineBtn').addEventListener('click', async () => {
+      const gpu = hw ? await hw.resolveGpuInfo() : 'Unknown GPU';
       const store = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
       const label = `${getBrowserColumns().join(' ')} #${Object.keys(store).length + 1}`;
       store[label] = {
         label,
+        gpu,
         createMs: document.getElementById('create-mean').textContent,
         qps: document.getElementById('batch-mean').textContent,
         paraMs: document.getElementById('para-mean').textContent,

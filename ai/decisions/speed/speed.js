@@ -3,6 +3,35 @@
   'use strict';
 
   const STORAGE_KEY = 'edge-ai-decisions-speed-baselines-v1';
+  const kInterRunCooldownMs = 200;
+  const hwDetect =
+    (typeof window !== 'undefined' && window.AIHardwareDetect) ||
+    (typeof require === 'function' ? require('../../hardware-detect.js') : null);
+  const hw = hwDetect ? hwDetect.createHardwareController('hardwareLabel', 'hardwarePresets') : null;
+  const escapeHtml = hwDetect ? hwDetect.escapeHtml : s => String(s ?? '');
+  let activeRunController = null;
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function ensureDecisionProvisioned(signal) {
+    if (!window.DecisionModel || typeof window.DecisionModel.availability !== 'function') return;
+    const avail = await window.DecisionModel.availability();
+    signal?.throwIfAborted();
+    if (avail === 'unavailable' || avail === 'no') {
+      throw new Error('DecisionModel is unavailable.');
+    }
+    if (avail !== 'available' && avail !== 'readily') {
+      const prov = await window.DecisionModel.create({
+        context: 'Warmup',
+        questions: [{ id: 'ok', prompt: 'Ready?', type: 'boolean' }],
+        ...(signal ? { signal } : {}),
+      });
+      if (prov && typeof prov.destroy === 'function') prov.destroy();
+      signal?.throwIfAborted();
+    }
+  }
 
   const INPUTS = [
     'Every time I click Pay Now on the checkout page, the tab freezes and I was billed twice on my credit card.',
@@ -14,15 +43,19 @@
 
   async function runBoolBench() {
     if (!window.DecisionModel) return;
+    const signal = activeRunController?.signal;
+    await ensureDecisionProvisioned(signal);
     const model = await window.DecisionModel.create({
       context: 'Triage incoming support messages.',
       questions: [{ id: 'urgent', prompt: 'Does this ticket require urgent escalation?', type: 'boolean' }],
+      ...(signal ? { signal } : {}),
     });
     let sum = 0;
     try {
       for (let i = 0; i < 5; i++) {
+        signal?.throwIfAborted();
         const start = performance.now();
-        await model.decide(INPUTS[i]);
+        await model.decide(INPUTS[i], signal ? { signal } : undefined);
         const ms = performance.now() - start;
         document.getElementById(`bool-${i + 1}`).textContent = ms.toFixed(1);
         sum += ms;
@@ -30,6 +63,7 @@
     } finally {
       if (typeof model.destroy === 'function') model.destroy();
     }
+    await sleep(kInterRunCooldownMs);
     const mean = (sum / 5).toFixed(1);
     document.getElementById('bool-mean').textContent = mean;
     document.getElementById('hero-bool-ms').textContent = mean;
@@ -37,6 +71,8 @@
 
   async function runChoiceBench() {
     if (!window.DecisionModel) return;
+    const signal = activeRunController?.signal;
+    await ensureDecisionProvisioned(signal);
     const model = await window.DecisionModel.create({
       context: 'Classify incoming customer tickets.',
       questions: [
@@ -52,12 +88,14 @@
           ],
         },
       ],
+      ...(signal ? { signal } : {}),
     });
     let sum = 0;
     try {
       for (let i = 0; i < 5; i++) {
+        signal?.throwIfAborted();
         const start = performance.now();
-        await model.decide(INPUTS[i]);
+        await model.decide(INPUTS[i], signal ? { signal } : undefined);
         const ms = performance.now() - start;
         document.getElementById(`choice-${i + 1}`).textContent = ms.toFixed(1);
         sum += ms;
@@ -65,6 +103,7 @@
     } finally {
       if (typeof model.destroy === 'function') model.destroy();
     }
+    await sleep(kInterRunCooldownMs);
     const mean = (sum / 5).toFixed(1);
     document.getElementById('choice-mean').textContent = mean;
     document.getElementById('hero-choice-ms').textContent = mean;
@@ -72,6 +111,8 @@
 
   async function runRubricBench() {
     if (!window.DecisionModel) return;
+    const signal = activeRunController?.signal;
+    await ensureDecisionProvisioned(signal);
     const model = await window.DecisionModel.create({
       context: 'Triage support tickets by urgency, category, and 1-5 severity.',
       questions: [
@@ -100,12 +141,14 @@
           ],
         },
       ],
+      ...(signal ? { signal } : {}),
     });
     let sum = 0;
     try {
       for (let i = 0; i < 5; i++) {
+        signal?.throwIfAborted();
         const start = performance.now();
-        await model.decide(INPUTS[i]);
+        await model.decide(INPUTS[i], signal ? { signal } : undefined);
         const ms = performance.now() - start;
         document.getElementById(`rubric-${i + 1}`).textContent = ms.toFixed(1);
         sum += ms;
@@ -113,6 +156,7 @@
     } finally {
       if (typeof model.destroy === 'function') model.destroy();
     }
+    await sleep(kInterRunCooldownMs);
     const meanMs = sum / 5;
     document.getElementById('rubric-mean').textContent = meanMs.toFixed(1);
     document.getElementById('hero-rubric-ms').textContent = meanMs.toFixed(1);
@@ -131,13 +175,13 @@
     sec.style.display = 'block';
     tbl.innerHTML = `
       <thead>
-        <tr><th>Slot / Label</th><th>Boolean (ms)</th><th>4-Option Choice (ms)</th><th>3-Q Rubric (ms)</th><th>Options/sec</th></tr>
+        <tr><th>Slot / Label</th><th>Hardware / Backend</th><th>Boolean (ms)</th><th>4-Option Choice (ms)</th><th>3-Q Rubric (ms)</th><th>Options/sec</th></tr>
       </thead>
       <tbody>
         ${keys
           .map(k => {
             const b = store[k];
-            return `<tr><td><strong>${b.label || k}</strong></td><td>${b.boolMs}</td><td>${b.choiceMs}</td><td>${b.rubricMs}</td><td><strong>${b.ops}</strong></td></tr>`;
+            return `<tr><td><strong>${escapeHtml(b.label || k)}</strong></td><td>${escapeHtml(b.gpu || '-')}</td><td>${escapeHtml(b.boolMs)}</td><td>${escapeHtml(b.choiceMs)}</td><td>${escapeHtml(b.rubricMs)}</td><td><strong>${escapeHtml(b.ops)}</strong></td></tr>`;
           })
           .join('')}
       </tbody>`;
@@ -155,28 +199,45 @@
     if (typeof window.DecisionModel !== 'undefined' && typeof window.DecisionModel.availability === 'function') {
       try { avail = await window.DecisionModel.availability(); } catch (_) {}
     }
-    const ready = avail === 'available' || avail === 'readily';
+    const ready = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'after-download';
     document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
     document.getElementById('statusText').textContent = ready ? `DecisionModel Available (${avail})` : `DecisionModel (${avail})`;
+    if (hw) hw.init();
     renderBaselines();
 
     let isRunning = false;
+    function stopBenchmark() {
+      if (activeRunController) activeRunController.abort();
+    }
     async function runExclusive(fn) {
       if (isRunning) return;
       isRunning = true;
+      activeRunController = new AbortController();
+      const stopBtn = document.getElementById('stopBench');
+      if (stopBtn) stopBtn.disabled = false;
       ['measureAllBtn', 'replayBool', 'replayChoice', 'replayRubric'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = true;
       });
       try {
         return await fn();
+      } catch (e) {
+        if (!activeRunController?.signal.aborted) throw e;
       } finally {
+        activeRunController = null;
         isRunning = false;
+        if (stopBtn) stopBtn.disabled = true;
         ['measureAllBtn', 'replayBool', 'replayChoice', 'replayRubric'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.disabled = false;
         });
       }
+    }
+
+    const stopBtn = document.getElementById('stopBench');
+    if (stopBtn) stopBtn.addEventListener('click', stopBenchmark);
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('pagehide', stopBenchmark);
     }
 
     document.getElementById('measureAllBtn').addEventListener('click', () => runExclusive(async () => {
@@ -188,23 +249,27 @@
     document.getElementById('replayChoice').addEventListener('click', () => runExclusive(runChoiceBench));
     document.getElementById('replayRubric').addEventListener('click', () => runExclusive(runRubricBench));
 
-    document.getElementById('copyTsvBtn').addEventListener('click', () => {
+    document.getElementById('copyTsvBtn').addEventListener('click', async () => {
+      const gpu = hw ? await hw.resolveGpuInfo() : 'Unknown GPU';
       const row = [
         new Date().toLocaleDateString(),
         ...getBrowserColumns(),
+        gpu,
         document.getElementById('bool-mean').textContent,
         document.getElementById('choice-mean').textContent,
         document.getElementById('rubric-mean').textContent,
         document.getElementById('hero-ops').textContent,
       ].join('\t');
-      navigator.clipboard.writeText(row);
+      await navigator.clipboard.writeText(row);
     });
 
-    document.getElementById('saveBaselineBtn').addEventListener('click', () => {
+    document.getElementById('saveBaselineBtn').addEventListener('click', async () => {
+      const gpu = hw ? await hw.resolveGpuInfo() : 'Unknown GPU';
       const store = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
       const label = `${getBrowserColumns().join(' ')} #${Object.keys(store).length + 1}`;
       store[label] = {
         label,
+        gpu,
         boolMs: document.getElementById('bool-mean').textContent,
         choiceMs: document.getElementById('choice-mean').textContent,
         rubricMs: document.getElementById('rubric-mean').textContent,

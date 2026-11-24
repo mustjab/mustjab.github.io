@@ -3,6 +3,18 @@
   'use strict';
 
   const STORAGE_KEY = 'edge-ai-tasks-speed-baselines-v1';
+  const kInterRunCooldownMs = 200;
+  const hwDetect =
+    (typeof window !== 'undefined' && window.AIHardwareDetect) ||
+    (typeof require === 'function' ? require('../../hardware-detect.js') : null);
+  const hw = hwDetect ? hwDetect.createHardwareController('hardwareLabel', 'hardwarePresets') : null;
+  const escapeHtml = hwDetect ? hwDetect.escapeHtml : s => String(s ?? '');
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  let activeRunController = null;
 
   const ARTICLE = `Artificial intelligence and machine learning technologies are revolutionizing how we approach language translation and natural language processing. Modern models are trained on billions of parallel text segments, allowing them to capture subtle patterns across linguistic boundaries. Attention mechanisms and transformer architectures enable models to consider the full context of a sentence when generating outputs rather than processing words in isolation. International businesses, healthcare providers, and legal professionals rely on on-device AI tools to summarize documents, draft updates, and communicate privately without cloud round-trips.`;
 
@@ -14,31 +26,54 @@
     return null;
   }
 
+  async function ensureProvisioned(api, createOpts, signal) {
+    if (typeof api.availability !== 'function') return;
+    const avail = await api.availability(createOpts);
+    signal?.throwIfAborted();
+    if (avail === 'unavailable' || avail === 'no') {
+      throw new Error('Selected Task API configuration is unavailable.');
+    }
+    if (avail !== 'available' && avail !== 'readily') {
+      const prov = await api.create({ ...createOpts, ...(signal ? { signal } : {}) });
+      if (prov && typeof prov.destroy === 'function') prov.destroy();
+      signal?.throwIfAborted();
+    }
+  }
+
   async function measureStreamingTask(api, createOpts, invokeMethod, input) {
+    const signal = activeRunController?.signal;
+    signal?.throwIfAborted();
+    await ensureProvisioned(api, createOpts, signal);
     const start = performance.now();
-    const instance = await api.create(createOpts);
+    const instance = await api.create({ ...createOpts, ...(signal ? { signal } : {}) });
     let ttft = 0;
     let out = '';
     try {
       const streamFn = instance[`${invokeMethod}Streaming`];
       if (typeof streamFn === 'function') {
-        let first = true;
-        for await (const chunk of streamFn.call(instance, input)) {
-          if (first) {
-            first = false;
+        const callOpts = signal ? { signal } : undefined;
+        const stream = callOpts ? streamFn.call(instance, input, callOpts) : streamFn.call(instance, input);
+        for await (const chunk of stream) {
+          signal?.throwIfAborted();
+          if (!chunk) continue;
+          if (ttft === 0) {
             ttft = performance.now() - start;
           }
           out = chunk.startsWith(out) ? chunk : out + chunk;
         }
       } else {
-        out = await instance[invokeMethod](input);
+        const callOpts = signal ? { signal } : undefined;
+        out = callOpts ? await instance[invokeMethod](input, callOpts) : await instance[invokeMethod](input);
         ttft = performance.now() - start;
       }
     } finally {
       if (typeof instance.destroy === 'function') instance.destroy();
     }
+    signal?.throwIfAborted();
     const totalMs = Math.max(1, performance.now() - start);
-    const cps = (out.length * 1000) / totalMs;
+    const outCodePoints = Array.from(out).length;
+    const cps = (outCodePoints * 1000) / totalMs;
+    await sleep(kInterRunCooldownMs);
     return { ttft: ttft || totalMs, totalMs, cps };
   }
 
@@ -119,18 +154,23 @@
       'The package for department 14 was delayed becuase the webhook URL was trucated.',
       'Please wierdly check weather the configeration file has any mispelled keys.',
     ];
+    const signal = activeRunController?.signal;
+    await ensureProvisioned(api, {}, signal);
     let total = 0;
     for (let i = 0; i < inputs.length; i++) {
+      signal?.throwIfAborted();
       const start = performance.now();
-      const inst = await api.create();
+      const inst = await api.create(signal ? { signal } : undefined);
       try {
-        await inst.proofread(inputs[i]);
+        await inst.proofread(inputs[i], signal ? { signal } : undefined);
       } finally {
         if (typeof inst.destroy === 'function') inst.destroy();
       }
+      signal?.throwIfAborted();
       const ms = performance.now() - start;
       document.getElementById(`prf-ms-${i + 1}`).textContent = ms.toFixed(1);
       total += ms;
+      await sleep(kInterRunCooldownMs);
     }
     const meanMs = (total / inputs.length).toFixed(1);
     document.getElementById('prf-mean-ms').textContent = meanMs;
@@ -151,6 +191,7 @@
       <thead>
         <tr>
           <th>Slot / Label</th>
+          <th>Hardware / Backend</th>
           <th>Summarizer (ch/s)</th>
           <th>Writer (ch/s)</th>
           <th>Rewriter (ch/s)</th>
@@ -162,11 +203,12 @@
           .map(k => {
             const b = store[k];
             return `<tr>
-              <td><strong>${b.label || k}</strong></td>
-              <td>${b.sumCps}</td>
-              <td>${b.wrtCps}</td>
-              <td>${b.rewCps}</td>
-              <td>${b.prfMs}</td>
+              <td><strong>${escapeHtml(b.label || k)}</strong></td>
+              <td>${escapeHtml(b.gpu || '-')}</td>
+              <td>${escapeHtml(b.sumCps)}</td>
+              <td>${escapeHtml(b.wrtCps)}</td>
+              <td>${escapeHtml(b.rewCps)}</td>
+              <td>${escapeHtml(b.prfMs)}</td>
             </tr>`;
           })
           .join('')}
@@ -223,23 +265,40 @@
     document.getElementById('statusText').textContent = activeTask
       ? `${TASK_LABELS[activeTask]}: ${avail}`
       : (ready ? `Task APIs Detected (${avail})` : 'Task APIs Not Detected');
+    if (hw) hw.init();
     renderBaselines();
 
     let isRunning = false;
+    function stopBenchmark() {
+      if (activeRunController) activeRunController.abort();
+    }
     async function runExclusive(fn) {
       if (isRunning) return;
       isRunning = true;
+      activeRunController = new AbortController();
       const measureBtn = document.getElementById('measureAllBtn');
+      const stopBtn = document.getElementById('stopBench');
       const replayBtns = document.querySelectorAll('[data-replay]');
       if (measureBtn) measureBtn.disabled = true;
+      if (stopBtn) stopBtn.disabled = false;
       replayBtns.forEach(b => { b.disabled = true; });
       try {
         return await fn();
+      } catch (e) {
+        if (!activeRunController?.signal.aborted) throw e;
       } finally {
+        activeRunController = null;
         isRunning = false;
         if (measureBtn) measureBtn.disabled = false;
+        if (stopBtn) stopBtn.disabled = true;
         replayBtns.forEach(b => { b.disabled = false; });
       }
+    }
+
+    const stopBtn = document.getElementById('stopBench');
+    if (stopBtn) stopBtn.addEventListener('click', stopBenchmark);
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('pagehide', stopBenchmark);
     }
 
     document.getElementById('measureAllBtn').addEventListener('click', () => runExclusive(async () => {
@@ -265,23 +324,27 @@
       }));
     });
 
-    document.getElementById('copyTsvBtn').addEventListener('click', () => {
+    document.getElementById('copyTsvBtn').addEventListener('click', async () => {
+      const gpu = hw ? await hw.resolveGpuInfo() : 'Unknown GPU';
       const row = [
         new Date().toLocaleDateString(),
         ...getBrowserColumns(),
+        gpu,
         document.getElementById('sum-mean-cps').textContent,
         document.getElementById('wrt-mean-cps').textContent,
         document.getElementById('rew-mean-cps').textContent,
         document.getElementById('prf-mean-ms').textContent,
       ].join('\t');
-      navigator.clipboard.writeText(row);
+      await navigator.clipboard.writeText(row);
     });
 
-    document.getElementById('saveBaselineBtn').addEventListener('click', () => {
+    document.getElementById('saveBaselineBtn').addEventListener('click', async () => {
+      const gpu = hw ? await hw.resolveGpuInfo() : 'Unknown GPU';
       const store = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
       const label = `${getBrowserColumns().join(' ')} #${Object.keys(store).length + 1}`;
       store[label] = {
         label,
+        gpu,
         sumCps: document.getElementById('sum-mean-cps').textContent,
         wrtCps: document.getElementById('wrt-mean-cps').textContent,
         rewCps: document.getElementById('rew-mean-cps').textContent,

@@ -33,6 +33,7 @@
         <div class="bench-top-bar">
           <div class="bench-controls">
             <button id="bench" class="btn btn-primary">▶ Measure All</button>
+            <button id="stopBench" class="btn btn-secondary" disabled>⏹ Stop</button>
             <button id="save" class="btn btn-secondary" title="Copy TSV summary to clipboard">📋 Copy TSV</button>
             <button id="saveBaselineBtn" class="btn btn-secondary" title="Save current run to comparison table">💾 Save Baseline</button>
             <button id="clearBaselinesBtn" class="btn btn-secondary btn-small" title="Clear saved baselines">🗑️ Clear</button>
@@ -60,7 +61,7 @@
               <button type="button" class="replay-btn" id="replayTtft" title="Re-run TTFT">↻</button>
             </div>
             <div class="score-value"><span id="hero-ttft">0</span> <span class="metric-unit">ms</span><span id="time-to-first-token" hidden>0</span></div>
-            <div class="score-sub">Prompt "Hi" (session + 1st token)</div>
+            <div class="score-sub" id="ttft-sub">Prompt "Hi" (session + 1st token)</div>
           </div>
           <div class="score-item">
             <div class="score-label">
@@ -106,6 +107,14 @@
               <td id="1kt5">—</td>
             </tr>
             <tr>
+              <th>1K Input Tokens</th>
+              <td id="1k-tokens-1">—</td>
+              <td id="1k-tokens-2">—</td>
+              <td id="1k-tokens-3">—</td>
+              <td id="1k-tokens-4">—</td>
+              <td id="1k-tokens-5">—</td>
+            </tr>
+            <tr>
               <th>Token Gen 10–50 (tps)</th>
               <td id="tps1-1">—</td>
               <td id="tps2-1">—</td>
@@ -138,7 +147,7 @@
   </div>
 
   <script src="../nav.js"></script>
-  <script src="speed.js"></script>
+  <script src="speed.js?v=2"></script>
 </body>
 
 </html>
