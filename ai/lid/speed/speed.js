@@ -189,6 +189,8 @@
       if (isRunning) return;
       isRunning = true;
       activeRunController = new AbortController();
+      const statusEl = document.getElementById('benchmark-status');
+      if (statusEl) statusEl.textContent = 'Running';
       const stopBtn = document.getElementById('stopBench');
       if (stopBtn) stopBtn.disabled = false;
       ['measureAllBtn', 'replayCreate', 'replayBatch', 'replayPara', 'replayDoc'].forEach(id => {
@@ -196,9 +198,16 @@
         if (el) el.disabled = true;
       });
       try {
-        return await fn();
+        const res = await fn();
+        if (statusEl) statusEl.textContent = 'Ready';
+        return res;
       } catch (e) {
-        if (!activeRunController?.signal.aborted) throw e;
+        if (activeRunController?.signal.aborted) {
+          if (statusEl) statusEl.textContent = 'Canceled';
+        } else {
+          if (statusEl) statusEl.textContent = `Error: ${e.message}`;
+          throw e;
+        }
       } finally {
         activeRunController = null;
         isRunning = false;
@@ -239,6 +248,11 @@
         document.getElementById('doc-mean').textContent,
       ].join('\t');
       await navigator.clipboard.writeText(row);
+      const copyBtn = document.getElementById('copyTsvBtn');
+      if (copyBtn) {
+        copyBtn.textContent = '✓ Copied!';
+        setTimeout(() => { copyBtn.textContent = '📋 Copy TSV'; }, 2000);
+      }
     });
 
     document.getElementById('saveBaselineBtn').addEventListener('click', async () => {

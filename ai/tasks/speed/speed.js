@@ -44,8 +44,8 @@
     const signal = activeRunController?.signal;
     signal?.throwIfAborted();
     await ensureProvisioned(api, createOpts, signal);
-    const start = performance.now();
     const instance = await api.create({ ...createOpts, ...(signal ? { signal } : {}) });
+    const genStart = performance.now();
     let ttft = 0;
     let out = '';
     try {
@@ -57,24 +57,24 @@
           signal?.throwIfAborted();
           if (!chunk) continue;
           if (ttft === 0) {
-            ttft = performance.now() - start;
+            ttft = performance.now() - genStart;
           }
           out = chunk.startsWith(out) ? chunk : out + chunk;
         }
       } else {
         const callOpts = signal ? { signal } : undefined;
         out = callOpts ? await instance[invokeMethod](input, callOpts) : await instance[invokeMethod](input);
-        ttft = performance.now() - start;
+        ttft = performance.now() - genStart;
       }
     } finally {
       if (typeof instance.destroy === 'function') instance.destroy();
     }
     signal?.throwIfAborted();
-    const totalMs = Math.max(1, performance.now() - start);
+    const genMs = Math.max(1, performance.now() - genStart);
     const outCodePoints = Array.from(out).length;
-    const cps = (outCodePoints * 1000) / totalMs;
+    const cps = (outCodePoints * 1000) / genMs;
     await sleep(kInterRunCooldownMs);
-    return { ttft: ttft || totalMs, totalMs, cps };
+    return { ttft: ttft || genMs, totalMs: genMs, cps };
   }
 
   async function runSummarizerBench() {
@@ -279,13 +279,22 @@
       const measureBtn = document.getElementById('measureAllBtn');
       const stopBtn = document.getElementById('stopBench');
       const replayBtns = document.querySelectorAll('[data-replay]');
+      const statusEl = document.getElementById('benchmark-status');
+      if (statusEl) statusEl.textContent = 'Running';
       if (measureBtn) measureBtn.disabled = true;
       if (stopBtn) stopBtn.disabled = false;
       replayBtns.forEach(b => { b.disabled = true; });
       try {
-        return await fn();
+        const res = await fn();
+        if (statusEl) statusEl.textContent = 'Ready';
+        return res;
       } catch (e) {
-        if (!activeRunController?.signal.aborted) throw e;
+        if (activeRunController?.signal.aborted) {
+          if (statusEl) statusEl.textContent = 'Canceled';
+        } else {
+          if (statusEl) statusEl.textContent = `Error: ${e.message}`;
+          throw e;
+        }
       } finally {
         activeRunController = null;
         isRunning = false;
@@ -336,6 +345,11 @@
         document.getElementById('prf-mean-ms').textContent,
       ].join('\t');
       await navigator.clipboard.writeText(row);
+      const copyBtn = document.getElementById('copyTsvBtn');
+      if (copyBtn) {
+        copyBtn.textContent = '✓ Copied!';
+        setTimeout(() => { copyBtn.textContent = '📋 Copy TSV'; }, 2000);
+      }
     });
 
     document.getElementById('saveBaselineBtn').addEventListener('click', async () => {
@@ -359,4 +373,8 @@
       renderBaselines();
     });
   });
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { measureStreamingTask };
+  }
 })();

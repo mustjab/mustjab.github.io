@@ -322,20 +322,67 @@ test('Prompt API measureLoadTime & runPrefillTest use samplingMode most-predicta
 test('All 5 AI speed pages include Stop controls and Hardware / Backend override support', () => {
   const aiRoot = path.resolve(__dirname, '..');
   const pages = [
-    { rel: 'speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench' },
-    { rel: 'tasks/speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench' },
-    { rel: 'lid/speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench' },
-    { rel: 'decisions/speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench' },
-    { rel: 'translate/speed/index.html', hwId: 'speedHardwareLabel', stopId: 'stopSpeedBench' },
+    { rel: 'speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench', statusId: 'benchmark-status' },
+    { rel: 'tasks/speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench', statusId: 'benchmark-status' },
+    { rel: 'lid/speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench', statusId: 'benchmark-status' },
+    { rel: 'decisions/speed/index.html', hwId: 'hardwareLabel', stopId: 'stopBench', statusId: 'benchmark-status' },
+    { rel: 'translate/speed/index.html', hwId: 'speedHardwareLabel', stopId: 'stopSpeedBench', statusId: 'benchStatus' },
   ];
   for (const p of pages) {
     const html = fs.readFileSync(path.join(aiRoot, p.rel), 'utf8');
     assert.ok(html.includes(`id="${p.hwId}"`), `Missing ${p.hwId} in ${p.rel}`);
     assert.ok(html.includes(`id="${p.stopId}"`), `Missing ${p.stopId} in ${p.rel}`);
+    assert.ok(html.includes(`id="${p.statusId}"`), `Missing ${p.statusId} in ${p.rel}`);
   }
   const hwDetect = require('../hardware-detect.js');
   assert.equal(typeof hwDetect.detectHardwareDetails, 'function');
   assert.equal(typeof hwDetect.createHardwareController, 'function');
+});
+
+test('Task APIs measureStreamingTask excludes download and create() setup time from TTFT and Unicode code-point CPS', async () => {
+  let clock = 1000;
+  let avail = 'downloadable';
+  let destroyed = 0;
+  const fakeSummarizer = {
+    async availability() { return avail; },
+    async create() {
+      if (avail !== 'available') {
+        clock += 500; // download provisioning excluded
+        avail = 'available';
+        return { destroy() { destroyed++; } };
+      }
+      clock += 60; // session create() excluded from generation TTFT & CPS
+      return {
+        async *summarizeStreaming() {
+          clock += 10;
+          yield ''; // empty chunk skipped
+          clock += 30; // first non-empty chunk at +40 ms
+          yield '你好世界';
+          clock += 60; // total generation = 100 ms, 10 code points => 100 ch/s
+          yield '，自动摘要完成。';
+        },
+        destroy() { destroyed++; },
+      };
+    },
+  };
+  const ctx = vm.createContext({
+    document: { addEventListener() {} },
+    window: {},
+    localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    navigator: { userAgent: 'Edg/160.0.0.0' },
+    performance: { now: () => clock },
+    AbortController,
+    setTimeout: (fn) => { fn(); return 1; },
+    clearTimeout() {},
+    require: (rel) => require(path.resolve(__dirname, '../tasks/speed', rel)),
+    module: { exports: {} },
+  });
+  vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../tasks/speed/speed.js'), 'utf8'), ctx);
+  const res = await ctx.module.exports.measureStreamingTask(fakeSummarizer, { type: 'tldr' }, 'summarize', 'input');
+  assert.equal(res.ttft, 40);
+  assert.equal(res.totalMs, 100);
+  assert.equal(res.cps, 100); // 10 CJK code points in 100 ms = 100 ch/s
+  assert.equal(destroyed, 2);
 });
 
 

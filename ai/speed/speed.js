@@ -717,6 +717,11 @@ Pse`;
       toolMs,
     ].join('\t');
     await navigator.clipboard.writeText(row);
+    const saveBtn = document.getElementById('save');
+    if (saveBtn) {
+      saveBtn.textContent = '✓ Copied!';
+      setTimeout(() => { saveBtn.textContent = '📋 Copy TSV'; }, 2000);
+    }
   }
 
   function loadBaselines() {
