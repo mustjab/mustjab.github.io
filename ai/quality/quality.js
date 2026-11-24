@@ -244,14 +244,19 @@
     if (txt) txt.textContent = text;
   }
 
+  const DEFAULT_TEXT_OUTPUTS = [{ type: 'text', languages: ['en'] }];
+
   async function checkAvailability() {
     const lm = getLanguageModel();
     if (!lm) {
       setStatus('unavailable', 'Prompt API (LanguageModel) not detected');
       return;
     }
+    setStatus('', 'LanguageModel detected — checking model readiness...');
     try {
-      const avail = typeof lm.availability === 'function' ? await lm.availability() : 'available';
+      const avail = typeof lm.availability === 'function'
+        ? await lm.availability({ expectedOutputs: DEFAULT_TEXT_OUTPUTS })
+        : 'available';
       setStatus(avail === 'available' || avail === 'readily' ? 'available' : '', `Model: ${avail}`);
     } catch (e) {
       setStatus('unavailable', e.message);
@@ -318,7 +323,7 @@
     const letters = ['A', 'B', 'C', 'D'];
     const choicesText = item.choices.map((c, idx) => `${letters[idx]}. ${c}`).join('\n');
     const promptText = `Respond with a single letter option only (A, B, C, or D), no explanation.\n\nQuestion: ${item.question}\nChoices:\n${choicesText}\nAnswer:`;
-    const session = await lm.create({ temperature: 1.0, topK: 1 });
+    const session = await lm.create({ temperature: 1.0, topK: 1, expectedOutputs: DEFAULT_TEXT_OUTPUTS });
     let raw = '';
     try {
       raw = (await session.prompt(promptText)).trim();
@@ -346,7 +351,7 @@
   async function runToolOrConstraintCase(lm, item) {
     const t0 = performance.now();
     if (item.kind === 'constraint' || item.kind === 'instruction') {
-      const session = await lm.create({ temperature: 1.0, topK: 1 });
+      const session = await lm.create({ temperature: 1.0, topK: 1, expectedOutputs: DEFAULT_TEXT_OUTPUTS });
       let raw = '';
       try {
         const opts = item.schema ? { responseConstraint: item.schema } : undefined;
@@ -397,11 +402,11 @@
         topK: 1,
         tools: schemaOnlyTools,
         expectedInputs: [{ type: 'tool-response' }],
-        expectedOutputs: [{ type: 'text' }, { type: 'tool-call' }],
+        expectedOutputs: [{ type: 'text', languages: ['en'] }, { type: 'tool-call' }],
       });
     } catch (openErr) {
       toolMode = `closed-loop (open-loop err: ${openErr?.message || openErr})`;
-      session = await lm.create({ temperature: 1.0, topK: 1, tools: toolsWithSpy });
+      session = await lm.create({ temperature: 1.0, topK: 1, tools: toolsWithSpy, expectedOutputs: DEFAULT_TEXT_OUTPUTS });
     }
 
     let raw = '';

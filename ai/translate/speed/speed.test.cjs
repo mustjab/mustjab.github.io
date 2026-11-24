@@ -332,6 +332,38 @@ test('detectHardwareDetails retains unmasked WebGL model name when WebGL matches
   assert.equal(details.primary, 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)');
 });
 
+test('TranslationSpeedBenchmark omits powerPreference on Windows when calling requestAdapter()', async () => {
+  const adapterArgs = [];
+  const vmCtx = vm.createContext({
+    document: {
+      addEventListener() {},
+      getElementById: () => ({ value: '', textContent: '0', style: {}, addEventListener() {} }),
+      createElement: () => ({ getContext: () => null }),
+    },
+    localStorage: { length: 0, key: () => null, getItem: () => null, setItem() {}, removeItem() {} },
+    navigator: {
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/160.0.0.0 Safari/537.36 Edg/160.0.0.0',
+      gpu: {
+        async requestAdapter(opts) {
+          adapterArgs.push(opts);
+          return { info: { vendor: 'nvidia', architecture: 'lovelace', device: '', description: 'NVIDIA GeForce RTX 4070', isFallbackAdapter: false } };
+        },
+      },
+    },
+    performance: { now: () => 0 },
+    setTimeout,
+    clearTimeout,
+    module: { exports: {} },
+  });
+  vmCtx.self = vmCtx;
+  vm.runInContext(fs.readFileSync(path.join(__dirname, 'speed.js'), 'utf8'), vmCtx);
+  const Bench = vmCtx.module.exports.TranslationSpeedBenchmark;
+  const inst = Object.create(Bench.prototype);
+  const details = await inst.detectHardwareDetails();
+  assert.deepEqual(adapterArgs, [undefined]);
+  assert.equal(details.primary, 'WebGPU (NVIDIA GeForce RTX 4070)');
+});
+
 test('ensureTranslator separates download provisioning from setup time and destroys prior translator on re-init', async () => {
   let availabilityState = 'downloadable';
   let destroyedProvisioning = 0;

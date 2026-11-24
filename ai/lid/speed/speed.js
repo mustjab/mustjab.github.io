@@ -170,16 +170,23 @@
     return ['Browser', 'Unknown'];
   }
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    let avail = 'unavailable';
-    if ('LanguageDetector' in self && typeof LanguageDetector.availability === 'function') {
-      try { avail = await LanguageDetector.availability(); } catch (_) {}
-    }
-    const ready = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'after-download';
-    document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
-    document.getElementById('statusText').textContent = ready ? `LanguageDetector Available (${avail})` : `LanguageDetector (${avail})`;
-    if (hw) hw.init();
+  document.addEventListener('DOMContentLoaded', () => {
     renderBaselines();
+    if (hw) hw.scheduleInit();
+    if ('LanguageDetector' in self && typeof LanguageDetector.availability === 'function') {
+      document.getElementById('statusText').textContent = 'LanguageDetector detected — checking readiness...';
+      void LanguageDetector.availability().then(avail => {
+        const ready = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'after-download';
+        document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
+        document.getElementById('statusText').textContent = ready ? `LanguageDetector Available (${avail})` : `LanguageDetector (${avail})`;
+      }).catch(() => {
+        document.getElementById('statusIndicator').className = 'status-indicator unavailable';
+        document.getElementById('statusText').textContent = 'LanguageDetector (unavailable)';
+      });
+    } else {
+      document.getElementById('statusIndicator').className = 'status-indicator unavailable';
+      document.getElementById('statusText').textContent = 'LanguageDetector (unavailable)';
+    }
 
     let isRunning = false;
     function stopBenchmark() {

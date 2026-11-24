@@ -96,14 +96,30 @@ Pse`;
     if (bar && !busy) bar.style.width = '0%';
   }
 
+  const DEFAULT_TEXT_OUTPUTS = [{ type: 'text', languages: ['en'] }];
+
+  function ensureExpectedTextLanguage(options = {}) {
+    if (!Array.isArray(options.expectedOutputs)) {
+      return { ...options, expectedOutputs: DEFAULT_TEXT_OUTPUTS };
+    }
+    const updatedOutputs = options.expectedOutputs.map(entry =>
+      entry?.type === 'text' && (!Array.isArray(entry.languages) || entry.languages.length === 0)
+        ? { ...entry, languages: ['en'] }
+        : entry
+    );
+    return { ...options, expectedOutputs: updatedOutputs };
+  }
+
   async function checkAvailability() {
     const lm = getLanguageModel();
     if (!lm) {
       setStatus('unavailable', 'Prompt API (LanguageModel) not detected');
       return false;
     }
+    setStatus('', 'LanguageModel detected — checking model readiness...');
     try {
-      const avail = typeof lm.availability === 'function' ? await lm.availability() : 'available';
+      const checkOpts = ensureExpectedTextLanguage(getDeterministicSamplingOptions(lm));
+      const avail = typeof lm.availability === 'function' ? await lm.availability(checkOpts) : 'available';
       if (avail === 'available' || avail === 'readily') {
         setStatus('available', 'Model: Available');
         return true;
@@ -154,7 +170,7 @@ Pse`;
   async function createSession(extraOptions = {}) {
     const lm = getLanguageModel();
     if (!lm) throw new Error('LanguageModel API is not available in this browser.');
-    const baseOpts = { ...getDeterministicSamplingOptions(lm), ...extraOptions };
+    const baseOpts = ensureExpectedTextLanguage({ ...getDeterministicSamplingOptions(lm), ...extraOptions });
     await ensureModelProvisioned(lm, baseOpts, activeRunController?.signal);
     const controller = new AbortController();
     const onRunAbort = () => controller.abort(activeRunController.signal.reason);
@@ -609,7 +625,42 @@ Pse`;
     );
   }
 
+  function isWindowsPlatform() {
+    if (typeof navigator === 'undefined') return false;
+    const uaPlatform = navigator.userAgentData?.platform || navigator.platform || '';
+    if (/^win/i.test(uaPlatform)) return true;
+    return /\bWin(?:dows|32|64)\b/i.test(navigator.userAgent || '');
+  }
+
   async function detectHardwareDetails() {
+    if (isWindowsPlatform()) {
+      // On Windows, Chromium/Dawn ignores powerPreference and logs crbug.com/369219127
+      // whenever powerPreference is passed to requestAdapter().
+      const webgpuAdapter = await queryWebGpuAdapter(undefined);
+      const webglHighPerf = getWebGlRenderer('high-performance');
+      const webgpuLabel = formatWebGpuAdapter(webgpuAdapter);
+
+      let primary = webglHighPerf;
+      if (webgpuAdapter && !webgpuAdapter.isFallbackAdapter && webgpuLabel) {
+        if (webgpuAdapter.description) {
+          primary = webgpuLabel;
+        } else {
+          const vendorMatches = doesWebGlMatchWebGpu(webglHighPerf, webgpuAdapter);
+          primary = vendorMatches ? webglHighPerf : webgpuLabel;
+        }
+      }
+
+      const presets = [];
+      for (const option of [primary, webgpuLabel, webglHighPerf, 'CPU', 'NPU']) {
+        if (option && option !== 'WebGL unavailable' && option !== 'Unknown GPU' && !presets.includes(option)) {
+          presets.push(option);
+        }
+      }
+      if (!presets.includes('CPU')) presets.push('CPU');
+      if (!presets.includes('NPU')) presets.push('NPU');
+      return { primary: primary || 'Unknown GPU', presets };
+    }
+
     const [highPerfGpu, lowPowerGpu] = await Promise.all([
       queryWebGpuAdapter('high-performance'),
       queryWebGpuAdapter('low-power'),
@@ -798,9 +849,12 @@ Pse`;
           hardwareEditedByUser = true;
         });
       }
-      initHardwareField();
-      checkAvailability();
       renderBaselines();
+      const scheduleIdle = typeof requestIdleCallback === 'function'
+        ? cb => requestIdleCallback(cb, { timeout: 250 })
+        : cb => setTimeout(cb, 0);
+      scheduleIdle(() => { initHardwareField(); });
+      void checkAvailability();
       document.getElementById('bench').addEventListener('click', () => runExclusive(measureAll));
       const stopBtn = document.getElementById('stopBench');
       if (stopBtn) stopBtn.addEventListener('click', stopBenchmark);

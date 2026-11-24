@@ -188,7 +188,10 @@
         detail: 'API unavailable',
       };
     }
-    const inst = await api.create(spec.options || {});
+    const langDefaults = spec.task === 'proofreader'
+      ? { expectedInputLanguages: ['en'] }
+      : { outputLanguage: 'en', expectedInputLanguages: ['en'] };
+    const inst = await api.create({ ...langDefaults, ...(spec.options || {}) });
     let out = '';
     try {
       if (spec.task === 'proofreader') {
@@ -258,7 +261,10 @@
     const api = getApi(checkTarget);
     let avail = 'unavailable';
     if (api && typeof api.availability === 'function') {
-      try { avail = await api.availability(); } catch (_) {}
+      const langOpts = checkTarget === 'proofreader'
+        ? { expectedInputLanguages: ['en'] }
+        : { outputLanguage: 'en', expectedInputLanguages: ['en'] };
+      try { avail = await api.availability(langOpts); } catch (_) {}
     } else if (api) {
       avail = 'available';
     }

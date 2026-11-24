@@ -240,7 +240,7 @@ class DecisionsDemo {
 
     this.setApiStatusBadge('checking', 'Checking DecisionModel.availability()...');
     try {
-      const availability = await window.DecisionModel.availability();
+      const availability = await window.DecisionModel.availability({});
       if (availability === 'available' || availability === 'readily') {
         this.setApiStatusBadge('available', `DecisionModel Ready (${availability})`);
       } else if (availability === 'downloadable' || availability === 'downloading' || availability === 'after-download') {

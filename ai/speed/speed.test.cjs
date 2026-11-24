@@ -385,4 +385,98 @@ test('Task APIs measureStreamingTask excludes download and create() setup time f
   assert.equal(destroyed, 2);
 });
 
+test('Windows UA calls requestAdapter() once without powerPreference (avoiding crbug.com/369219127 warning) and LanguageModel calls always specify English output language', async () => {
+  const adapterArgs = [];
+  const availabilityOpts = [];
+  const createOpts = [];
+  const elements = new Map();
+  const getElement = (id) => {
+    if (!elements.has(id)) {
+      elements.set(id, { id, value: '', textContent: '0', innerHTML: '', style: {}, addEventListener() {} });
+    }
+    return elements.get(id);
+  };
+
+  function WinLanguageModel() {}
+  WinLanguageModel.prototype.samplingMode = 'most-predictable';
+  WinLanguageModel.availability = async (opts) => {
+    availabilityOpts.push(opts);
+    return 'available';
+  };
+  WinLanguageModel.create = async (opts) => {
+    createOpts.push(opts);
+    return {
+      samplingMode: 'most-predictable',
+      async *promptStreaming() { yield 'ok'; },
+      destroy() {},
+    };
+  };
+
+  const ctx = vm.createContext({
+    document: {
+      addEventListener(_type, fn) { this._dcl = fn; },
+      getElementById: getElement,
+      createElement: () => ({
+        getContext: () => ({
+          UNMASKED_RENDERER_WEBGL: 0x9246,
+          getExtension: (n) => (n === 'WEBGL_debug_renderer_info' ? { UNMASKED_RENDERER_WEBGL: 0x9246 } : null),
+          getParameter: () => 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)',
+        }),
+      }),
+    },
+    window: { LanguageModel: WinLanguageModel, addEventListener() {} },
+    localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    navigator: {
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/160.0.0.0 Safari/537.36 Edg/160.0.0.0',
+      gpu: {
+        async requestAdapter(opts) {
+          adapterArgs.push(opts);
+          return { info: { vendor: 'nvidia', architecture: 'lovelace', device: '', description: '', isFallbackAdapter: false } };
+        },
+      },
+      clipboard: { async writeText() {} },
+    },
+    performance: { now: () => 1000 },
+    AbortController,
+    setTimeout: (fn) => { fn(); return 1; },
+    clearTimeout() {},
+    module: { exports: {} },
+  });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, 'speed.js'), 'utf8'), ctx);
+  ctx.document._dcl();
+  await new Promise(r => setImmediate(r));
+  await ctx.module.exports.measureLoadTime('Hi', 'time-to-first-token', true);
+
+  assert.equal(adapterArgs.length, 1, 'Windows must only call requestAdapter() once');
+  assert.equal(adapterArgs[0], undefined, 'Windows must omit powerPreference to avoid crbug.com/369219127 warning');
+  assert.ok(availabilityOpts.length >= 1);
+  for (const opt of [...availabilityOpts, ...createOpts]) {
+    assert.ok(Array.isArray(opt?.expectedOutputs) || opt?.expectedOutputs?.length > 0, 'expectedOutputs must be provided');
+    const textEntry = [...opt.expectedOutputs].find(e => e.type === 'text');
+    assert.deepEqual([...(textEntry?.languages || [])], ['en']);
+  }
+
+  // Also verify shared hardware-detect.js on Windows
+  const hwAdapterArgs = [];
+  const hwCtx = vm.createContext({
+    navigator: {
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edg/160.0.0.0',
+      gpu: {
+        async requestAdapter(opts) {
+          hwAdapterArgs.push(opts);
+          return { info: { vendor: 'nvidia', architecture: 'lovelace', device: '', description: 'RTX 4070', isFallbackAdapter: false } };
+        },
+      },
+    },
+    document: { createElement: () => ({ getContext: () => null }) },
+    setTimeout,
+    clearTimeout,
+    module: { exports: {} },
+  });
+  vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../hardware-detect.js'), 'utf8'), hwCtx);
+  const hwDetails = await hwCtx.module.exports.detectHardwareDetails();
+  assert.deepEqual(hwAdapterArgs, [undefined]);
+  assert.equal(hwDetails.primary, 'WebGPU (NVIDIA, RTX 4070)');
+});
+
 

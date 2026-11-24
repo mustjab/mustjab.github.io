@@ -162,9 +162,10 @@ async function createSession() {
     const initialPrompt = document.getElementById('initialPrompt').value;
 
     // Check status before creating session
+    const defaultAvailabilityOpts = { expectedOutputs: [{ type: 'text', languages: ['en'] }] };
     let preStatus = await (languageModel.capabilities
-      ? languageModel.capabilities()
-      : languageModel.availability());
+      ? languageModel.capabilities(defaultAvailabilityOpts)
+      : languageModel.availability(defaultAvailabilityOpts));
 
     // Only include monitor if download might be needed
     const needsDownload = preStatus == 'downloadable' ||
@@ -263,8 +264,8 @@ async function createSession() {
 
     // Check status after creating session
     let postStatus = await (languageModel.capabilities
-      ? languageModel.capabilities()
-      : languageModel.availability());
+      ? languageModel.capabilities(defaultAvailabilityOpts)
+      : languageModel.availability(defaultAvailabilityOpts));
 
     if (postStatus === 'available' || postStatus.available === 'readily') {
       // Model is ready
@@ -302,9 +303,10 @@ function error(str) {
 // Check model availability without triggering download
 async function checkModelAvailability() {
   try {
+    const defaultAvailabilityOpts = { expectedOutputs: [{ type: 'text', languages: ['en'] }] };
     let result = await (languageModel.capabilities
-      ? languageModel.capabilities()
-      : languageModel.availability());
+      ? languageModel.capabilities(defaultAvailabilityOpts)
+      : languageModel.availability(defaultAvailabilityOpts));
 
     console.log('Initial model availability check:', result);
 
@@ -379,9 +381,10 @@ async function startModelStateMonitoring() {
 
   stateMonitorInterval = setInterval(async () => {
     try {
+      const defaultAvailabilityOpts = { expectedOutputs: [{ type: 'text', languages: ['en'] }] };
       const result = await (languageModel.capabilities
-        ? languageModel.capabilities()
-        : languageModel.availability());
+        ? languageModel.capabilities(defaultAvailabilityOpts)
+        : languageModel.availability(defaultAvailabilityOpts));
 
       console.log('Model state check:', result);
 

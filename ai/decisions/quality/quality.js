@@ -294,7 +294,7 @@
   document.addEventListener('DOMContentLoaded', async () => {
     let avail = 'unavailable';
     if (typeof window.DecisionModel !== 'undefined' && typeof window.DecisionModel.availability === 'function') {
-      try { avail = await window.DecisionModel.availability(); } catch (_) {}
+      try { avail = await window.DecisionModel.availability({}); } catch (_) {}
     }
     const ready = avail === 'available' || avail === 'readily';
     document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');

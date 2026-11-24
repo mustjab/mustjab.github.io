@@ -120,7 +120,43 @@
     );
   }
 
+  function isWindowsPlatform() {
+    if (typeof navigator === 'undefined') return false;
+    const uaPlatform = navigator.userAgentData?.platform || navigator.platform || '';
+    if (/^win/i.test(uaPlatform)) return true;
+    return /\bWin(?:dows|32|64)\b/i.test(navigator.userAgent || '');
+  }
+
   async function detectHardwareDetails() {
+    if (isWindowsPlatform()) {
+      // On Windows, Chromium/Dawn ignores powerPreference and logs a console warning
+      // (crbug.com/369219127) whenever powerPreference is passed to requestAdapter().
+      // Query once with no powerPreference and pair with a single WebGL check.
+      const webgpuAdapter = await queryWebGpuAdapter(undefined);
+      const webglHighPerf = getWebGlRenderer('high-performance');
+      const webgpuLabel = formatWebGpuAdapter(webgpuAdapter);
+
+      let primary = webglHighPerf;
+      if (webgpuAdapter && !webgpuAdapter.isFallbackAdapter && webgpuLabel) {
+        if (webgpuAdapter.description) {
+          primary = webgpuLabel;
+        } else {
+          const vendorMatches = doesWebGlMatchWebGpu(webglHighPerf, webgpuAdapter);
+          primary = vendorMatches ? webglHighPerf : webgpuLabel;
+        }
+      }
+
+      const presets = [];
+      for (const option of [primary, webgpuLabel, webglHighPerf, 'CPU', 'NPU']) {
+        if (option && option !== 'WebGL unavailable' && option !== 'Unknown GPU' && !presets.includes(option)) {
+          presets.push(option);
+        }
+      }
+      if (!presets.includes('CPU')) presets.push('CPU');
+      if (!presets.includes('NPU')) presets.push('NPU');
+      return { primary: primary || 'Unknown GPU', presets };
+    }
+
     const [highPerfGpu, lowPowerGpu] = await Promise.all([
       queryWebGpuAdapter('high-performance'),
       queryWebGpuAdapter('low-power'),
@@ -219,7 +255,15 @@
       return getGpuInfo();
     }
 
-    return { init, getGpuInfo, resolveGpuInfo, detectHardwareDetails };
+    function scheduleInit() {
+      bindInput();
+      const runner = typeof requestIdleCallback === 'function'
+        ? cb => requestIdleCallback(cb, { timeout: 250 })
+        : cb => setTimeout(cb, 0);
+      runner(() => { init(); });
+    }
+
+    return { init, scheduleInit, getGpuInfo, resolveGpuInfo, detectHardwareDetails };
   }
 
   const api = { escapeHtml, detectHardwareDetails, createHardwareController };

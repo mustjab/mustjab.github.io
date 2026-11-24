@@ -17,7 +17,7 @@
 
   async function ensureDecisionProvisioned(signal) {
     if (!window.DecisionModel || typeof window.DecisionModel.availability !== 'function') return;
-    const avail = await window.DecisionModel.availability();
+    const avail = await window.DecisionModel.availability({});
     signal?.throwIfAborted();
     if (avail === 'unavailable' || avail === 'no') {
       throw new Error('DecisionModel is unavailable.');
@@ -194,16 +194,23 @@
     return ['Browser', 'Unknown'];
   }
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    let avail = 'unavailable';
-    if (typeof window.DecisionModel !== 'undefined' && typeof window.DecisionModel.availability === 'function') {
-      try { avail = await window.DecisionModel.availability(); } catch (_) {}
-    }
-    const ready = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'after-download';
-    document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
-    document.getElementById('statusText').textContent = ready ? `DecisionModel Available (${avail})` : `DecisionModel (${avail})`;
-    if (hw) hw.init();
+  document.addEventListener('DOMContentLoaded', () => {
     renderBaselines();
+    if (hw) hw.scheduleInit();
+    if (typeof window.DecisionModel !== 'undefined' && typeof window.DecisionModel.availability === 'function') {
+      document.getElementById('statusText').textContent = 'DecisionModel detected — checking readiness...';
+      void window.DecisionModel.availability({}).then(avail => {
+        const ready = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'after-download';
+        document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
+        document.getElementById('statusText').textContent = ready ? `DecisionModel Available (${avail})` : `DecisionModel (${avail})`;
+      }).catch(() => {
+        document.getElementById('statusIndicator').className = 'status-indicator unavailable';
+        document.getElementById('statusText').textContent = 'DecisionModel (unavailable)';
+      });
+    } else {
+      document.getElementById('statusIndicator').className = 'status-indicator unavailable';
+      document.getElementById('statusText').textContent = 'DecisionModel (unavailable)';
+    }
 
     let isRunning = false;
     function stopBenchmark() {

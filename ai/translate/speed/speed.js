@@ -387,7 +387,11 @@ class TranslationSpeedBenchmark {
   async init() {
     this.setupLanguageSelectors();
     this.setupEventListeners();
-    await Promise.all([this.initHardwareField(), this.checkAPI()]);
+    await this.checkAPI();
+    const scheduleIdle = typeof requestIdleCallback === 'function'
+      ? cb => requestIdleCallback(cb, { timeout: 250 })
+      : cb => setTimeout(cb, 0);
+    scheduleIdle(() => { void this.initHardwareField(); });
   }
 
   setupLanguageSelectors() {
@@ -1747,7 +1751,42 @@ class TranslationSpeedBenchmark {
     return pattern ? pattern.test(webglRenderer) : webglRenderer.toLowerCase().includes(vendorKey);
   }
 
+  static isWindowsPlatform() {
+    if (typeof navigator === 'undefined') return false;
+    const uaPlatform = navigator.userAgentData?.platform || navigator.platform || '';
+    if (/^win/i.test(uaPlatform)) return true;
+    return /\bWin(?:dows|32|64)\b/i.test(navigator.userAgent || '');
+  }
+
   async detectHardwareDetails() {
+    if (TranslationSpeedBenchmark.isWindowsPlatform()) {
+      // On Windows, Chromium/Dawn ignores powerPreference and logs crbug.com/369219127
+      // whenever powerPreference is passed to requestAdapter().
+      const webgpuAdapter = await this.queryWebGpuAdapter(undefined);
+      const webglHighPerf = this.getWebGlRenderer('high-performance');
+      const webgpuLabel = TranslationSpeedBenchmark.formatWebGpuAdapter(webgpuAdapter);
+
+      let primary = webglHighPerf;
+      if (webgpuAdapter && !webgpuAdapter.isFallbackAdapter && webgpuLabel) {
+        if (webgpuAdapter.description) {
+          primary = webgpuLabel;
+        } else {
+          const vendorMatches = TranslationSpeedBenchmark.doesWebGlMatchWebGpu(webglHighPerf, webgpuAdapter);
+          primary = vendorMatches ? webglHighPerf : webgpuLabel;
+        }
+      }
+
+      const presets = [];
+      for (const opt of [primary, webgpuLabel, webglHighPerf, 'CPU', 'NPU']) {
+        if (opt && opt !== 'WebGL not supported' && opt !== 'Unknown' && !presets.includes(opt)) {
+          presets.push(opt);
+        }
+      }
+      if (!presets.includes('CPU')) presets.push('CPU');
+      if (!presets.includes('NPU')) presets.push('NPU');
+      return { primary: primary || 'Unknown', presets };
+    }
+
     const [highPerfGpu, lowPowerGpu] = await Promise.all([
       this.queryWebGpuAdapter('high-performance'),
       this.queryWebGpuAdapter('low-power'),

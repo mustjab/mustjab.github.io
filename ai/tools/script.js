@@ -354,7 +354,7 @@ class ToolCallingDemo {
     try {
       const status = await lm.availability({
         expectedInputs: [{ type: 'tool-response' }],
-        expectedOutputs: [{ type: 'text' }, { type: 'tool-call' }],
+        expectedOutputs: [{ type: 'text', languages: ['en'] }, { type: 'tool-call' }],
       });
       if (status === 'available' || status === 'readily') {
         this.setApiStatusBadge('available', `Tool Calling Ready (${status})`);
@@ -391,7 +391,7 @@ class ToolCallingDemo {
       topK: 1,
       tools,
       expectedInputs: [{ type: 'tool-response' }],
-      expectedOutputs: [{ type: 'text' }, { type: 'tool-call' }],
+      expectedOutputs: [{ type: 'text', languages: ['en'] }, { type: 'tool-call' }],
     };
     if (systemPrompt) {
       options.initialPrompts = [{ role: 'system', content: systemPrompt }];

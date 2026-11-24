@@ -1112,7 +1112,7 @@ class E2EPlayground {
             const lm = window.LanguageModel;
             const status = await lm.availability({
                 expectedInputs: [{ type: 'tool-response' }],
-                expectedOutputs: [{ type: 'text' }, { type: 'tool-call' }]
+                expectedOutputs: [{ type: 'text', languages: ['en'] }, { type: 'tool-call' }]
             });
             if (status === 'available' || status === 'readily') {
                 setSupportBadge('supportTools', 'Available', 'is-available');
@@ -1175,7 +1175,7 @@ class E2EPlayground {
 
         try {
             const api = window[globalName];
-            const availability = await api.availability();
+            const availability = await api.availability({ outputLanguage: 'en', expectedInputLanguages: ['en'] });
             if (availability === 'available' || availability === 'readily') {
                 setSupportBadge(supportId, 'Available', 'is-available');
             } else if (availability === 'downloadable' || availability === 'downloading' || availability === 'after-download') {
@@ -1199,7 +1199,7 @@ class E2EPlayground {
         try {
             const api = window.DecisionModel;
             if (typeof api.availability === 'function') {
-                const a = await api.availability();
+                const a = await api.availability({});
                 if (a === 'available' || a === 'readily') {
                     setSupportBadge('supportDecisions', 'Available', 'is-available');
                 } else if (a === 'downloadable' || a === 'downloading' || a === 'after-download') {
@@ -1226,7 +1226,7 @@ class E2EPlayground {
         try {
             const api = window.Proofreader;
             if (typeof api.availability === 'function') {
-                const a = await api.availability();
+                const a = await api.availability({ expectedInputLanguages: ['en'] });
                 const cls = (a === 'available' || a === 'readily') ? 'is-available'
                     : (a === 'downloadable' || a === 'after-download') ? 'is-downloadable' : '';
                 setSupportBadge('supportProofreader', safeText(a) || 'Unknown', cls);
@@ -2094,7 +2094,7 @@ class E2EPlayground {
             topK: 1,
             tools: E2E_TOOLS,
             expectedInputs: [{ type: 'tool-response' }],
-            expectedOutputs: [{ type: 'text' }, { type: 'tool-call' }],
+            expectedOutputs: [{ type: 'text', languages: ['en'] }, { type: 'tool-call' }],
             initialPrompts: [{
                 role: 'system',
                 content: 'You are a helpful assistant. Use the provided tools when appropriate to inspect the input and perform requested actions.'

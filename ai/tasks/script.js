@@ -89,7 +89,10 @@
       return;
     }
     try {
-      const avail = typeof api.availability === 'function' ? await api.availability() : 'available';
+      const langOpts = task === 'proofreader'
+        ? { expectedInputLanguages: ['en'] }
+        : { outputLanguage: 'en', expectedInputLanguages: ['en'] };
+      const avail = typeof api.availability === 'function' ? await api.availability(langOpts) : 'available';
       ind.className = 'status-indicator ' + (avail === 'available' || avail === 'readily' ? 'available' : '');
       txt.textContent = `${task}: ${avail}`;
     } catch (e) {
@@ -112,9 +115,11 @@
     const opt2 = document.getElementById('opt2').value;
     const opt3 = document.getElementById('opt3').value;
 
-    let createOpts = {};
-    if (task === 'summarizer') createOpts = { type: opt1, length: opt2, format: opt3 };
-    else if (task === 'writer' || task === 'rewriter') createOpts = { tone: opt1, length: opt2, format: opt3 };
+    let createOpts = task === 'proofreader'
+      ? { expectedInputLanguages: ['en'] }
+      : { outputLanguage: 'en', expectedInputLanguages: ['en'] };
+    if (task === 'summarizer') createOpts = { ...createOpts, type: opt1, length: opt2, format: opt3 };
+    else if (task === 'writer' || task === 'rewriter') createOpts = { ...createOpts, tone: opt1, length: opt2, format: opt3 };
 
     outEl.textContent = 'Running...';
     const start = performance.now();

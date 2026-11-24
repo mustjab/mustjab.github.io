@@ -26,6 +26,13 @@
     return null;
   }
 
+  function withTaskLanguages(taskName, opts = {}) {
+    if (taskName === 'proofreader') {
+      return { expectedInputLanguages: ['en'], ...opts };
+    }
+    return { outputLanguage: 'en', expectedInputLanguages: ['en'], ...opts };
+  }
+
   async function ensureProvisioned(api, createOpts, signal) {
     if (typeof api.availability !== 'function') return;
     const avail = await api.availability(createOpts);
@@ -84,7 +91,7 @@
     let sumCps = 0;
     let sumTtft = 0;
     for (let i = 0; i < modes.length; i++) {
-      const r = await measureStreamingTask(api, { type: modes[i], length: 'short', format: 'plain-text' }, 'summarize', ARTICLE);
+      const r = await measureStreamingTask(api, withTaskLanguages('summarizer', { type: modes[i], length: 'short', format: 'plain-text' }), 'summarize', ARTICLE);
       document.getElementById(`sum-ttft-${i + 1}`).textContent = r.ttft.toFixed(1);
       document.getElementById(`sum-cps-${i + 1}`).textContent = r.cps.toFixed(1);
       sumCps += r.cps;
@@ -107,7 +114,7 @@
     let sumCps = 0;
     let sumTtft = 0;
     for (let i = 0; i < prompts.length; i++) {
-      const r = await measureStreamingTask(api, { tone: 'neutral', length: 'short', format: 'plain-text' }, 'write', prompts[i]);
+      const r = await measureStreamingTask(api, withTaskLanguages('writer', { tone: 'neutral', length: 'short', format: 'plain-text' }), 'write', prompts[i]);
       document.getElementById(`wrt-ttft-${i + 1}`).textContent = r.ttft.toFixed(1);
       document.getElementById(`wrt-cps-${i + 1}`).textContent = r.cps.toFixed(1);
       sumCps += r.cps;
@@ -130,7 +137,7 @@
     let sumCps = 0;
     let sumTtft = 0;
     for (let i = 0; i < configs.length; i++) {
-      const r = await measureStreamingTask(api, { ...configs[i], format: 'plain-text' }, 'rewrite', ARTICLE);
+      const r = await measureStreamingTask(api, withTaskLanguages('rewriter', { ...configs[i], format: 'plain-text' }), 'rewrite', ARTICLE);
       document.getElementById(`rew-ttft-${i + 1}`).textContent = r.ttft.toFixed(1);
       document.getElementById(`rew-cps-${i + 1}`).textContent = r.cps.toFixed(1);
       sumCps += r.cps;
@@ -155,12 +162,13 @@
       'Please wierdly check weather the configeration file has any mispelled keys.',
     ];
     const signal = activeRunController?.signal;
-    await ensureProvisioned(api, {}, signal);
+    const prfOpts = withTaskLanguages('proofreader');
+    await ensureProvisioned(api, prfOpts, signal);
     let total = 0;
     for (let i = 0; i < inputs.length; i++) {
       signal?.throwIfAborted();
       const start = performance.now();
-      const inst = await api.create(signal ? { signal } : undefined);
+      const inst = await api.create({ ...prfOpts, ...(signal ? { signal } : {}) });
       try {
         await inst.proofread(inputs[i], signal ? { signal } : undefined);
       } finally {
@@ -235,7 +243,7 @@
     return ['summarizer', 'writer', 'rewriter', 'proofreader'].includes(t) ? t : null;
   }
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('DOMContentLoaded', () => {
     const activeTask = getActiveTaskFromUrl();
     if (activeTask) {
       const titlePrefix = TASK_LABELS[activeTask];
@@ -252,21 +260,35 @@
       });
     }
 
+    renderBaselines();
+    if (hw) hw.scheduleInit();
+
     const checkTarget = activeTask || 'summarizer';
     const api = getApi(checkTarget);
-    let avail = 'unavailable';
-    if (api && typeof api.availability === 'function') {
-      try { avail = await api.availability(); } catch (_) {}
-    } else if (api) {
-      avail = 'available';
+    if (!api) {
+      document.getElementById('statusIndicator').className = 'status-indicator unavailable';
+      document.getElementById('statusText').textContent = activeTask
+        ? `${TASK_LABELS[activeTask]} Not Detected`
+        : 'Task APIs Not Detected';
+    } else if (typeof api.availability === 'function') {
+      document.getElementById('statusText').textContent = activeTask
+        ? `${TASK_LABELS[activeTask]}: checking readiness...`
+        : 'Task APIs detected — checking readiness...';
+      void api.availability(withTaskLanguages(checkTarget)).then(avail => {
+        const ready = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'after-download';
+        document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
+        document.getElementById('statusText').textContent = activeTask
+          ? `${TASK_LABELS[activeTask]}: ${avail}`
+          : (ready ? `Task APIs Detected (${avail})` : 'Task APIs Not Detected');
+      }).catch(() => {
+        document.getElementById('statusIndicator').className = 'status-indicator unavailable';
+      });
+    } else {
+      document.getElementById('statusIndicator').className = 'status-indicator available';
+      document.getElementById('statusText').textContent = activeTask
+        ? `${TASK_LABELS[activeTask]}: available`
+        : 'Task APIs Detected (available)';
     }
-    const ready = avail === 'available' || avail === 'readily' || avail === 'downloadable' || avail === 'after-download';
-    document.getElementById('statusIndicator').className = 'status-indicator ' + (ready ? 'available' : 'unavailable');
-    document.getElementById('statusText').textContent = activeTask
-      ? `${TASK_LABELS[activeTask]}: ${avail}`
-      : (ready ? `Task APIs Detected (${avail})` : 'Task APIs Not Detected');
-    if (hw) hw.init();
-    renderBaselines();
 
     let isRunning = false;
     function stopBenchmark() {
