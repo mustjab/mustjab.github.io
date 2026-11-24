@@ -381,7 +381,7 @@ test('Task APIs measureStreamingTask excludes download and create() setup time f
   const res = await ctx.module.exports.measureStreamingTask(fakeSummarizer, { type: 'tldr' }, 'summarize', 'input');
   assert.equal(res.ttft, 40);
   assert.equal(res.totalMs, 100);
-  assert.equal(res.cps, 100); // 10 CJK code points in 100 ms = 100 ch/s
+  assert.equal(res.cps, 120); // 12 CJK code points ('你好世界，自动摘要完成。') in 100 ms = 120 ch/s
   assert.equal(destroyed, 2);
 });
 
