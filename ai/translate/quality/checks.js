@@ -118,6 +118,12 @@
     }
     if (missing.length) failures.push('required_token_missing');
     if (forbidden.length) failures.push('forbidden_content');
+    if (Number.isInteger(test.minNewlines) && test.minNewlines > 0) {
+      const newlineCount = (output.match(/\n/g) || []).length;
+      if (newlineCount < test.minNewlines) {
+        failures.push('newline_structure_lost');
+      }
+    }
 
     const opaqueOnly = /^\s*[\d\s.,%+\-]+\s*$/.test(source) || /^\s*(?:https?:\/\/\S+|[\w.+-]+@[\w.-]+)\s*$/i.test(source);
     if (output.trim() === source.trim() && !opaqueOnly) review.push('unchanged_source');
@@ -199,6 +205,12 @@
           throw new Error(`Invalid expected invariant in ${test.caseId}`);
         }
         result.expectedInvariant = test.expectedInvariant;
+      }
+      if (test.minNewlines !== undefined) {
+        if (!Number.isInteger(test.minNewlines) || test.minNewlines < 1) {
+          throw new Error(`Invalid minNewlines in ${test.caseId}`);
+        }
+        result.minNewlines = test.minNewlines;
       }
       for (const field of ['mustPreserve', 'mustNotContain', 'exactTokens', 'reviewTopics', 'acceptedOutputs']) {
         if (test[field] !== undefined) {

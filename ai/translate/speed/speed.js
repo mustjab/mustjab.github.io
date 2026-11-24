@@ -103,6 +103,7 @@ const LANGUAGE_NAMES = {
 // emails, and inline <bN>...</bN> DOM tags use phrase-fix span annotations.
 const DOM_TAG_SPAN_RE = /<\/?b\d+>/;
 const PROTECTED_SPAN_RE = /<\/?b\d+>|\b\d+(?:[.,:/]\d+)*(?![.,:/]?\d|\s*%)|[\u0500-\u052F]+|https?:\/\/\S+|\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+\?[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+|\bwww\.\S+|\S+@\S+\.\w+/;
+const countCodePoints = text => Array.from(String(text || '')).length;
 
 const PAGE_SIM_SEGMENTS = {
   nav: [
@@ -371,6 +372,10 @@ class SearchableLanguageSelect {
 class TranslationSpeedBenchmark {
   constructor() {
     this.translator = null;
+    this.downloadMs = 0;
+    this.downloadRequired = false;
+    this.isRunning = false;
+    this.runController = null;
     this.sourceSelect = null;
     this.targetSelect = null;
     this.detectedGpuInfo = null;
@@ -398,16 +403,81 @@ class TranslationSpeedBenchmark {
     );
   }
 
+  setControlsDisabled(disabled) {
+    for (const id of ['runAll', 'swapLanguages', 'sourceLanguageSearch', 'targetLanguageSearch', 'runConcurrency']) {
+      const el = document.getElementById(id);
+      if (el) el.disabled = disabled;
+    }
+    for (const id of ['replaySingle', 'replayThroughput', 'replayBatch', 'replayStreaming', 'runPageSim']) {
+      const el = document.getElementById(id);
+      if (el) el.style.pointerEvents = disabled ? 'none' : '';
+    }
+    const stopBtn = document.getElementById('stopSpeedBench');
+    if (stopBtn) stopBtn.disabled = !disabled;
+  }
+
+  async runExclusive(fn) {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    this.runController = new AbortController();
+    this.setControlsDisabled(true);
+    try {
+      return await fn();
+    } catch (error) {
+      if (this.runController?.signal.aborted) {
+        this.showStatus('Canceled', false);
+      } else {
+        this.showStatus(`Error: ${error.message}`, false);
+      }
+    } finally {
+      this.isRunning = false;
+      this.runController = null;
+      this.setControlsDisabled(false);
+    }
+  }
+
+  stopBenchmark() {
+    if (this.runController) {
+      this.runController.abort();
+      this.destroyTranslator();
+    }
+  }
+
+  destroyTranslator() {
+    if (this.translator && typeof this.translator.destroy === 'function') {
+      try { this.translator.destroy(); } catch {}
+    }
+    this.translator = null;
+  }
+
+  translateCallOptions() {
+    return this.runController?.signal ? { signal: this.runController.signal } : undefined;
+  }
+
+  async invokeTranslate(text) {
+    const opts = this.translateCallOptions();
+    return opts ? this.translator.translate(text, opts) : this.translator.translate(text);
+  }
+
   setupEventListeners() {
-    document.getElementById('runAll').addEventListener('click', () => this.measureAll());
+    document.getElementById('runAll').addEventListener('click', () => this.runExclusive(() => this.measureAll()));
+    const stopBtn = document.getElementById('stopSpeedBench');
+    if (stopBtn) stopBtn.addEventListener('click', () => this.stopBenchmark());
     document.getElementById('saveResults').addEventListener('click', () => this.saveResults());
     document.getElementById('swapLanguages').addEventListener('click', () => this.swapLanguages());
-    document.getElementById('replaySingle').addEventListener('click', () => this.measureSingleLatency());
-    document.getElementById('replayThroughput').addEventListener('click', () => this.measureThroughput());
-    document.getElementById('replayBatch').addEventListener('click', () => this.measureBatch());
-    document.getElementById('replayStreaming').addEventListener('click', () => this.measureStreamingComparison());
-    document.getElementById('runPageSim').addEventListener('click', () => this.measurePageSimulation());
-    document.getElementById('runConcurrency').addEventListener('click', () => this.measureConcurrency());
+    document.getElementById('replaySingle').addEventListener('click', () => this.runExclusive(() => this.measureSingleLatency()));
+    document.getElementById('replayThroughput').addEventListener('click', () => this.runExclusive(() => this.measureThroughput()));
+    document.getElementById('replayBatch').addEventListener('click', () => this.runExclusive(() => this.measureBatch()));
+    document.getElementById('replayStreaming').addEventListener('click', () => this.runExclusive(() => this.measureStreamingComparison()));
+    document.getElementById('runPageSim').addEventListener('click', () => this.runExclusive(() => this.measurePageSimulation()));
+    document.getElementById('runConcurrency').addEventListener('click', () => this.runExclusive(() => this.measureConcurrency()));
+
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('pagehide', () => {
+        this.stopBenchmark();
+        this.destroyTranslator();
+      });
+    }
 
     const saveSnapBtn = document.getElementById('saveSpeedSnapshot');
     if (saveSnapBtn) saveSnapBtn.addEventListener('click', () => this.saveSnapshot());
@@ -474,16 +544,59 @@ class TranslationSpeedBenchmark {
     const progressContainer = document.getElementById('downloadProgress');
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
+    const signal = this.runController?.signal;
+    let provisioning = null;
 
     try {
+      signal?.throwIfAborted();
+      this.downloadMs = 0;
+      this.downloadRequired = false;
+      let availabilityMs = 0;
+
+      if (typeof Translator.availability === 'function') {
+        const availStart = performance.now();
+        const availability = await Translator.availability({ sourceLanguage, targetLanguage });
+        availabilityMs = performance.now() - availStart;
+        signal?.throwIfAborted();
+        if (availability === 'unavailable') {
+          throw new Error(`Language pair ${sourceLanguage} → ${targetLanguage} is unavailable.`);
+        }
+        if (availability !== 'available') {
+          this.downloadRequired = true;
+          this.showStatus('Downloading language pack...', true);
+          const dlStart = performance.now();
+          provisioning = await Translator.create({
+            sourceLanguage,
+            targetLanguage,
+            ...(signal ? { signal } : {}),
+            monitor(m) {
+              m.addEventListener('downloadprogress', (e) => {
+                if (signal?.aborted) return;
+                progressContainer.style.display = 'block';
+                const percent = Math.round(e.loaded * 100);
+                progressFill.style.width = `${percent}%`;
+                progressText.textContent = `${percent}%`;
+              });
+            },
+          });
+          this.downloadMs = performance.now() - dlStart;
+          signal?.throwIfAborted();
+          if (typeof provisioning.destroy === 'function') provisioning.destroy();
+          provisioning = null;
+          progressContainer.style.display = 'none';
+        }
+      }
+
       this.showStatus('Initializing translator...', true);
       const startTime = performance.now();
 
       this.translator = await Translator.create({
         sourceLanguage,
         targetLanguage,
+        ...(signal ? { signal } : {}),
         monitor(m) {
           m.addEventListener('downloadprogress', (e) => {
+            if (signal?.aborted) return;
             progressContainer.style.display = 'block';
             const percent = Math.round(e.loaded * 100);
             progressFill.style.width = `${percent}%`;
@@ -492,26 +605,36 @@ class TranslationSpeedBenchmark {
         }
       });
 
-      const initTime = (performance.now() - startTime).toFixed(2);
+      const setupMs = availabilityMs + (performance.now() - startTime);
+      const initTime = setupMs.toFixed(2);
       progressContainer.style.display = 'none';
       document.getElementById('initTime').textContent = initTime;
       const initMirror = document.getElementById('initTimeMirror');
       if (initMirror) initMirror.textContent = initTime;
+      const dlNote = this.downloadRequired ? ` · Provisioned in ${this.downloadMs.toFixed(0)} ms` : '';
       this.showInitResult(
-        `Translator initialized: ${LANGUAGE_NAMES[sourceLanguage] || sourceLanguage} → ${LANGUAGE_NAMES[targetLanguage] || targetLanguage} (${initTime} ms)`,
+        `Translator initialized: ${LANGUAGE_NAMES[sourceLanguage] || sourceLanguage} → ${LANGUAGE_NAMES[targetLanguage] || targetLanguage} (${initTime} ms setup${dlNote})`,
         'success'
       );
       return true;
     } catch (error) {
       progressContainer.style.display = 'none';
-      this.showInitResult(`Failed: ${error.message}`, 'error');
-      this.showStatus('Error', false);
+      if (!signal?.aborted) {
+        this.showInitResult(`Failed: ${error.message}`, 'error');
+        this.showStatus('Error', false);
+      }
       return false;
+    } finally {
+      if (provisioning && typeof provisioning.destroy === 'function') {
+        try { provisioning.destroy(); } catch {}
+      }
     }
   }
 
   resetTranslator() {
-    this.translator = null;
+    this.destroyTranslator();
+    this.downloadMs = 0;
+    this.downloadRequired = false;
     document.getElementById('initTime').textContent = '0';
     const initMirror = document.getElementById('initTimeMirror');
     if (initMirror) initMirror.textContent = '0';
@@ -568,8 +691,8 @@ class TranslationSpeedBenchmark {
   // ── Individual tests ──────────────────────────────────────────
 
   async measureInitTime() {
-    // Force re-init
-    this.translator = null;
+    // Dispose existing translator before re-measuring setup time
+    this.destroyTranslator();
     const ok = await this.ensureTranslator();
     return ok;
   }
@@ -580,10 +703,11 @@ class TranslationSpeedBenchmark {
 
     const text = "The rapid advancement of artificial intelligence has fundamentally transformed how businesses operate across virtually every industry. Companies are leveraging machine learning algorithms to automate complex processes and predict market trends.";
     const start = performance.now();
-    await this.translator.translate(text);
+    const output = await this.invokeTranslate(text);
     const ms = performance.now() - start;
     const duration = ms.toFixed(2);
     const cps = ms > 0 ? Math.round((text.length / ms) * 1000) : 0;
+    const outCps = ms > 0 ? Math.round((countCodePoints(output) / ms) * 1000) : 0;
 
     document.getElementById('singleLatency').textContent = duration;
     const latMirror = document.getElementById('singleLatencyMirror');
@@ -592,6 +716,8 @@ class TranslationSpeedBenchmark {
     if (cpsEl) cpsEl.textContent = String(cps);
     const cpsMirror = document.getElementById('singleCpsMirror');
     if (cpsMirror) cpsMirror.textContent = String(cps);
+    const outEl = document.getElementById('singleOutCps');
+    if (outEl) outEl.textContent = String(outCps);
     this.enableResultActions();
     this.showStatus('Ready');
   }
@@ -602,24 +728,31 @@ class TranslationSpeedBenchmark {
 
     const scratch = document.getElementById('scratchArea');
     let totalCps = 0;
+    let totalOutCps = 0;
 
     for (let i = 0; i < THROUGHPUT_TEXTS.length; i++) {
+      this.runController?.signal.throwIfAborted();
       const text = THROUGHPUT_TEXTS[i];
       const start = performance.now();
-      const result = await this.translator.translate(text);
+      const result = await this.invokeTranslate(text);
       const ms = performance.now() - start;
       const cps = Math.round((text.length / ms) * 1000);
+      const outCps = ms > 0 ? Math.round((countCodePoints(result) / ms) * 1000) : 0;
 
       document.getElementById(`tp${i + 1}`).textContent = cps;
       document.getElementById(`ms${i + 1}`).textContent = ms.toFixed(1);
       scratch.textContent = result.substring(0, 80) + '...';
       totalCps += cps;
+      totalOutCps += outCps;
     }
 
     const avg = Math.round(totalCps / THROUGHPUT_TEXTS.length);
+    const avgOut = Math.round(totalOutCps / THROUGHPUT_TEXTS.length);
     document.getElementById('avgThroughput').textContent = avg;
     const avgMirror = document.getElementById('avgThroughputMirror');
     if (avgMirror) avgMirror.textContent = avg;
+    const avgOutEl = document.getElementById('avgOutThroughput');
+    if (avgOutEl) avgOutEl.textContent = String(avgOut);
     scratch.innerHTML = '&nbsp;';
     this.enableResultActions();
     this.showStatus('Ready');
@@ -640,16 +773,20 @@ class TranslationSpeedBenchmark {
     }
 
     const seqStart = performance.now();
+    let seqOutputChars = 0;
     for (let i = 0; i < BENCHMARK_TEXTS.length; i++) {
+      this.runController?.signal.throwIfAborted();
       this.setProgress(Math.round(((i + 1) / (BENCHMARK_TEXTS.length * 2)) * 100));
       const text = BENCHMARK_TEXTS[i];
       const itemStart = performance.now();
-      await this.translator.translate(text);
+      const out = await this.invokeTranslate(text);
+      seqOutputChars += countCodePoints(out);
       seqGroupMs[groupKeyFor(text)] += (performance.now() - itemStart);
     }
 
     const seqMs = performance.now() - seqStart;
     const seqCps = Math.round((totalChars / seqMs) * 1000);
+    const seqOutCps = seqMs > 0 ? Math.round((seqOutputChars / seqMs) * 1000) : 0;
     const seqMsPer1k = totalChars > 0 ? (seqMs / totalChars) * 1000 : 0;
 
     document.getElementById('batchThroughput').textContent = seqCps;
@@ -660,15 +797,17 @@ class TranslationSpeedBenchmark {
     this.showStatus('Running concurrent batch benchmark (15×1 Promise.all)...', true);
     let completed = 0;
     const concStart = performance.now();
-    await Promise.all(BENCHMARK_TEXTS.map(text =>
-      this.translator.translate(text).then(res => {
+    const concOutputs = await Promise.all(BENCHMARK_TEXTS.map(text =>
+      this.invokeTranslate(text).then(res => {
         completed++;
         this.setProgress(50 + Math.round((completed / BENCHMARK_TEXTS.length) * 50));
         return res;
       })
     ));
     const concMs = performance.now() - concStart;
+    const concOutputChars = concOutputs.reduce((sum, out) => sum + countCodePoints(out), 0);
     const concCps = Math.round((totalChars / concMs) * 1000);
+    const concOutCps = concMs > 0 ? Math.round((concOutputChars / concMs) * 1000) : 0;
     const concMsPer1k = totalChars > 0 ? (concMs / totalChars) * 1000 : 0;
     const speedup = concMs > 0 ? (seqMs / concMs) : 1;
     const speedupText = `${speedup.toFixed(2)}\u00d7`;
@@ -711,7 +850,7 @@ class TranslationSpeedBenchmark {
       if (cpsEl) cpsEl.textContent = String(cps);
     }
 
-    this.batchResult = { totalChars, seqMs, seqCps, seqMsPer1k, concMs, concCps, concMsPer1k, speedup, seqGroupMs, groupChars };
+    this.batchResult = { totalChars, seqMs, seqCps, seqOutCps, seqMsPer1k, concMs, concCps, concOutCps, concMsPer1k, speedup, seqGroupMs, groupChars };
     this.setProgress(100);
     this.showStatus('Ready');
     this.enableResultActions();
@@ -725,30 +864,41 @@ class TranslationSpeedBenchmark {
 
     // Sync
     const syncStart = performance.now();
-    await this.translator.translate(text);
+    await this.invokeTranslate(text);
     const syncMs = (performance.now() - syncStart).toFixed(1);
     const syncCps = Math.round((text.length / parseFloat(syncMs)) * 1000);
 
     document.getElementById('cmpSyncTime').textContent = syncMs;
     document.getElementById('cmpSyncCps').textContent = syncCps;
 
-    // Streaming
+    // Streaming (record latency on first non-empty chunk, matching sushanthr.github.io/PromptAPI/translation-perf.js)
     const streamStart = performance.now();
     let chunks = 0;
-    let firstChunkTime = 0;
+    let firstChunkMsNum = null;
     let prevChunkLength = 0;
-    const stream = this.translator.translateStreaming(text);
+    let streamedOutput = '';
+    const streamOpts = this.translateCallOptions();
+    const stream = streamOpts
+      ? this.translator.translateStreaming(text, streamOpts)
+      : this.translator.translateStreaming(text);
     console.group('translateStreaming()');
     for await (const chunk of stream) {
+      this.runController?.signal.throwIfAborted();
       chunks++;
-      if (chunks === 1) firstChunkTime = (performance.now() - streamStart).toFixed(1);
+      if (chunk && firstChunkMsNum === null) {
+        firstChunkMsNum = performance.now() - streamStart;
+      }
+      streamedOutput += chunk;
       console.log(`Chunk ${chunks}: ${chunk.length} chars (delta +${chunk.length - prevChunkLength})`);
       prevChunkLength = chunk.length;
     }
+    const firstChunkTime = (firstChunkMsNum ?? (performance.now() - streamStart)).toFixed(1);
     console.log(`${chunks} chunks, first chunk at ${firstChunkTime} ms`);
     console.groupEnd();
-    const streamMs = (performance.now() - streamStart).toFixed(1);
+    const streamMsNum = performance.now() - streamStart;
+    const streamMs = streamMsNum.toFixed(1);
     const streamCps = Math.round((text.length / parseFloat(streamMs)) * 1000);
+    const streamOutCps = streamMsNum > 0 ? Math.round((countCodePoints(streamedOutput) / streamMsNum) * 1000) : 0;
 
     document.getElementById('cmpStreamTime').textContent = streamMs;
     document.getElementById('cmpStreamCps').textContent = streamCps;
@@ -760,6 +910,8 @@ class TranslationSpeedBenchmark {
     if (cpsMirror) cpsMirror.textContent = streamCps;
     const primaryStreamEl = document.getElementById('cmpStreamPrimaryCps');
     if (primaryStreamEl) primaryStreamEl.textContent = streamCps;
+    const streamOutEl = document.getElementById('cmpStreamOutCps');
+    if (streamOutEl) streamOutEl.textContent = String(streamOutCps);
 
     // Overhead
     const overhead = ((parseFloat(streamMs) / parseFloat(syncMs) - 1) * 100).toFixed(1);
@@ -832,15 +984,18 @@ class TranslationSpeedBenchmark {
       noSpans: { count: 0, totalLen: 0, totalTime: 0 },
     };
 
-    this.showStatus('Running page simulation...', true);
+    this.showStatus('Running page simulation (sequential)...', true);
     const overallStart = performance.now();
+    let seqOutputChars = 0;
 
     try {
       for (let i = 0; i < segments.length; i++) {
+        this.runController?.signal.throwIfAborted();
         const seg = segments[i];
         const start = performance.now();
-        await this.translator.translate(seg.text);
+        const out = await this.invokeTranslate(seg.text);
         const elapsed = performance.now() - start;
+        seqOutputChars += countCodePoints(out);
 
         byType[seg.type].count++;
         byType[seg.type].totalLen += seg.text.length;
@@ -864,6 +1019,20 @@ class TranslationSpeedBenchmark {
       }
 
       const totalTime = performance.now() - overallStart;
+
+      // Concurrent Full-Page Wave: mirrors real browser full-page translation
+      // where heterogeneous nav/heading/short/DOM-paragraph segments overlap
+      // into dynamic batching.
+      this.showStatus('Running full-page concurrent wave...', true);
+      const concStart = performance.now();
+      const concOutputs = await Promise.all(segments.map(seg => this.invokeTranslate(seg.text)));
+      const concTime = performance.now() - concStart;
+      const concOutputChars = concOutputs.reduce((sum, out) => sum + countCodePoints(out), 0);
+      const simOutCps = totalTime > 0 ? Math.round((seqOutputChars / totalTime) * 1000) : 0;
+      const simConcCps = concTime > 0 ? Math.round((totalChars / concTime) * 1000) : 0;
+      const simConcOutCps = concTime > 0 ? Math.round((concOutputChars / concTime) * 1000) : 0;
+      const simConcSpeedup = concTime > 0 ? (totalTime / concTime) : 1;
+      const simConcSpeedupStr = `${simConcSpeedup.toFixed(2)}\u00d7`;
 
       // Summary
       document.getElementById('simTotalTime').textContent = totalTime.toFixed(0);
@@ -922,8 +1091,25 @@ class TranslationSpeedBenchmark {
       if (simScoreEl) simScoreEl.textContent = String(simCps);
       const simScoreMirror = document.getElementById('simScoreCpsMirror');
       if (simScoreMirror) simScoreMirror.textContent = String(simCps);
+      const setOptText = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(val);
+      };
+      setOptText('simSeqTableTime', totalTime.toFixed(0));
+      setOptText('simSeqTableCps', simCps);
+      setOptText('simOutCps', simOutCps);
+      setOptText('simConcTime', concTime.toFixed(0));
+      setOptText('simConcCps', simConcCps);
+      setOptText('simConcOutCps', simConcOutCps);
+      setOptText('simConcSpeedup', simConcSpeedupStr);
+      setOptText('simConcSummary', `${simConcCps} c/s (${simConcSpeedupStr})`);
       this.pageSimResult.spanTax = { domPer100, withPer100, noPer100, bySpan };
       this.pageSimResult.cps = simCps;
+      this.pageSimResult.outCps = simOutCps;
+      this.pageSimResult.concTime = concTime;
+      this.pageSimResult.concCps = simConcCps;
+      this.pageSimResult.concOutCps = simConcOutCps;
+      this.pageSimResult.concSpeedup = simConcSpeedup;
 
       progressEl.style.display = 'none';
       this.enableResultActions();
@@ -942,7 +1128,8 @@ class TranslationSpeedBenchmark {
     let next = 0;
     const worker = async () => {
       for (let i = next++; i < texts.length; i = next++) {
-        await this.translator.translate(texts[i]);
+        this.runController?.signal.throwIfAborted();
+        await this.invokeTranslate(texts[i]);
       }
     };
     const start = performance.now();
@@ -1092,13 +1279,17 @@ class TranslationSpeedBenchmark {
       metrics: {
         overallScoreCps,
         initMs: num('initTime'),
+        downloadMs: Math.round((this.downloadMs || 0) * 100) / 100,
         singleLatencyMs: num('singleLatency'),
         singleScoreCps: num('singleScoreCps'),
+        singleOutCps: num('singleOutCps'),
         avgThroughputCps: num('avgThroughput'),
+        avgOutThroughputCps: num('avgOutThroughput'),
         batchSeqThroughputCps: num('batchThroughput'),
         batchSeqTotalMs: num('batchTotalTime'),
         batchSeqMsPer1k: num('batchSeqMsPer1k'),
         batchConcThroughputCps: num('batchConcThroughput'),
+        batchConcOutCps: this.batchResult?.concOutCps || 0,
         batchConcTotalMs: num('batchConcTime'),
         batchConcMsPer1k: num('batchConcMsPer1k'),
         batchSpeedup: num('batchSpeedup'),
@@ -1106,11 +1297,17 @@ class TranslationSpeedBenchmark {
         syncTimeMs: num('cmpSyncTime'),
         streamTimeMs: num('cmpStreamTime'),
         streamCps: num('cmpStreamCps'),
+        streamOutCps: num('cmpStreamOutCps'),
         firstChunkMs: num('cmpFirstChunk'),
         streamChunks: num('cmpStreamChunks'),
         pageSimTotalMs: num('simTotalTime'),
         pageSimAvgMs: num('simAvgPerCall'),
         pageSimCps: num('simScoreCps'),
+        pageSimOutCps: num('simOutCps'),
+        pageSimConcTotalMs: num('simConcTime'),
+        pageSimConcCps: num('simConcCps'),
+        pageSimConcOutCps: num('simConcOutCps'),
+        pageSimConcSpeedup: num('simConcSpeedup'),
         domTagPer100Ms: num('simDomTagPer100'),
         domTagTax: num('simDomTagTax'),
         spanPer100Ms: num('simSpanPer100'),
@@ -1146,6 +1343,8 @@ class TranslationSpeedBenchmark {
       { key: 'streamCps', label: '4. Streaming Throughput (chars/sec)', unit: 'chars/sec', lowerBetter: false },
       { key: 'firstChunkMs', label: '   Streaming 1st Chunk (ms)', unit: 'ms', lowerBetter: true },
       { key: 'pageSimCps', label: '5. Real-Page Mix Speed (chars/sec)', unit: 'chars/sec', lowerBetter: false },
+      { key: 'pageSimConcCps', label: '   Full-Page Concurrent Wave (chars/sec)', unit: 'chars/sec', lowerBetter: false },
+      { key: 'pageSimConcSpeedup', label: '   Full-Page Wave Speedup (×)', unit: '×', lowerBetter: false },
       { key: 'pageSimTotalMs', label: '   Page Simulation Total (ms)', unit: 'ms', lowerBetter: true },
       { key: 'spanTax', label: '   Protected-Span Tax (×)', unit: '×', lowerBetter: true },
       { key: 'domTagTax', label: '   Inline <bN> DOM-Tag Tax (×)', unit: '×', lowerBetter: true },
@@ -1372,7 +1571,8 @@ class TranslationSpeedBenchmark {
       lines.push(
         ``,
         `Page Simulation (${simSegs} segments, ${simChars} chars):`,
-        `  Total Time:           ${simTotal} ms`,
+        `  Sequential Total:     ${simTotal} ms (${document.getElementById('simScoreCps')?.textContent || '0'} in c/s, ${document.getElementById('simOutCps')?.textContent || '0'} out c/s)`,
+        `  Full-Page Wave:       ${document.getElementById('simConcTime')?.textContent || '0'} ms (${document.getElementById('simConcCps')?.textContent || '0'} in c/s, ${document.getElementById('simConcOutCps')?.textContent || '0'} out c/s, speedup ${document.getElementById('simConcSpeedup')?.textContent || '-'})`,
         `  Avg per Call:         ${simAvg} ms`,
         `  Nav/Buttons:          ${document.getElementById('simNavCount').textContent} segs, avg ${document.getElementById('simNavAvgTime').textContent} ms`,
         `  Headings:             ${document.getElementById('simHeadCount').textContent} segs, avg ${document.getElementById('simHeadAvgTime').textContent} ms`,
@@ -1408,6 +1608,7 @@ class TranslationSpeedBenchmark {
       'Batch Conc Throughput (chars/sec)', 'Batch Conc Total (ms)', 'Batch Speedup',
       'Sync Time (ms)', 'Stream Time (ms)', '1st Chunk (ms)', 'Chunks', 'Stream Overhead',
       'Page Sim Segments', 'Page Sim Total (ms)', 'Page Sim Avg/Call (ms)',
+      'Page Wave Total (ms)', 'Page Wave (chars/sec)', 'Page Wave Out (chars/sec)', 'Page Wave Speedup',
       'Span Tax', 'Span ms/100ch', 'Prose ms/100ch',
       'Conc 1 (ms)', 'Conc 2 (ms)', 'Conc 4 (ms)', 'Conc 8 (ms)', 'Best Speedup'].join('\t');
     const tsvRow = [
@@ -1417,6 +1618,10 @@ class TranslationSpeedBenchmark {
       batchThroughput, batchTotalTime, batchConcThroughput, batchConcTime, batchSpeedup,
       syncTime, streamTime, firstChunkTime, streamChunks, streamOverhead,
       simSegs, simTotal, simAvg,
+      document.getElementById('simConcTime')?.textContent || '0',
+      document.getElementById('simConcCps')?.textContent || '0',
+      document.getElementById('simConcOutCps')?.textContent || '0',
+      document.getElementById('simConcSpeedup')?.textContent || '-',
       document.getElementById('simSpanTax').textContent,
       document.getElementById('simSpanPer100').textContent,
       document.getElementById('simNoSpanPer100').textContent,

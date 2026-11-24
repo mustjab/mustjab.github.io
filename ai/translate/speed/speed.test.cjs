@@ -332,3 +332,127 @@ test('detectHardwareDetails retains unmasked WebGL model name when WebGL matches
   assert.equal(details.primary, 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)');
 });
 
+test('ensureTranslator separates download provisioning from setup time and destroys prior translator on re-init', async () => {
+  let availabilityState = 'downloadable';
+  let destroyedProvisioning = 0;
+  let destroyedActive = 0;
+  let createCalls = 0;
+  let harness;
+
+  const customTranslatorApi = {
+    async availability() {
+      harness.advanceTime(5);
+      return availabilityState;
+    },
+    async create(opts) {
+      createCalls++;
+      if (availabilityState !== 'available') {
+        if (typeof opts.monitor === 'function') {
+          opts.monitor({
+            addEventListener(_type, cb) {
+              cb({ loaded: 0.5 });
+              cb({ loaded: 1.0 });
+            },
+          });
+        }
+        harness.advanceTime(800);
+        availabilityState = 'available';
+        return {
+          destroy() { destroyedProvisioning++; },
+        };
+      }
+      harness.advanceTime(45);
+      return {
+        async translate(t) { return t; },
+        destroy() { destroyedActive++; },
+      };
+    },
+  };
+
+  harness = createSpeedHarness(null);
+  harness.bench.translator = null;
+  // Inject custom Translator constructor onto global context via prototype check
+  const vmCtx = vm.createContext({
+    document: {
+      addEventListener() {},
+      getElementById: harness.getElement,
+      createDocumentFragment() { return { appendChild() {} }; },
+      createElement() { return { style: {}, setAttribute() {}, addEventListener() {}, appendChild() {}, getContext() { return null; } }; },
+    },
+    localStorage: { length: 0, key() { return null; }, getItem() { return null; }, setItem() {}, removeItem() {} },
+    navigator: { userAgent: 'Edg/160.0.0.0', clipboard: { async writeText() {} } },
+    performance: { now: () => 0 },
+    setTimeout(fn) { fn(); return 1; },
+    clearTimeout() {},
+    console: { group() {}, groupEnd() {}, log() {} },
+    Translator: customTranslatorApi,
+    module: { exports: {} },
+  });
+  let clock = 1000;
+  vmCtx.performance.now = () => clock;
+  harness.advanceTime = (ms) => { clock += ms; };
+  vmCtx.self = vmCtx;
+  vm.runInContext(fs.readFileSync(path.join(__dirname, 'speed.js'), 'utf8'), vmCtx);
+  const BenchClass = vmCtx.module.exports.TranslationSpeedBenchmark;
+  const bench = Object.create(BenchClass.prototype);
+  bench.translator = null;
+
+  const ok = await bench.ensureTranslator();
+  assert.equal(ok, true);
+  assert.equal(createCalls, 2, 'First create() provisions download, second create() measures clean setup');
+  assert.equal(destroyedProvisioning, 1);
+  assert.equal(bench.downloadMs, 800);
+  // setupMs = availabilityMs (5) + clean createMs (45) = 50.00 (excludes 800ms download!)
+  assert.equal(harness.getElement('initTime').textContent, '50.00');
+
+  // Re-running measureInitTime disposes the previous active translator first
+  await bench.measureInitTime();
+  assert.equal(destroyedActive, 1);
+});
+
+test('measureStreamingComparison records first non-empty chunk latency and code-point Output CPS, and Page Mix records concurrent wave', async () => {
+  let harness;
+  let phase = 'seq';
+  let pageCalls = 0;
+  const translator = {
+    async translate(text) {
+      if (phase === 'stream-sync') {
+        harness.advanceTime(200);
+        return '你好'.repeat(100);
+      }
+      pageCalls++;
+      // Sequential 187 calls take 2ms each (374ms); concurrent 187 calls overlap in 100ms total
+      if (pageCalls <= 187) {
+        harness.advanceTime(2);
+      } else if (pageCalls === 188) {
+        harness.advanceTime(100);
+      }
+      return '译';
+    },
+    async *translateStreaming() {
+      harness.advanceTime(15);
+      yield ''; // empty leading chunk must be ignored for first-chunk latency
+      harness.advanceTime(25);
+      yield '你好世界';
+      harness.advanceTime(160);
+      yield '，人工智能翻译测试。';
+    },
+  };
+  harness = createSpeedHarness(translator);
+
+  phase = 'stream-sync';
+  await harness.bench.measureStreamingComparison();
+  // First non-empty chunk arrived at 15 + 25 = 40.0 ms, total stream = 200.0 ms, 14 CJK code points => 70 out c/s
+  assert.equal(harness.getElement('cmpFirstChunk').textContent, '40.0');
+  assert.equal(harness.getElement('cmpStreamOutCps').textContent, '70');
+
+  phase = 'page';
+  await harness.bench.measurePageSimulation();
+  assert.equal(pageCalls, 374);
+  assert.equal(harness.getElement('simTotalTime').textContent, '374');
+  assert.equal(harness.getElement('simConcTime').textContent, '100');
+  assert.equal(harness.getElement('simConcSpeedup').textContent, '3.74×');
+  assert.ok(Number(harness.getElement('simConcCps').textContent) > Number(harness.getElement('simScoreCps').textContent));
+});
+
+

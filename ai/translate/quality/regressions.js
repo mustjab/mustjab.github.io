@@ -142,12 +142,187 @@
       mustPreserve: ['ASP.NET', '8'], exactTokens: ['ASP.NET'],
       mustNotContain: ['Icono 8 de ASP.NET', 'Ícono 8 de ASP.NET'],
       expectedInvariant: 'Keep version 8 attached to ASP.NET Core Runtime (Icono de ASP.NET Core Runtime 8 / ASP.NET Core ランタイム 8 アイコン / ASP.NET Core 运行时 8 图标) rather than shifting 8 onto Icono.'},
+    {name: 'cli-flags-acronyms', id: 'opaque_identity', regressionRule: 'identity',
+      source: 'Launch Edge with --enable-features=TranslationAPI and verify GPU, SDK, and API telemetry in check_status_code().',
+      mustPreserve: ['--enable-features=TranslationAPI', 'GPU', 'SDK', 'API', 'check_status_code'],
+      exactTokens: ['--enable-features=TranslationAPI', 'check_status_code'],
+      expectedInvariant: 'Preserve CLI flag --enable-features=TranslationAPI, snake_case identifier check_status_code, and 3-letter technical acronyms GPU, SDK, and API without translating or splitting them.'},
+    {name: 'compact-scale-vs-unit-code', id: 'numeric_control', regressionRule: 'identity',
+      source: 'Use a 3m cable in room 4b for section 12k under the $3.8M hardware budget.',
+      mustPreserve: ['4b', '12k'],
+      exactTokens: ['4b', '12k'],
+      mustNotContain: ['40亿', '40億', '4 mil millones', '4 milliards', '4 Milliarden', '12,000', '12.000', '1.2万', '12000'],
+      expectedInvariant: 'Keep non-currency alphanumeric codes/units (3m cable, room 4b, section 12k) intact without expanding 4b to 4 billion or 12k to 12,000 while preserving the $3.8M budget magnitude.'},
+    {name: 'nbsp-newline-boundary', id: 'structured_text', regressionRule: 'identity',
+      source: 'First line ends with non-breaking space.\u00a0\nSecond line keeps item 42 separate.',
+      mustPreserve: ['42'],
+      minNewlines: 1,
+      expectedInvariant: 'Preserve the hard newline boundary immediately following a trailing non-breaking space (U+00A0) across standard, streaming, and concurrent batch execution.'},
+    {name: 'polysemy-game-jam', id: 'meaning', regressionRule: 'identity',
+      source: 'The LLM agents collaborated on the code forks during the game jam.',
+      mustPreserve: ['LLM'],
+      exactTokens: ['LLM'],
+      mustNotContain: ['果酱', '果醬', 'ジャム', 'mermelada', 'confiture', 'Marmelade', '叉子', 'tenedores'],
+      expectedInvariant: 'Translate game jam and code forks in their software development senses (not fruit jam or dining forks) and preserve LLM.'},
     ...[['cyrillic-be', '\u0411'], ['cyrillic-komi', '\u0500'], ['latin-accent', '\u00c9']].map(([name, code]) => ({
       name, id: 'code_identity', regressionRule: 'identity',
       source: `The product code is ${code}.`, mustPreserve: [code], exactTokens: [code],
       expectedInvariant: `Preserve the exact product-code character ${code} (U+${code.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}); no case folding or transliteration.`,
     })),
   ];
+
+  const reverseTemplates = {
+    es: {
+      domCitation: 'Diferentes informes sobre<b10>  </b10>varios incidentes en distintas calles confirman esta conclusión<b11>  </b11>según la fuente<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>.',
+      urlEmail: 'Visite https://example.com/offers?id=15&order=676 o use /docs/release/2.8.15?id=676 y escriba a support@example.com.',
+      cliCode: 'Inicie el navegador con --enable-features=TranslationAPI y llame a getUserById(user_id) para verificar GPU y API.',
+      datetime: 'La reunión está programada (15 de marzo de 2025) a las 14:30.',
+      billion: 'El presupuesto anual es de 42 mil millones de dólares.',
+      sharedRange: 'La inversión anual oscila entre 150 y 200 millones de euros.',
+      literalMarkers: 'Mantenga los marcadores literales {0}, (#1) y <=> para el artículo 42 en qa@example.com.',
+      nbspNewline: 'Primera línea termina con espacio fijo.\u00a0\nSegunda línea conserva el elemento 42.',
+      denseDom: 'Actualice a la versión 7.0 para <b10>Microsoft</b10> <b11>Windows 11</b11> en 2026<b12><b20><b30><b40>[</b40>5<b41>]</b41></b30></b20></b12>.',
+      komi: 'El código del producto es \u0500.',
+    },
+    fr: {
+      domCitation: 'Différents rapports sur<b10>  </b10>plusieurs incidents dans différentes rues confirment cette conclusion<b11>  </b11>selon la source<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>.',
+      urlEmail: 'Visitez https://example.com/offers?id=15&order=676 ou utilisez /docs/release/2.8.15?id=676 et écrivez à support@example.com.',
+      cliCode: 'Lancez le navigateur avec --enable-features=TranslationAPI et appelez getUserById(user_id) pour vérifier GPU et API.',
+      datetime: 'La réunion est prévue (15 mars 2025) à 14:30.',
+      billion: 'Le budget annuel est de 42 milliards de dollars.',
+      sharedRange: 'Le budget annuel se situe entre 150 et 200 millions d\'euros.',
+      literalMarkers: 'Conservez les marqueurs littéraux {0}, (#1) et <=> pour l\'élément 42 à qa@example.com.',
+      nbspNewline: 'Première ligne avec espace insécable.\u00a0\nDeuxième ligne garde l\'élément 42.',
+      denseDom: 'Passez à la version 7.0 pour <b10>Microsoft</b10> <b11>Windows 11</b11> en 2026<b12><b20><b30><b40>[</b40>5<b41>]</b41></b30></b20></b12>.',
+      komi: 'Le code produit est \u0500.',
+    },
+    de: {
+      domCitation: 'Verschiedene Berichte über<b10>  </b10>mehrere Vorfälle in verschiedenen Straßen bestätigen dies<b11>  </b11>laut Quelle<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>.',
+      urlEmail: 'Besuchen Sie https://example.com/offers?id=15&order=676 oder /docs/release/2.8.15?id=676 und schreiben Sie an support@example.com.',
+      cliCode: 'Starten Sie den Browser mit --enable-features=TranslationAPI und rufen Sie getUserById(user_id) für GPU und API auf.',
+      datetime: 'Das Treffen ist geplant (15. März 2025) um 14:30 Uhr.',
+      billion: 'Das Jahresbudget beträgt 42 Milliarden Dollar.',
+      sharedRange: 'Die Ausgaben liegen zwischen 150 und 200 Millionen Euro.',
+      literalMarkers: 'Behalten Sie die literalen Marker {0}, (#1) und <=> für Artikel 42 unter qa@example.com bei.',
+      nbspNewline: 'Erste Zeile endet mit geschütztem Leerzeichen.\u00a0\nZweite Zeile behält Element 42.',
+      denseDom: 'Aktualisieren Sie 2026 auf Version 7.0 für <b10>Microsoft</b10> <b11>Windows 11</b11><b12><b20><b30><b40>[</b40>5<b41>]</b41></b30></b20></b12>.',
+      komi: 'Der Produktcode lautet \u0500.',
+    },
+    'zh-hans': {
+      domCitation: '关于不同街道发生的<b10>  </b10>多起事件的报告证实了这一结论<b11>  </b11>详见来源<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>。',
+      urlEmail: '请访问 https://example.com/offers?id=15&order=676 或使用 /docs/release/2.8.15?id=676 并发送邮件至 support@example.com。',
+      cliCode: '使用 --enable-features=TranslationAPI 启动浏览器，并调用 getUserById(user_id) 检查 GPU 和 API。',
+      datetime: '会议定于（2025年3月15日）14:30 举行。',
+      billion: '年度预算为 420 亿美元。',
+      sharedRange: '年度支出在 150 至 200 百万欧元之间。',
+      literalMarkers: '请保留项目 42 在 qa@example.com 中的字面标记 {0}、(#1) 和 <=>。',
+      nbspNewline: '第一行以不换行空格结尾。\u00a0\n第二行保留项目 42。',
+      denseDom: '请在 2026 年升级到适用于 <b10>Microsoft</b10> <b11>Windows 11</b11> 的 7.0 版本<b12><b20><b30><b40>[</b40>5<b41>]</b41></b30></b20></b12>。',
+      komi: '产品代码为 \u0500。',
+    },
+    ja: {
+      domCitation: '異なる通りでの<b10>  </b10>複数の出来事に関する報告がこの結論を裏付けています<b11>  </b11>出典を参照<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>。',
+      urlEmail: 'https://example.com/offers?id=15&order=676 または /docs/release/2.8.15?id=676 にアクセスし、support@example.com までご連絡ください。',
+      cliCode: '--enable-features=TranslationAPI でブラウザを起動し、getUserById(user_id) を呼び出して GPU と API を確認します。',
+      datetime: '会議は（2025年3月15日）14:30 に予定されています。',
+      billion: '年間予算は420億ドルです。',
+      sharedRange: '年間支出は150〜200百万ユーロの範囲です。',
+      literalMarkers: 'qa@example.com の項目 42 にあるリテラルマーカー {0}、(#1)、<=> をそのまま保持してください。',
+      nbspNewline: '1行目はノーブレークスペースで終わります。\u00a0\n2行目は項目 42 を保持します。',
+      denseDom: '2026年に <b10>Microsoft</b10> <b11>Windows 11</b11> 用のバージョン 7.0 にアップグレードしてください<b12><b20><b30><b40>[</b40>5<b41>]</b41></b30></b20></b12>。',
+      komi: '製品コードは \u0500 です。',
+    },
+    ko: {
+      domCitation: '서로 다른 거리에서 발생한<b10>  </b10>여러 사건에 대한 보고서가 이 결론을 뒷받침합니다<b11>  </b11>출처 참조<b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12>.',
+      urlEmail: 'https://example.com/offers?id=15&order=676 또는 /docs/release/2.8.15?id=676 를 방문하고 support@example.com 으로 문의하세요.',
+      cliCode: '--enable-features=TranslationAPI 플래그로 브라우저를 실행하고 getUserById(user_id) 를 호출해 GPU 와 API 를 확인하세요.',
+      datetime: '회의는 (2025년 3월 15일) 14:30에 예정되어 있습니다.',
+      billion: '연간 예산은 420억 달러입니다.',
+      sharedRange: '연간 지출은 150~200백만 유로 사이입니다.',
+      literalMarkers: 'qa@example.com 의 항목 42에 대한 리터럴 마커 {0}, (#1) 및 <=> 를 유지하세요.',
+      nbspNewline: '첫 번째 줄은 줄바꿈 없는 공백으로 끝납니다.\u00a0\n두 번째 줄은 항목 42를 유지합니다.',
+      denseDom: '2026년에 <b10>Microsoft</b10> <b11>Windows 11</b11>용 버전 7.0으로 업그레이드하세요<b12><b20><b30><b40>[</b40>5<b41>]</b41></b30></b20></b12>.',
+      komi: '제품 코드는 \u0500 입니다.',
+    },
+  };
+
+  function getReverseCases(source, target = 'en') {
+    if (typeof source !== 'string' || !source.trim() || source === 'en' ||
+        typeof target !== 'string' || !target.trim() || source === target) {
+      throw new Error(`Unsupported reverse/pivot pair: ${source} -> ${target}`);
+    }
+    const normSource = normalizeTargetLang(source);
+    const tpl = reverseTemplates[normSource] || reverseTemplates.es;
+    const toEn = target === 'en';
+    const specs = [
+      {name: 'dom-whitespace-citation', id: 'marker_content',
+        source: tpl.domCitation,
+        mustPreserve: ['17', '<b40>[</b40>', '<b41>]</b41>'],
+        exactTokens: ['17', '<b40>[</b40>', '<b41>]</b41>'],
+        expectedInvariant: 'Preserve whitespace-only inline <b10>/<b11> tags and 4-level nested citation <b12><b20><b30><b40>[</b40>17<b41>]</b41></b30></b20></b12> across reverse or 2-hop pivot translation.'},
+      {name: 'url-query-email', id: 'opaque_identity',
+        source: tpl.urlEmail,
+        mustPreserve: ['https://example.com/offers?id=15&order=676', '/docs/release/2.8.15?id=676', 'support@example.com'],
+        exactTokens: ['https://example.com/offers?id=15&order=676', '/docs/release/2.8.15?id=676', 'support@example.com'],
+        mustNotContain: ['? id='],
+        expectedInvariant: 'Preserve absolute and relative query URLs and email verbatim without inserting spaces after ?.'},
+      {name: 'cli-flags-code', id: 'opaque_identity',
+        source: tpl.cliCode,
+        mustPreserve: ['--enable-features=TranslationAPI', 'getUserById', 'user_id', 'GPU', 'API'],
+        exactTokens: ['--enable-features=TranslationAPI', 'getUserById', 'user_id'],
+        expectedInvariant: 'Preserve CLI flag, camelCase/snake_case code identifiers, and technical acronyms.'},
+      {name: 'datetime-parenthesized', id: 'placeholder_integrity',
+        source: tpl.datetime,
+        mustPreserve: ['15', '2025', '30'],
+        expectedInvariant: 'Preserve parenthesized date (March 15, 2025) and time (:30) without dropping boundary-adjacent numbers.'},
+      {name: 'billion-scale', id: 'meaning',
+        source: tpl.billion,
+        mustPreserve: toEn ? ['42'] : [],
+        mustNotContain: toEn ? ['420 billion', '4.2 billion', '42 million'] : [],
+        expectedInvariant: 'Convert 42B (CJK 420億/420亿/420억 or 42 mil millones/milliards) to 42 billion without 10x CJK-to-English magnitude inflation (420 billion).'},
+      {name: 'shared-scale-range', id: 'placeholder_integrity',
+        source: tpl.sharedRange,
+        mustPreserve: ['150', '200'],
+        ...(['ja', 'zh-hans', 'zh-hant', 'ko', 'yue', 'lzh'].includes(target.toLowerCase()) ? {
+          allowedTokens: {
+            '150': ['150', '1億5,000万', '1億5000万', '1.5亿', '1.5億', '15000万', '1억 5,000만', '1억 5000만', '1억5천만'],
+            '200': ['200', '2億', '2亿', '2억'],
+          },
+        } : {}),
+        expectedInvariant: 'Preserve both endpoints (150M / 1.5亿 / 1億5,000万 and 200M / 2亿 / 2億) of a shared-scale numeric range.'},
+      {name: 'literal-markers', id: 'literal_identity',
+        source: tpl.literalMarkers,
+        mustPreserve: ['{0}', '42', 'qa@example.com'],
+        exactTokens: ['{0}', 'qa@example.com'],
+        expectedInvariant: 'Keep literal {0}, (#1), and <=> intact alongside protected number 42 and email qa@example.com without placeholder leak.'},
+      {name: 'nbsp-newline-boundary', id: 'structured_text',
+        source: tpl.nbspNewline,
+        mustPreserve: ['42'],
+        minNewlines: 1,
+        expectedInvariant: 'Preserve the hard newline after a trailing non-breaking space (U+00A0).'},
+      {name: 'dense-dom-versions', id: 'marker_content',
+        source: tpl.denseDom,
+        mustPreserve: ['Microsoft', 'Windows 11', '7.0', '2026', '5', '<b40>[</b40>', '<b41>]</b41>'],
+        exactTokens: ['Microsoft', '<b40>[</b40>', '<b41>]</b41>'],
+        mustNotContain: ['Windows 7.0'],
+        expectedInvariant: 'Keep version 7.0 and Windows 11 bound to their proper entities and preserve inline <b10>/<b11> and nested citation [5].'},
+      {name: 'cyrillic-komi', id: 'code_identity',
+        source: tpl.komi,
+        mustPreserve: ['\u0500'],
+        exactTokens: ['\u0500'],
+        expectedInvariant: 'Preserve exact product-code character Ԁ (U+0500).'},
+    ];
+    return specs.map(({name, ...spec}) => ({
+      ...spec,
+      caseId: `reverse:${normSource}:${name}`,
+      sourceLanguage: source,
+      lang: target,
+      ...(spec.mustPreserve?.length ? {mustPreserve: [...spec.mustPreserve]} : {}),
+      ...(spec.allowedTokens ? {allowedTokens: structuredClone(spec.allowedTokens)} : {}),
+      ...(spec.exactTokens?.length ? {exactTokens: [...spec.exactTokens]} : {}),
+      ...(spec.mustNotContain?.length ? {mustNotContain: [...spec.mustNotContain]} : {}),
+    }));
+  }
 
   function getCases(target) {
     if (typeof target !== 'string' || !target.trim() || target === 'en') {
@@ -160,6 +335,7 @@
       ...(spec.exactTokens ? {exactTokens: [...spec.exactTokens]} : {}),
       ...(spec.mustNotContain ? {mustNotContain: [...spec.mustNotContain]} : {}),
       ...(spec.reviewTopics ? {reviewTopics: [...spec.reviewTopics]} : {}),
+      ...(spec.minNewlines ? {minNewlines: spec.minNewlines} : {}),
     }));
   }
 
@@ -535,7 +711,7 @@
     return result;
   }
 
-  const api = {VERSION, rules, getCases, evaluate};
+  const api = {VERSION, rules, getCases, getReverseCases, evaluate};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.QualityRegressions = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

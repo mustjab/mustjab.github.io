@@ -78,6 +78,7 @@
 
           <div class="bench-controls">
             <button id="runAll" class="btn btn-primary" disabled>▶ Run Benchmark</button>
+            <button id="stopSpeedBench" class="btn btn-secondary" disabled>⏹ Stop</button>
             <button id="saveResults" class="btn btn-secondary" disabled title="Copy summary and TSV to clipboard">📋 Copy</button>
             <button id="saveSpeedSnapshot" class="btn btn-secondary" disabled title="Save current run into selected baseline slot">💾 Save Baseline</button>
             <select id="baselineSlotSelect" class="slot-select" aria-label="Baseline slot to save into" style="display: none;">
@@ -154,7 +155,7 @@
                   <div>
                     <span id="singleCpsMirror" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
                   </div>
-                  <div class="metric-sub"><span id="singleLatencyMirror">0</span> ms · Init <span id="initTimeMirror">0</span> ms</div>
+                  <div class="metric-sub"><span id="singleLatencyMirror">0</span> ms · Out <span id="singleOutCps">0</span> c/s · Init <span id="initTimeMirror">0</span> ms</div>
                 </td>
               </tr>
 
@@ -200,7 +201,7 @@
                   <div>
                     <span id="avgThroughputMirror" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
                   </div>
-                  <div class="metric-sub">Mean across 5 passages</div>
+                  <div class="metric-sub">Mean across 5 passages · Out <span id="avgOutThroughput">0</span> c/s</div>
                 </td>
               </tr>
 
@@ -334,7 +335,7 @@
                   <div>
                     <span id="cmpStreamPrimaryCps" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
                   </div>
-                  <div class="metric-sub">Overhead vs sync: <span id="streamingOverhead">-</span></div>
+                  <div class="metric-sub">Out <span id="cmpStreamOutCps">0</span> c/s · Overhead vs sync: <span id="streamingOverhead">-</span></div>
                   <div class="metric-highlight" id="firstContentHighlight" style="display: none;">
                     <span class="highlight-label">1st Chunk</span>
                     <span class="highlight-compare">
@@ -378,6 +379,29 @@
                       <tr><td>All protected spans (DOM tags / numbers / URLs)</td><td id="simSpanCount">0</td><td id="simSpanAvgLen">0</td><td id="simSpanAvgTime">0</td><td id="simSpanPer100">0</td></tr>
                       <tr><td>Plain prose</td><td id="simNoSpanCount">0</td><td id="simNoSpanAvgLen">0</td><td id="simNoSpanAvgTime">0</td><td id="simNoSpanPer100">0</td></tr>
                     </table>
+                    <table class="inner-table" style="margin-top: 8px;">
+                      <tr>
+                        <th>Page Execution Mode</th>
+                        <th>Total Time (ms)</th>
+                        <th>Input Chars/Sec</th>
+                        <th>Output Chars/Sec</th>
+                        <th>Speedup</th>
+                      </tr>
+                      <tr>
+                        <td>Sequential (1-by-1)</td>
+                        <td id="simSeqTableTime">0</td>
+                        <td id="simSeqTableCps">0</td>
+                        <td id="simOutCps">0</td>
+                        <td>1.00×</td>
+                      </tr>
+                      <tr>
+                        <td>Concurrent Full-Page Wave (Promise.all)</td>
+                        <td id="simConcTime">0</td>
+                        <td id="simConcCps">0</td>
+                        <td id="simConcOutCps">0</td>
+                        <td id="simConcSpeedup">-</td>
+                      </tr>
+                    </table>
                   </details>
                   <div class="quality-progress" id="simProgress" style="display: none;">
                     <div class="quality-progress-bar">
@@ -390,8 +414,8 @@
                   <div>
                     <span id="simScoreCpsMirror" class="metric-value">0</span> <span class="metric-unit">chars/sec</span>
                   </div>
-                  <div class="metric-sub"><span id="simTotalTime">0</span> ms total · <span id="simAvgPerCall">0</span> ms/seg</div>
-                  <div class="metric-sub">Span tax: <strong id="simSpanTaxMirror">-</strong> · DOM tag tax: <strong id="simDomTagTax">-</strong></div>
+                  <div class="metric-sub"><span id="simTotalTime">0</span> ms seq · Full-page wave: <strong id="simConcSummary">-</strong></div>
+                  <div class="metric-sub"><span id="simAvgPerCall">0</span> ms/seg · Span tax: <strong id="simSpanTaxMirror">-</strong> · DOM tag tax: <strong id="simDomTagTax">-</strong></div>
                 </td>
               </tr>
             </tbody>
@@ -415,7 +439,7 @@
   </div>
 
   <script src="../../nav.js"></script>
-  <script src="speed.js?v=3"></script>
+  <script src="speed.js?v=4"></script>
 </body>
 
 </html>

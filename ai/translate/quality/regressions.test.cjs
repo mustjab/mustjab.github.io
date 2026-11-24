@@ -19,7 +19,7 @@ test('UMD exposes version1 and identical stable twenty-five-case multilingual pu
   const ids = regressions.getCases('es').map(row => row.caseId);
   for (const target of ['es', 'ja', 'zh-hans']) {
     const cases = regressions.getCases(target);
-    assert.equal(cases.length, 34);
+    assert.equal(cases.length, 38);
     assert.deepEqual(cases.map(row => row.caseId), ids);
     assert(cases.every(row => row.sourceLanguage === 'en' && row.lang === target &&
       regressions.rules.includes(row.regressionRule) && row.expectedInvariant));
@@ -37,13 +37,28 @@ test('UMD exposes version1 and identical stable twenty-five-case multilingual pu
     assert.ok(spec(target, 'decimal-million-billion').mustNotContain.includes('4.1 万'));
     assert.deepEqual(spec(target, 'bare-and-negative-number').mustNotContain, ['1684年', '1684 年', '△22']);
     assert.deepEqual(spec(target, 'dotnet-version-modifier').mustNotContain, ['Icono 8 de ASP.NET', 'Ícono 8 de ASP.NET']);
+    assert.ok(spec(target, 'cli-flags-acronyms').exactTokens.includes('--enable-features=TranslationAPI'));
+    assert.deepEqual(spec(target, 'compact-scale-vs-unit-code').exactTokens, ['4b', '12k']);
+    assert.equal(spec(target, 'nbsp-newline-boundary').minNewlines, 1);
+    assert.ok(spec(target, 'polysemy-game-jam').mustNotContain.includes('果酱'));
     assert.deepEqual(cases.slice(-3).map(row => row.exactTokens[0]), ['Б', 'Ԁ', 'É']);
   }
   const altered = regressions.getCases('es');
   altered.find(item => item.caseId === 'focused:opaque').exactTokens[0] = 'mutated';
   assert.equal(spec('es', 'opaque').exactTokens[0], 'support@example.com');
-  assert.equal(regressions.getCases('fr').length, 34);
-  assert.equal(regressions.getCases('zh-hant').length, 34);
+  assert.equal(regressions.getCases('fr').length, 38);
+  assert.equal(regressions.getCases('zh-hant').length, 38);
+  const revZh = regressions.getReverseCases('zh-hans', 'en');
+  assert.equal(revZh.length, 10);
+  assert.ok(revZh.every(row => row.sourceLanguage === 'zh-hans' && row.lang === 'en' && row.expectedInvariant));
+  assert.ok(revZh.find(row => row.caseId === 'reverse:zh-hans:billion-scale').mustNotContain.includes('420 billion'));
+  const pivotEsJa = regressions.getReverseCases('es', 'ja');
+  assert.equal(pivotEsJa.length, 10);
+  assert.ok(pivotEsJa.every(row => row.sourceLanguage === 'es' && row.lang === 'ja'));
+  const pivotRange = pivotEsJa.find(row => row.caseId === 'reverse:es:shared-scale-range');
+  assert.ok(pivotRange.allowedTokens['150'].includes('1億5,000万'));
+  assert.throws(() => regressions.getReverseCases('en', 'es'), /Unsupported/);
+  assert.throws(() => regressions.getReverseCases('es', 'es'), /Unsupported/);
   assert.throws(() => regressions.getCases('en'), /Unsupported/);
   assert.throws(() => regressions.evaluate({regressionRule: 'guess', lang: 'es'}, 'output'), /Unknown/);
   assert.throws(() => regressions.evaluate({regressionRule: 'budget', lang: 'en'}, 'output'), /Unsupported/);

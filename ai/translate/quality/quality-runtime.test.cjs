@@ -15,7 +15,7 @@ function createHarness(translatorFactory) {
   };
   const context = vm.createContext({
     document: { addEventListener() {}, getElementById(id) {
-      if (!elements.has(id)) elements.set(id, { value: 'es', style: {}, handlers: {},
+      if (!elements.has(id)) elements.set(id, { value: id === 'sourceLanguage' ? 'en' : 'es', style: {}, handlers: {},
         replaceChildren() {}, addEventListener(type, handler) { this.handlers[type] = handler; } });
       return elements.get(id);
     } },
@@ -312,8 +312,8 @@ test('focused selection runs only twenty-five defect pairs and exports a compati
   await bench.runAllTests();
   assert.equal(bench.run.complete, true);
   assert.equal(bench.run.qualityCorpus.length, 0);
-  assert.equal(bench.run.corpus.length, 34);
-  assert.equal(bench.run.requests.length, 68);
+  assert.equal(bench.run.corpus.length, 38);
+  assert.equal(bench.run.requests.length, 76);
   assert.equal(bench.run.harnessVersion, '8');
   assert.equal(bench.run.validatorVersion, require('./checks.js').VERSION);
   assert.equal(elements.get('overallScore').textContent, 'N/A');
@@ -350,7 +350,7 @@ test('focused selection supports any non-English target language', async () => {
   bench.targetSelect = { close() {} };
   bench.importWarnings = [];
   bench.clearAllResults = () => { bench.run = null; };
-  assert.equal(bench.getDefectCases().length, 34);
+  assert.equal(bench.getDefectCases().length, 38);
   assert.ok(bench.getDefectCases().every(row => row.lang === 'fr'));
   bench.runTests = () => assert.fail('Focused mode must not run references');
   bench.runDefectTests = async () => {
@@ -360,7 +360,7 @@ test('focused selection supports any non-English target language', async () => {
   await bench.runAllTests();
   assert.equal(bench.run.complete, true);
   assert.equal(bench.run.target, 'fr');
-  assert.equal(bench.run.corpus.length, 34);
+  assert.equal(bench.run.corpus.length, 38);
 
   elements.set('corpusSelection', { value: 'builtin' });
   elements.set('targetLanguage', { value: 'ar' });
@@ -400,8 +400,41 @@ test('focused selection supports any non-English target language', async () => {
   assert.equal(bench.evaluateDefect({ ...frWin, lang: 'it' },
     'Aggiorna alla versione 7.0 per Windows 11 per gestire il budget di 3.8M di dollari quest\'anno.').pass, true);
   assert.equal(bench.evaluateDefect({ ...frWin, lang: 'vi' },
-    'Nâng cấp lên phiên bản 7.0 cho Windows 11 để xử lý ngân sách 3.8M đô la trong năm nay.').pass, true);
+    'Nâng cấp lên phiên bản 7.0 cho Windows 11 để xử lý ngân sách 3,8 triệu đô la trong năm nay.').pass, true);
+  assert.equal(bench.evaluateDefect({ ...frWin, lang: 'id' },
+    'Tingkatkan ke versi 7.0 untuk Windows 11 guna menangani anggaran sebesar $3,8 juta tahun ini.').pass, true);
+  assert.equal(bench.evaluateDefect({ ...frWin, lang: 'pl' },
+    'Zaktualizuj do wersji 7.0 dla Windows 11, aby obsłużyć budżet 3,8 mln dolarów w tym roku.').pass, true);
+  assert.equal(bench.evaluateDefect({ ...frWin, lang: 'tr' },
+    'Bu yıl $3,8 milyon bütçeyi yönetmek için Windows 11 için sürüm 7.0\'a yükseltin.').pass, true);
+  assert.equal(bench.evaluateDefect({ ...frWin, lang: 'fi' },
+    'Päivitä Windows 11:n versioon 7.0 käsitelläksesi tämän vuoden 3,8 miljoonan dollarin budjettia.').pass, true);
+  assert.equal(bench.evaluateDefect({ ...frWin, lang: 'cy' },
+    'Uwchraddiwch i fersiwn 7.0 ar gyfer Windows 11 i drin cyllideb o 3,8 miliwn o ddoleri eleni.').pass, true);
+  assert.equal(bench.evaluateDefect({ ...frWin, lang: 'sw' },
+    'Boresha hadi toleo la 7.0 la Windows 11 ili kushughulikia bajeti ya dola milioni 3.8 mwaka huu.').pass, true);
 
+  // Reverse (zh-hans -> en) and 2-hop pivot (es -> ja) support
+  elements.set('sourceLanguage', { value: 'zh-hans' });
+  elements.set('targetLanguage', { value: 'en' });
+  elements.set('corpusSelection', { value: 'builtin' });
+  assert.equal(bench.getTestMode(), 'reference');
+  assert.ok(bench.getQualityDataset('zh-hans', 'en', 'reference').length >= 20);
+  const revDefects = bench.getDefectCases();
+  assert.equal(revDefects.length, 10);
+  assert.ok(revDefects.every(row => row.sourceLanguage === 'zh-hans' && row.lang === 'en'));
+  const revBillion = revDefects.find(row => row.caseId === 'reverse:zh-hans:billion-scale');
+  assert.equal(bench.evaluateDefect(revBillion, 'The annual budget is $42 billion.').pass, true);
+  assert.equal(bench.evaluateDefect(revBillion, 'The annual budget is $420 billion.').pass, false);
+
+  elements.set('corpusSelection', { value: 'focused' });
+  await bench.runAllTests();
+  assert.equal(bench.run.complete, true);
+  assert.equal(bench.run.source, 'zh-hans');
+  assert.equal(bench.run.target, 'en');
+  assert.equal(bench.run.corpus.length, 10);
+
+  elements.set('sourceLanguage', { value: 'en' });
   elements.set('corpusSelection', { value: 'focused' });
   elements.set('targetLanguage', { value: 'de' });
   const deDatetime = bench.getDefectCases().find(row => row.caseId === 'focused:datetime');

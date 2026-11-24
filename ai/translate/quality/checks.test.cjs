@@ -180,9 +180,11 @@ test('focused imports retain trusted rule/invariant metadata but reject unknown 
   const source = { schemaVersion: 1, kind: 'translation-quality-corpus',
     source: 'en', target: 'es', cases: regressions.getCases('es') };
   const imported = checks.importCorpus(source).cases;
-  assert.equal(imported.length, 34);
+  assert.equal(imported.length, 38);
   assert.ok(imported.every(row => row.regressionRule && row.expectedInvariant));
   assert.deepEqual(imported.map(row => row.regressionRule), source.cases.map(row => row.regressionRule));
+  assert.equal(checks.evaluate({ source: 'Line 1\u00a0\nLine 2', minNewlines: 1 }, 'Línea 1\nLínea 2').pass, true);
+  assert.ok(checks.evaluate({ source: 'Line 1\u00a0\nLine 2', minNewlines: 1 }, 'Línea 1 Línea 2').failures.includes('newline_structure_lost'));
   assert.throws(() => checks.importCorpus({ ...source,
     cases: [{ ...source.cases[0], regressionRule: 'unknown' }] }), /Invalid regression/);
   assert.throws(() => checks.importCorpus({ ...source,

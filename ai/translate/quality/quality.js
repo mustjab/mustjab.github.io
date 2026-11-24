@@ -652,9 +652,11 @@ class TranslationQualityBenchmark {
       .sort((a, b) => a.name.localeCompare(b.name));
 
     this.sourceSelect = new SearchableLanguageSelect(
-      'sourceLanguageSearch', 'sourceLanguageDropdown', 'sourceLanguage', [{ code: 'en', name: 'English' }], 'en'
+      'sourceLanguageSearch', 'sourceLanguageDropdown', 'sourceLanguage', languages, 'en'
     );
-    document.getElementById('sourceLanguageSearch').disabled = true;
+    document.getElementById('sourceLanguageSearch').disabled = false;
+    const swapBtn = document.getElementById('swapLanguages');
+    if (swapBtn) swapBtn.disabled = false;
     this.targetSelect = new SearchableLanguageSelect(
       'targetLanguageSearch', 'targetLanguageDropdown', 'targetLanguage', languages, 'es'
     );
@@ -702,20 +704,65 @@ class TranslationQualityBenchmark {
   }
 
   getTestMode() {
-    const source = document.getElementById('sourceLanguage').value;
-    const target = document.getElementById('targetLanguage').value;
+    const source = document.getElementById('sourceLanguage')?.value || 'en';
+    const target = document.getElementById('targetLanguage')?.value || 'es';
 
-    // Check if we have reference translations for this pair
+    // Check if we have reference translations for this pair (en -> X or X -> en)
     if (source === 'en') {
       const hasRefs = QUALITY_TEST_DATA.some(d => d.refs[target]);
       if (hasRefs) return 'reference';
+    } else if (target === 'en') {
+      const hasReverseRefs = QUALITY_TEST_DATA.some(d => d.refs[source]);
+      if (hasReverseRefs) return 'reference';
     }
     return 'roundtrip';
   }
 
+  getQualityDataset(source, target, mode) {
+    if (source === 'en') {
+      return mode === 'reference'
+        ? QUALITY_TEST_DATA.filter(d => d.refs[target])
+        : QUALITY_TEST_DATA;
+    }
+    if (target === 'en' && mode === 'reference') {
+      return QUALITY_TEST_DATA.filter(d => d.refs[source]).map(d => ({
+        id: d.id,
+        category: d.category,
+        source: d.refs[source],
+        refs: { en: d.source },
+      }));
+    }
+    // Non-English round-trip (e.g., X -> en without refs or X -> Y 2-hop pivot):
+    // use reference sentences in `source` if available, else reverse regression prompts
+    const fromRefs = QUALITY_TEST_DATA.filter(d => d.refs[source]).map(d => ({
+      id: d.id,
+      category: d.category,
+      source: d.refs[source],
+      refs: {},
+    }));
+    if (fromRefs.length) return fromRefs;
+    return QualityRegressions.getReverseCases(source, target).map((c, idx) => ({
+      id: idx + 1,
+      category: c.id,
+      source: c.source,
+      refs: {},
+    }));
+  }
+
   getDefectCases() {
-    const target = document.getElementById('targetLanguage').value;
+    const source = document.getElementById('sourceLanguage')?.value || 'en';
+    const target = document.getElementById('targetLanguage')?.value || '';
     const selection = document.getElementById('corpusSelection').value;
+    if (!source || !target || source === target) return [];
+    if (source !== 'en') {
+      if (selection === 'imported') {
+        return this.importedCases.filter(test => test.sourceLanguage === source && test.lang === target);
+      }
+      const reverseCases = QualityRegressions.getReverseCases(source, target);
+      return selection === 'combined'
+        ? [...reverseCases, ...this.importedCases.filter(test => test.sourceLanguage === source && test.lang === target)]
+        : reverseCases;
+    }
     if (selection === 'focused') {
       return target && target !== 'en' ? QualityRegressions.getCases(target) : [];
     }
@@ -881,8 +928,10 @@ class TranslationQualityBenchmark {
     const mode = this.getTestMode();
     const badge = document.getElementById('modeBadge');
     const desc = document.getElementById('modeDescription');
-    const target = document.getElementById('targetLanguage').value;
+    const source = document.getElementById('sourceLanguage')?.value || 'en';
+    const target = document.getElementById('targetLanguage')?.value || 'es';
     const targetName = LANGUAGE_NAMES[target] || target;
+    const pairDataset = source && target && source !== target ? this.getQualityDataset(source, target, mode) : [];
 
     const focused = document.getElementById('corpusSelection').value === 'focused';
     if (focused) {
@@ -890,17 +939,16 @@ class TranslationQualityBenchmark {
       badge.className = 'mode-badge mode-reference';
       desc.textContent = `${this.getDefectCases().length} development cases: objective checks and semantic review are separate. No similarity score.`;
     } else if (mode === 'reference') {
-      const count = QUALITY_TEST_DATA.filter(d => d.refs[target]).length;
       badge.textContent = 'Reference';
       badge.className = 'mode-badge mode-reference';
-      desc.textContent = `${count} references for ${targetName}. BLEU-like similarity, not accuracy.`;
+      desc.textContent = `${pairDataset.length} references for ${targetName}. BLEU-like similarity, not accuracy.`;
     } else {
       badge.textContent = 'Round-Trip';
       badge.className = 'mode-badge mode-roundtrip';
       desc.textContent = `Round-trip similarity for ${targetName}; semantic quality is unverified.`;
     }
 
-    document.getElementById('totalCount').textContent = focused ? 0 : QUALITY_TEST_DATA.length;
+    document.getElementById('totalCount').textContent = focused ? 0 : pairDataset.length;
     if (focused) document.getElementById('overallScore').textContent = 'N/A';
 
     // Defect-test panel: count cases that match current target.
@@ -1029,10 +1077,9 @@ class TranslationQualityBenchmark {
     }
 
     const mode = this.getTestMode();
+    const source = document.getElementById('sourceLanguage')?.value || 'en';
     const target = document.getElementById('targetLanguage').value;
-    const testData = mode === 'reference'
-      ? QUALITY_TEST_DATA.filter(d => d.refs[target])
-      : QUALITY_TEST_DATA;
+    const testData = this.getQualityDataset(source, target, mode);
 
     document.getElementById('totalCount').textContent = testData.length;
     this.log(`Starting ${mode} quality test (${testData.length} sentences)...`, 'info');
@@ -1767,8 +1814,12 @@ class TranslationQualityBenchmark {
 
   async runAllTests() {
     if (this.runningAll || this.importing) return;
+    const source = document.getElementById('sourceLanguage')?.value || 'en';
     const target = document.getElementById('targetLanguage').value;
-    if (target === 'en') { this.log('Choose a target other than English.', 'warning'); return; }
+    if (!source || !target || source === target) {
+      this.log(source === 'en' ? 'Choose a target other than English.' : 'Choose different source and target languages.', 'warning');
+      return;
+    }
     const cases = this.getDefectCases();
     const importedOnly = document.getElementById('corpusSelection').value === 'imported';
     const focused = document.getElementById('corpusSelection').value === 'focused';
@@ -1787,11 +1838,11 @@ class TranslationQualityBenchmark {
     this.runController = new AbortController();
 
     const mode = this.getTestMode();
-    const qualityCases = importedOnly || focused ? [] : mode === 'reference' ? QUALITY_TEST_DATA.filter(test => test.refs[target]) : QUALITY_TEST_DATA;
+    const qualityCases = importedOnly || focused ? [] : this.getQualityDataset(source, target, mode);
     const qualityCount = qualityCases.length;
     const defectCount = cases.length;
     this._allTestsTotal = qualityCount + defectCount;
-    this.run = { source: 'en', target, mode, timestamp: new Date().toISOString(),
+    this.run = { source, target, mode, timestamp: new Date().toISOString(),
       browser: this.getBrowserInfo(), userAgent: navigator.userAgent, validatorVersion: QualityChecks.VERSION, harnessVersion: '8',
       corpusSelection: document.getElementById('corpusSelection').value,
       regressionCorpusVersion: focused ? QualityRegressions.VERSION : undefined,
@@ -1800,11 +1851,15 @@ class TranslationQualityBenchmark {
       buildLabel: document.getElementById('buildLabel').value || this.getBrowserInfo(), runtimeLabel: document.getElementById('runtimeLabel').value || 'unknown',
       timeoutSeconds, complete: false, requests: [], corpus: cases, qualityCorpus: qualityCases,
       importMetadata: this.importMetadata || null, importWarnings: this.importWarnings };
-    const locked = ['targetLanguageSearch', 'regressionCsv', 'csvEncoding', 'corpusSelection', 'buildLabel',
+    const locked = ['sourceLanguageSearch', 'swapLanguages', 'targetLanguageSearch', 'regressionCsv', 'csvEncoding', 'corpusSelection', 'buildLabel',
       'runtimeLabel', 'requestTimeout', 'compareStreaming', 'compareConcurrent', 'concurrency',
       'clearAllResults', 'snapshotFile', 'compareSnapshot', 'clearSnapshot'];
-    for (const id of locked) document.getElementById(id).disabled = true;
-    this.targetSelect.close();
+    for (const id of locked) {
+      const el = document.getElementById(id);
+      if (el) el.disabled = true;
+    }
+    this.sourceSelect?.close();
+    this.targetSelect?.close();
 
     // Reset display before kicking off both phases.
     this.results = [];
@@ -1846,7 +1901,10 @@ class TranslationQualityBenchmark {
       this.testing = false;
       this.defectTesting = false;
       this._allTestsTotal = 0;
-      for (const id of locked) document.getElementById(id).disabled = false;
+      for (const id of locked) {
+        const el = document.getElementById(id);
+        if (el) el.disabled = false;
+      }
       document.getElementById('runAllTests').disabled = false;
       document.getElementById('stopAllTests').disabled = true;
       document.getElementById('copyAllResults').disabled = false;
@@ -2070,7 +2128,7 @@ const COMMA_DECIMAL_LANGS = new Set([
   'es', 'es-419', 'es-es', 'es-mx', 'fr', 'fr-ca', 'de', 'it', 'pt', 'pt-br', 'pt-pt',
   'nl', 'pl', 'ru', 'tr', 'sv', 'no', 'nb', 'da', 'fi', 'cs', 'el', 'hu', 'ro', 'bg',
   'uk', 'be', 'sr-latn', 'sr-cyrl', 'sl', 'hr', 'bs', 'sk', 'id', 'vi', 'af', 'ca',
-  'gl', 'eu', 'et', 'lv', 'lt', 'is', 'fo', 'sq', 'mk', 'az', 'kk', 'uz',
+  'cy', 'gl', 'eu', 'et', 'lv', 'lt', 'is', 'fo', 'sq', 'mk', 'az', 'kk', 'uz',
 ]);
 
 // Magnitude-word substitutions that map locale-specific expansions back
@@ -2101,9 +2159,15 @@ const MAGNITUDE_PATTERNS = [
   [/(\d+(?:\.\d+)?)\s*مليار(?:ات)?/gu, '$1B'],
   [/(\d+(?:\.\d+)?)\s*(?:مليون|ملايين)/gu, '$1M'],
   [/(\d+(?:\.\d+)?)\s*(?:ألف|آلاف)/gu, '$1K'],
-  // Hindi
-  [/(\d+(?:\.\d+)?)\s*अरब/gu, '$1B'],
-  [/(\d+(?:\.\d+)?)\s*मिलियन/gu, '$1M'],
+  // Hindi / Bangla
+  [/(\d+(?:\.\d+)?)\s*(?:अरब|বিলিয়ন)/gu, '$1B'],
+  [/(\d+(?:\.\d+)?)\s*(?:मिलियन|মিলিয়ন)/gu, '$1M'],
+  // Indonesian / Malay / Vietnamese / Swahili / Welsh / Uzbek / Turkish / Polish / Finnish / Dutch / Nordic / Slavic / Hungarian / Greek
+  [/(\d+(?:\.\d+)?)\s*(?:miliar|tỷ|milyar|mld|miliard(?:y|ów|a)?|miljardi[a-zäö]*|miljarder|milliarder|miljard|milliárd|bilioni|biliwn|milliard|δισεκατομμύρι[αο]|δισ\.?)/giu, '$1B'],
+  [/(\d+(?:\.\d+)?)\s*(?:juta|triệu|milyon|mln|milion(?:y|ów|ů)?|miljoona[a-zäö]*|miljoner|millioner|miljoen|millió|milioni|miliwn|million|εκατομμύρι[αο]|εκατ\.?)/giu, '$1M'],
+  // Swahili prefix order ("dola milioni 3.8" -> "$3.8M")
+  [/\bdola\s+milioni\s+(\d+(?:\.\d+)?)/giu, '$$$1M'],
+  [/\bdola\s+bilioni\s+(\d+(?:\.\d+)?)/giu, '$$$1B'],
   // Generic / English (covers French "millions" too)
   [/(\d+(?:\.\d+)?)\s*billions?/gi, '$1B'],
   [/(\d+(?:\.\d+)?)\s*millions?/gi, '$1M'],
@@ -2118,7 +2182,7 @@ const MAGNITUDE_PATTERNS = [
 // Applied AFTER MAGNITUDE_PATTERNS so suffixes are already collapsed.
 const CURRENCY_PATTERNS = [
   // USD: "3.8M de dólares" / "3.8M di dollari" / "3.8M US-Dollar" / "3.8M đô la" / "3.8M $" / "3.8M 美元"
-  [/(\d+(?:\.\d+)?[KMB]?)\s*(?:(?:de\s+|di\s+|d'\s*)?(?:US[-\s]?dollars?|d[óo]lares?|dollari|dollars?|đô\s*la(?:\s*Mỹ)?|доллар(?:а|ов)?|دولار(?:ات)?|डॉलर|달러|美元|美金|米ドル|ドル|USD|US\$)|\$)/giu, '$$$1'],
+  [/(\d+(?:\.\d+)?[KMB]?)\s*(?:(?:de\s+|di\s+|d'\s*|o\s+|za\s+|wa\s+)?(?:US[-\s]?dollars?|d[óo]lares?|dollari[a-z]*|dollars?|dolar[a-zıəóń]*|ddoleri|doler|dola|đô\s*la(?:\s*Mỹ)?|доллар(?:а|ов)?|دولار(?:ات)?|डॉलर|ডলার|δόλαρια|δολαρίων|달러|美元|美金|米ドル|ドル|USD|US\$)|\$)/giu, '$$$1'],
   // EUR
   [/(\d+(?:\.\d+)?[KMB]?)\s*(?:(?:de\s+)?(?:euros?|EUR)|€)/gi, '€$1'],
   // GBP
