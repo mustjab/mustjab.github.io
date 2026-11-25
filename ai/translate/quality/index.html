@@ -7,12 +7,9 @@
   <meta http-equiv="origin-trial" content="AzfmQd5WeCR1czyG5r870L/lVteg6zZW240+bw4KWXXMJWNHC1DvPbBhkPNEIbKoPykxzUFsVBTlfLH0MnFuUFIAAABpeyJvcmlnaW4iOiJodHRwczovL211c3RqYWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJBSVByb21wdEFQSSIsImV4cGlyeSI6MTgwMjkwNzc4NCwiaXNTdWJkb21haW4iOnRydWV9">
   <meta name="theme-color" content="#4f46e5">
   <title>Translation Quality Benchmark</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../../theme.css">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../../theme.css?v=4">
   <link rel="icon" href="../../../icon.png">
 </head>
 
@@ -80,15 +77,15 @@
 
         <!-- Action Controls -->
         <div class="bench-controls">
-          <button id="runAllTests" class="btn btn-primary" disabled>▶ Run Benchmark</button>
-          <button id="stopAllTests" class="btn btn-secondary" disabled>⏹ Stop</button>
-          <button id="copyAllResults" class="btn btn-secondary" disabled>📋 Copy</button>
-          <button id="saveSnapshot" class="btn btn-secondary" disabled>💾 Save Baseline</button>
-          <button id="compareSnapshot" class="btn btn-secondary">📊 Compare</button>
-          <button id="exportRun" class="btn btn-secondary" disabled>⬇ Export</button>
-          <label class="btn btn-secondary file-btn" for="snapshotFile">📂 Import</label>
+          <button id="runAllTests" class="btn btn-primary" disabled>Run Benchmark</button>
+          <button id="stopAllTests" class="btn btn-secondary" disabled>Stop</button>
+          <button id="copyAllResults" class="btn btn-secondary" disabled>Copy</button>
+          <button id="saveSnapshot" class="btn btn-secondary" disabled>Save Baseline</button>
+          <button id="compareSnapshot" class="btn btn-secondary">Compare</button>
+          <button id="exportRun" class="btn btn-secondary" disabled>Export</button>
+          <label class="btn btn-secondary file-btn" for="snapshotFile">Import</label>
           <input id="snapshotFile" type="file" accept=".json,application/json" style="display: none;">
-          <button id="clearSnapshot" class="btn btn-secondary">🗑 Clear</button>
+          <button id="clearSnapshot" class="btn btn-secondary">Clear</button>
           <button id="clearAllResults" class="btn btn-secondary" style="display: none;">Reset</button>
         </div>
 
@@ -119,7 +116,7 @@
         <!-- Unified Quality Scorecard -->
         <div class="score-grid quality-scorecard">
           <div class="score-item score-item--hero">
-            <div class="score-label">🏆 Checks Clear</div>
+            <div class="score-label">Checks Clear</div>
             <div class="score-value" id="checksClearScore">0 / 38</div>
             <div class="score-sub" id="checksClearSub">Automatic invariant checks</div>
           </div>
@@ -171,7 +168,7 @@
     </footer>
   </div>
 
-  <script src="../../nav.js"></script>
+  <script src="../../nav.js?v=2"></script>
   <script src="papaparse.min.js"></script>
   <script src="regressions.js?v=9"></script>
   <script src="checks.js?v=11"></script>

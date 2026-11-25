@@ -1928,7 +1928,7 @@ class TranslationQualityBenchmark {
     navigator.clipboard.writeText(text).then(() => {
       const btn = document.getElementById('copyAllResults');
       btn.textContent = '\u2713 Copied!';
-      setTimeout(() => { btn.textContent = '\ud83d\udccb Copy'; }, 2000);
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
     }).catch(() => {
       alert('Failed to copy results to clipboard');
     });

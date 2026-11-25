@@ -100,7 +100,7 @@ select {
 
 #schemaQuestions,
 .json-pre {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.83rem;
 }
 
@@ -115,7 +115,7 @@ select {
 .timing-meta {
   font-size: 0.84rem;
   color: var(--text-secondary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
 }
 
 .result-box {
@@ -154,7 +154,7 @@ select {
 }
 
 .decision-card__id {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--text-primary);
@@ -200,7 +200,7 @@ select {
 }
 
 .prob-label {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -228,7 +228,7 @@ select {
 
 .prob-pct {
   text-align: right;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   color: var(--text-secondary);
 }

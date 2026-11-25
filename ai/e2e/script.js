@@ -5,20 +5,20 @@
 
 const PRESETS = {
     launch: {
-        title: 'Product Launch Draft',
-        text: `We are thrilled to anounce the general availability of Edge On-Device AI Studio v2.8.15 on March 15, 2025 at 2:30 PM! The new release reduces translation latency by 35% while preserving URLs like https://example.com/docs/2.8.15?id=676 and relative paths such as /docs/release/2.8.15?id=676 across sentence boundaries. Enterprise teams with a $42 billion annual cloud budget can now run Summarizer, Rewriter, Writer, and Translator locally with zero cloud round-trips. Contact support@example.com if 1 message remains unread in your onboarding queue.`
+        title: 'Conservatory Opening',
+        text: `We are thrilled to anounce the spring reopening of the Cascade Glass Conservatory on April 12, 2026 at 10:00 AM! The renovated tropical dome features 240 rare orchid species, solar misting controls, and an interactive self-guided audio trail at https://example.org/gardens/trail?stop=14. Visitors can reserve timed entry passes online or email info@example.org if they are bringing a school group of 15 or more students.`
     },
     release: {
-        title: 'Engineering Release Notes',
-        text: `Release v2.8.15 introduces Neural Phrase Fix (NPF) with deterministic Hard Phrase Fix (HPF) fallback for on-device translation. Multi-sentence segments coalesce up to 4 protected spans within a 240-token budget before falling back to sentence-level splits. In 136 automated regression calls and 9,959 decoding steps, edge-case URL queries (?id=15&order=676) and 30 numbered department clauses were preserved with 0 unexpected errors.`
+        title: 'Weather App Changelog',
+        text: `Solaris Weather v2.4 introduces hourly coastal wind forecasts, offline tide charts for 30 harbor stations, and faster radar map rendering on mobile devices. Battery usage during background storm alerts dropped by 28% across 120 test routes, and exported CSV station logs now preserve full ISO timestamps and elevation metadata.`
     },
     support: {
-        title: 'Customer Escalation Email',
-        text: `Hi team, our deployment of the translation widget in Department 14 failed yesterday becuase the webhook URL https://api.example.org/v2/hooks?tenant=676 was truncated during batch processing. We have 12 pending tickets and need a root-cause summary, a polished status update for leadership, and a Spanish translation for our regional operations team by Monday.`
+        title: 'Travel Booking Inquiry',
+        text: `Hi team, our group reservation #4821 for the Saturday ferry to Orcas Island failed to attach the return vehicle pass becuase the confirmation link https://booking.example.com/trips?ref=4821 timed out on mobile Wi-Fi. We have 6 passengers departing Friday morning and need an updated itinerary and a Spanish summary for our visiting family.`
     },
     multilingual: {
-        title: 'Spanish Customer Feedback',
-        text: `El nuevo servicio de traducción local funciona muy rápido en Windows 11. Hemos probado 15 documentos técnicos con enlaces como https://example.com/offers?id=15 y correos como soporte@example.com, y todos los números y direcciones se conservaron correctamente sin errores.`
+        title: 'Spanish Cafe Review',
+        text: `La nueva cafetería frente al parque abre todos los días a las siete de la mañana. Probamos el café de origen colombiano y los pasteles de almendra, y el servicio fue muy amable. Puedes consultar el menú de temporada en https://example.com/menu o escribir a reservas@example.com.`
     }
 };
 
@@ -834,6 +834,25 @@ class E2EPlayground {
         $('clearBtn')?.addEventListener('click', () => this.clearAll());
         $('copyAllReportBtn')?.addEventListener('click', () => this.copyFullReport());
 
+        $('e2eSpeechSample')?.addEventListener('change', () => {
+            this.customSpeechFile = null;
+            const key = $('e2eSpeechSample')?.value || 'overview';
+            const file = key === 'meeting' ? 'sample-meeting.mp3' : 'sample-en.mp3';
+            if ($('e2eAudioPreview')) $('e2eAudioPreview').src = `../speech/${file}`;
+            setTextIfPresent('e2eSpeechStatus', '');
+        });
+        $('e2eAudioUpload')?.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            this.customSpeechFile = file;
+            if ($('e2eAudioPreview') && typeof URL !== 'undefined' && URL.createObjectURL) {
+                $('e2eAudioPreview').src = URL.createObjectURL(file);
+            }
+            setTextIfPresent('e2eSpeechStatus', file.name);
+        });
+        $('e2eTranscribeBtn')?.addEventListener('click', () => this.transcribeMp3ToInput(false));
+        $('e2eTranscribeAndRunBtn')?.addEventListener('click', () => this.transcribeMp3ToInput(true));
+
         $('dismissError')?.addEventListener('click', () => this.clearError());
 
         $('copyOutput')?.addEventListener('click', async () => {
@@ -1298,6 +1317,66 @@ class E2EPlayground {
         setTextIfPresent('pipelineStatus', 'Stopped');
     }
 
+    async transcribeMp3ToInput(runPipelineAfter = false) {
+        const helper = typeof window !== 'undefined' ? window.SpeechAudioHelper : null;
+        if (!helper) {
+            this.showError(new Error('SpeechAudioHelper is not loaded.'), 'Speech');
+            return;
+        }
+        if ($('e2eTranscribeBtn')) $('e2eTranscribeBtn').disabled = true;
+        if ($('e2eTranscribeAndRunBtn')) $('e2eTranscribeAndRunBtn').disabled = true;
+        setTextIfPresent('e2eSpeechStatus', 'Decoding MP3…');
+
+        try {
+            const sampleKey = $('e2eSpeechSample')?.value || 'overview';
+            const sampleFile = sampleKey === 'meeting' ? '../speech/sample-meeting.mp3' : '../speech/sample-en.mp3';
+            const source = this.customSpeechFile || sampleFile;
+            const audioBuffer = await helper.decodeAudioSourceToBuffer(source);
+
+            let transcript = '';
+            if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+                setTextIfPresent('e2eSpeechStatus', 'Transcribing MP3…');
+                const res = await helper.transcribeAudioBufferWithSpeechRecognition(audioBuffer, {
+                    lang: 'en-US',
+                    processLocally: true,
+                    quality: 'command',
+                    onProgress: (p) => {
+                        if ($('inputText') && p.combined) {
+                            $('inputText').value = p.combined;
+                            this.updateInputCounter();
+                        }
+                    }
+                });
+                transcript = res.transcript;
+                setTextIfPresent('e2eSpeechStatus', `Transcribed in ${res.totalMs} ms`);
+            } else if (window.LanguageModel) {
+                setTextIfPresent('e2eSpeechStatus', 'Transcribing via LanguageModel…');
+                const res = await helper.analyzeAudioBufferWithPromptApi(
+                    audioBuffer,
+                    'Transcribe this audio clip verbatim without extra commentary.'
+                );
+                transcript = res.output;
+                setTextIfPresent('e2eSpeechStatus', `Transcribed in ${res.totalMs} ms`);
+            } else {
+                throw new Error('Neither SpeechRecognition nor LanguageModel audio is available in this browser.');
+            }
+
+            if ($('inputText') && transcript) {
+                $('inputText').value = transcript;
+                this.updateInputCounter();
+            }
+            if (runPipelineAfter && transcript) {
+                await this.runAllPipeline();
+            }
+        } catch (err) {
+            setTextIfPresent('e2eSpeechStatus', 'Failed');
+            this.showError(err, 'Speech MP3');
+        } finally {
+            if ($('e2eTranscribeBtn')) $('e2eTranscribeBtn').disabled = false;
+            if ($('e2eTranscribeAndRunBtn')) $('e2eTranscribeAndRunBtn').disabled = false;
+        }
+    }
+
     getEffectiveInputText(stage) {
         const rawInput = ($('inputText')?.value || '').trim();
         const chainProofread = $('chainProofread')?.checked;
@@ -1383,6 +1462,37 @@ class E2EPlayground {
 
             if (stage === 'summarizer') {
                 const input = this.getEffectiveInputText('summarizer');
+                const sumTypeVal = $('sumType')?.value || 'key-points';
+                if ((sumTypeVal === 'webpage' || sumTypeVal === 'webpage-lora') && 'LanguageModel' in window) {
+                    const loraSession = await window.LanguageModel.create({
+                        expectedInputs: [{ type: 'text', languages: ['en'] }],
+                        expectedOutputs: [{ type: 'text', languages: ['en'] }]
+                    });
+                    const loraPrompt = `Summarize content of this webpage to main points:\n\n${input}`;
+                    let output = '';
+                    let chunks = 0;
+                    try {
+                        if (loraSession.promptStreaming) {
+                            const stream = loraSession.promptStreaming(loraPrompt, { signal: sharedSignal });
+                            this.currentStream = stream;
+                            for await (const chunk of stream) {
+                                output += chunk;
+                                chunks++;
+                                this.setStageOutput('summarizer', output);
+                                this.updateStageStats('summarizer', output.length, start, chunks);
+                            }
+                        } else {
+                            output = await loraSession.prompt(loraPrompt, { signal: sharedSignal });
+                            chunks = 1;
+                            this.setStageOutput('summarizer', output);
+                            this.updateStageStats('summarizer', output.length, start, chunks);
+                        }
+                    } finally {
+                        loraSession.destroy?.();
+                    }
+                    this.setStageStatus('summarizer', 'Done', 'is-done');
+                    return true;
+                }
                 const session = await this.getOrCreateSummarizerSession();
                 if (!session) {
                     this.setStageStatus('summarizer', 'Unavailable', 'is-error');

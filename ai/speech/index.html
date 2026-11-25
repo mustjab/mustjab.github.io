@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="origin-trial" content="AzfmQd5WeCR1czyG5r870L/lVteg6zZW240+bw4KWXXMJWNHC1DvPbBhkPNEIbKoPykxzUFsVBTlfLH0MnFuUFIAAABpeyJvcmlnaW4iOiJodHRwczovL211c3RqYWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJBSVByb21wdEFQSSIsImV4cGlyeSI6MTgwMjkwNzc4NCwiaXNTdWJkb21haW4iOnRydWV9">
+  <meta name="description" content="On-Device Speech Recognition & Multimodal Audio Playground with preloaded MP3 samples">
+  <title>Speech & Audio Playground - Microsoft Edge Built-in AI</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../theme.css?v=4">
+  <link rel="icon" href="../favicon.ico">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation"></nav>
+
+    <header>
+      <h1>On-Device Speech &amp; Audio Playground</h1>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator checking" id="statusIndicator"></span>
+        <span id="statusText">Checking Speech API...</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>1. Audio Source (Built-in MP3 Ready — No Upload Required)</h2>
+        <div class="speech-source-row">
+          <div class="preset-group" role="group" aria-label="Built-in MP3 clips">
+            <span class="preset-label">Built-in MP3:</span>
+            <button type="button" class="btn btn-secondary btn-small preset-pill is-selected" data-sample="overview" id="presetOverviewBtn">Coastal Weather (sample-en.mp3)</button>
+            <button type="button" class="btn btn-secondary btn-small preset-pill" data-sample="meeting" id="presetMeetingBtn">Monday Planning (sample-meeting.mp3)</button>
+            <button type="button" class="btn btn-secondary btn-small preset-pill" data-sample="numbers" id="presetNumbersBtn">Rover Telemetry (sample-numbers.mp3)</button>
+          </div>
+          <div class="audio-file-label">
+            <label for="audioUploadInput" class="btn btn-secondary btn-small" style="margin:0; cursor:pointer;">Optional: Choose Custom Audio</label>
+            <input type="file" id="audioUploadInput" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" style="display:none;">
+            <span id="activeSourceLabel">sample-en.mp3</span>
+          </div>
+        </div>
+
+        <div class="audio-player-bar">
+          <audio id="audioPreview" controls preload="metadata" src="./sample-en.mp3"></audio>
+          <label class="inline-check">
+            <input type="checkbox" id="playOutLoudToggle">
+            <span>Play audio out loud during transcription</span>
+          </label>
+        </div>
+
+        <div class="reference-box" id="referenceBox">
+          <span class="ref-label">Expected Reference Text</span>
+          <div id="referenceText">Clear skies and a gentle coastal breeze are expected across Seattle this weekend, with afternoon temperatures reaching seventy two degrees.</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>2. On-Device Web Speech Recognition (SpeechRecognition + MediaStreamTrack)</h2>
+        <div class="speech-options-grid">
+          <div class="form-group">
+            <label for="speechLang">Language (BCP-47)</label>
+            <select id="speechLang">
+              <option value="en-US" selected>en-US — English (US)</option>
+              <option value="fr-FR">fr-FR — French</option>
+              <option value="de-DE">de-DE — German</option>
+              <option value="es-ES">es-ES — Spanish</option>
+              <option value="ja-JP">ja-JP — Japanese</option>
+              <option value="zh-CN">zh-CN — Chinese (Simplified)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="speechMode">Recognition Engine</label>
+            <select id="speechMode">
+              <option value="local" selected>On-Device Local (processLocally: true)</option>
+              <option value="any">Browser Default (processLocally: false)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="speechQuality">Quality Profile</label>
+            <select id="speechQuality">
+              <option value="command" selected>command (Default)</option>
+              <option value="dictation">dictation</option>
+              <option value="conversation">conversation</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button type="button" class="btn btn-primary" id="transcribeMp3Btn">Transcribe Selected Audio</button>
+          <button type="button" class="btn btn-secondary" id="liveMicBtn">Start Live Microphone</button>
+          <button type="button" class="btn btn-secondary" id="installModelBtn" style="display:none;">Install On-Device Speech Model</button>
+          <button type="button" class="btn btn-secondary" id="stopSpeechBtn" disabled>Stop</button>
+          <button type="button" class="btn btn-secondary" id="copyTranscriptBtn" disabled>Copy Transcript</button>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-tile">
+            <span class="k">Audio Duration</span>
+            <span class="v" id="metricDuration">-</span>
+          </div>
+          <div class="metric-tile">
+            <span class="k">First Result</span>
+            <span class="v" id="metricFirstMs">-</span>
+          </div>
+          <div class="metric-tile">
+            <span class="k">Total Time</span>
+            <span class="v" id="metricTotalMs">-</span>
+          </div>
+          <div class="metric-tile">
+            <span class="k">Real-Time Factor</span>
+            <span class="v" id="metricRtf">-</span>
+          </div>
+          <div class="metric-tile">
+            <span class="k">Word Accuracy</span>
+            <span class="v" id="metricAccuracy">-</span>
+          </div>
+        </div>
+
+        <div class="output-header-row">
+          <span>Recognized Transcript</span>
+          <span id="speechRunStatus">Idle</span>
+        </div>
+        <div class="transcript-box" id="speechTranscript" aria-live="polite">Click "Transcribe Selected Audio" to run on-device speech recognition on sample-en.mp3.</div>
+      </section>
+
+      <section class="card">
+        <h2>3. Prompt API Multimodal Audio (LanguageModel expectedInputs: audio)</h2>
+        <div class="speech-options-grid">
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label for="audioPromptInput">Audio Instruction for LanguageModel</label>
+            <input type="text" id="audioPromptInput" value="Transcribe this audio clip verbatim, then summarize the key takeaway in one bullet.">
+          </div>
+        </div>
+        <div class="action-bar">
+          <button type="button" class="btn btn-primary" id="runPromptAudioBtn">Analyze Selected Audio with Prompt API</button>
+          <button type="button" class="btn btn-secondary" id="stopPromptAudioBtn" disabled>Stop</button>
+        </div>
+        <div class="output-header-row">
+          <span>LanguageModel Audio Output</span>
+          <span id="promptAudioStats">Idle</span>
+        </div>
+        <div class="transcript-box" id="promptAudioOutput" aria-live="polite">Ready to pass decoded MP3 AudioBuffer directly to LanguageModel.promptStreaming().</div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Built with Microsoft Edge On-Device Speech Recognition &amp; Multimodal Prompt API | <a href="../e2e/">Try MP3 in End-to-End Pipeline</a></p>
+    </footer>
+  </div>
+
+  <script src="../nav.js?v=3"></script>
+  <script src="./speech-audio.js"></script>
+  <script src="./script.js"></script>
+</body>
+
+</html>

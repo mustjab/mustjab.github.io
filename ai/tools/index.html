@@ -8,11 +8,8 @@
   <meta name="description" content="Browser Built-in AI Prompt API Tool Calling Demo">
   <meta name="theme-color" content="#4f46e5">
   <title>Browser Tool Calling Demo</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../theme.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../theme.css?v=4">
   <link rel="icon" href="../../icon.png">
 </head>
 
@@ -44,9 +41,9 @@
           <h2>Invoke Tools with LanguageModel</h2>
           <div class="preset-pills" role="group" aria-label="Preset tool scenarios">
             <span class="preset-label">Presets:</span>
-            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="weatherTime">🌤️ Weather + Time (2 Tools)</button>
-            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="commerce">🛒 Catalog + FX + Shipping (3 Tools)</button>
-            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="incident">📊 Incident Triage (2 Tools)</button>
+            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="weatherTime">Weather + Time (2 Tools)</button>
+            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="commerce">Catalog + FX + Shipping (3 Tools)</button>
+            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="incident">Incident Triage (2 Tools)</button>
           </div>
         </div>
 
@@ -77,11 +74,11 @@
         </details>
 
         <div class="button-group">
-          <button type="button" id="runSingleTurnBtn" class="btn btn-primary">▶ Run Turn 1</button>
-          <button type="button" id="runFollowUpBtn" class="btn btn-secondary">➕ Run Turn 2 on Same Session</button>
-          <button type="button" id="runTwoTurnBtn" class="btn btn-secondary">🔁 Run Turn 1 → Turn 2 Sequence</button>
-          <button type="button" id="resetSessionBtn" class="btn btn-secondary">🔄 Reset Session</button>
-          <button type="button" id="copyResultsBtn" class="btn btn-secondary" disabled>📋 Copy JSON</button>
+          <button type="button" id="runSingleTurnBtn" class="btn btn-primary">Run Turn 1</button>
+          <button type="button" id="runFollowUpBtn" class="btn btn-secondary">Run Turn 2 on Same Session</button>
+          <button type="button" id="runTwoTurnBtn" class="btn btn-secondary">Run Turn 1 → Turn 2 Sequence</button>
+          <button type="button" id="resetSessionBtn" class="btn btn-secondary">Reset Session</button>
+          <button type="button" id="copyResultsBtn" class="btn btn-secondary" disabled>Copy JSON</button>
           <span class="timing-meta" id="timingMeta"></span>
         </div>
 
@@ -104,7 +101,7 @@
     </footer>
   </div>
 
-  <script src="../nav.js"></script>
+  <script src="../nav.js?v=2"></script>
   <script src="script.js"></script>
 </body>
 

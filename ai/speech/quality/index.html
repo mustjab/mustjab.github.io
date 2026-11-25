@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="origin-trial" content="AzfmQd5WeCR1czyG5r870L/lVteg6zZW240+bw4KWXXMJWNHC1DvPbBhkPNEIbKoPykxzUFsVBTlfLH0MnFuUFIAAABpeyJvcmlnaW4iOiJodHRwczovL211c3RqYWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJBSVByb21wdEFQSSIsImV4cGlyeSI6MTgwMjkwNzc4NCwiaXNTdWJkb21haW4iOnRydWV9">
+  <title>Speech API - Quality Benchmark</title>
+  <link rel="stylesheet" href="../../benchmark.css?v=2">
+  <link rel="stylesheet" href="../../theme.css?v=4">
+  <link rel="icon" href="../../favicon.ico">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation"></nav>
+
+    <header>
+      <h1>Speech API - Quality Benchmark</h1>
+      <p class="subtitle">Automated Word Accuracy (1 - WER), named-entity preservation, and spoken numeric fidelity across built-in MP3 clips</p>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Checking SpeechRecognition availability...</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="bench-top-bar">
+          <div class="bench-controls">
+            <button id="startBtn" class="btn btn-primary">Run Quality Suite (6 MP3 cases)</button>
+            <button id="stopBtn" class="btn btn-secondary" disabled>Stop</button>
+            <button id="copyBtn" class="btn btn-secondary" disabled>Copy Summary</button>
+            <button id="clearBtn" class="btn btn-secondary btn-small">Clear</button>
+          </div>
+        </div>
+
+        <div class="score-grid">
+          <div class="score-item score-item--hero">
+            <div class="score-label">Suite Pass Rate</div>
+            <div class="score-value"><span id="totalPass">0</span> / <span id="totalCount">6</span></div>
+            <div class="score-sub">Pass rate: <span id="passRate">0</span>%</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Mean Word Accuracy</div>
+            <div class="score-value"><span id="meanAccuracy">—</span></div>
+            <div class="score-sub">Normalized 1 &minus; WER</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Command Profile</div>
+            <div class="score-value" id="commandScore">—</div>
+            <div class="score-sub">3 built-in MP3 clips</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Dictation Profile</div>
+            <div class="score-value" id="dictationScore">—</div>
+            <div class="score-sub">3 built-in MP3 clips</div>
+          </div>
+        </div>
+
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
+
+        <div id="caseResultsList" class="quality-case-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../../nav.js?v=3"></script>
+  <script src="../speech-audio.js"></script>
+  <script src="quality.js"></script>
+</body>
+
+</html>

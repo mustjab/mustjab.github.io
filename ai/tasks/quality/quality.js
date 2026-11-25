@@ -21,7 +21,7 @@
       id: 'summarizer:headline-brevity',
       task: 'summarizer',
       options: { type: 'headline', length: 'short', format: 'plain-text' },
-      input: `Microsoft Edge 158 introduces on-device neural phrase-fix recovery and dynamic 4-row batching for local translation, cutting latency by 35% while preserving URLs and numeric scales across 18 language packs.`,
+      input: `Solaris Observatory unveiled a new adaptive-optics telescope on Mauna Kea this Tuesday, sharpening infrared exoplanet imaging by 35% across 18 sky survey sectors.`,
       check(out) {
         const lines = out.trim().split(/\r?\n/).filter(Boolean);
         const pass = lines.length <= 2 && out.trim().length > 10 && out.trim().length <= 180;
@@ -62,10 +62,10 @@
       id: 'rewriter:formal-entity-preservation',
       task: 'rewriter',
       options: { tone: 'more-formal', length: 'as-is', format: 'plain-text' },
-      input: `Hey folks, we just shipped v2.8.15 to fix bug #64782008! Ping qa@example.com if anything looks broken.`,
+      input: `Hey folks, we just published Solaris Weather v2.4.1 to close ticket #40219! Email support@example.com if anything looks off.`,
       check(out) {
-        const pass = /2\.8\.15/.test(out) && /64782008/.test(out) && /qa@example\.com/i.test(out);
-        return { pass, detail: pass ? 'Preserved v2.8.15, #64782008, and qa@example.com' : 'Lost version, bug ID, or email during rewrite' };
+        const pass = /2\.4\.1/.test(out) && /40219/.test(out) && /support@example\.com/i.test(out);
+        return { pass, detail: pass ? 'Preserved v2.4.1, #40219, and support@example.com' : 'Lost version, ticket ID, or email during rewrite' };
       },
     },
     {
@@ -250,10 +250,10 @@
       document.title = `${titlePrefix} - Quality Benchmark`;
       const h1 = document.querySelector('header h1');
       if (h1) h1.textContent = `${titlePrefix} - Quality Benchmark`;
-      document.getElementById('startBtn').textContent = `▶ Run ${titlePrefix.replace(' API', '')} Quality Suite (${activeCases.length} cases)`;
+      document.getElementById('startBtn').textContent = `Run ${titlePrefix.replace(' API', '')} Quality Suite (${activeCases.length} cases)`;
       document.getElementById('totalCount').textContent = String(activeCases.length);
     } else {
-      document.getElementById('startBtn').textContent = `▶ Run Quality Suite (${activeCases.length} cases)`;
+      document.getElementById('startBtn').textContent = `Run Quality Suite (${activeCases.length} cases)`;
       document.getElementById('totalCount').textContent = String(activeCases.length);
     }
 

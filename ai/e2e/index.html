@@ -9,11 +9,8 @@
     content="Unified one-input end-to-end pipeline for on-device Built-in AI APIs: Language Detection, Proofreader, Summarizer, Rewriter, Writer, Prompt API, Decisions API, and Translator" />
   <meta name="theme-color" content="#4f46e5" />
   <title>Built-in AI End-to-End Pipeline</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="../theme.css?v=4" />
   <link rel="icon" href="../favicon.ico" />
 </head>
 
@@ -53,10 +50,28 @@
           </div>
           <div class="preset-bar" aria-label="Sample input presets">
             <span class="preset-label">Presets:</span>
-            <button type="button" class="btn btn-small preset-btn" data-preset="launch">🚀 Product Launch</button>
-            <button type="button" class="btn btn-small preset-btn" data-preset="release">📦 Release Notes</button>
-            <button type="button" class="btn btn-small preset-btn" data-preset="support">💬 Customer Escalation</button>
-            <button type="button" class="btn btn-small preset-btn" data-preset="multilingual">🌐 Spanish Feedback</button>
+            <button type="button" class="btn btn-small preset-btn" data-preset="launch">Conservatory Opening</button>
+            <button type="button" class="btn btn-small preset-btn" data-preset="release">Weather App Notes</button>
+            <button type="button" class="btn btn-small preset-btn" data-preset="support">Travel Inquiry</button>
+            <button type="button" class="btn btn-small preset-btn" data-preset="multilingual">Spanish Review</button>
+          </div>
+        </div>
+
+        <div class="e2e-speech-bar" aria-label="Built-in MP3 Speech Input">
+          <div class="e2e-speech-controls">
+            <label for="e2eSpeechSample" class="preset-label" style="margin:0;">Audio / MP3:</label>
+            <select id="e2eSpeechSample" aria-label="Select built-in MP3 sample">
+              <option value="overview" selected>Coastal Weather Forecast (sample-en.mp3)</option>
+              <option value="meeting">Monday Planning Note (sample-meeting.mp3)</option>
+            </select>
+            <audio id="e2eAudioPreview" controls preload="metadata" src="../speech/sample-en.mp3"></audio>
+            <label for="e2eAudioUpload" class="btn btn-secondary btn-small" style="margin:0; cursor:pointer;">Custom File</label>
+            <input type="file" id="e2eAudioUpload" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" style="display:none;" />
+          </div>
+          <div class="e2e-speech-actions">
+            <button type="button" class="btn btn-secondary btn-small" id="e2eTranscribeBtn">Transcribe MP3 → Input</button>
+            <button type="button" class="btn btn-primary btn-small" id="e2eTranscribeAndRunBtn">Transcribe MP3 &amp; Run All</button>
+            <span class="e2e-speech-status" id="e2eSpeechStatus"></span>
           </div>
         </div>
 
@@ -70,15 +85,15 @@
 
         <div class="pipeline-toggles">
           <div class="stage-pills" role="group" aria-label="Enabled pipeline stages">
-            <label class="stage-pill"><input type="checkbox" id="enableLid" checked> <span>🔍 Language Detector</span></label>
-            <label class="stage-pill"><input type="checkbox" id="enableProofreader" checked> <span>✅ Proofreader</span></label>
-            <label class="stage-pill"><input type="checkbox" id="enableSummarizer" checked> <span>📝 Summarizer</span></label>
-            <label class="stage-pill"><input type="checkbox" id="enableRewriter" checked> <span>✨ Rewriter</span></label>
-            <label class="stage-pill"><input type="checkbox" id="enableWriter" checked> <span>✍️ Writer</span></label>
-            <label class="stage-pill"><input type="checkbox" id="enablePrompt" checked> <span>🤖 Prompt API</span></label>
-            <label class="stage-pill"><input type="checkbox" id="enableTools" checked> <span>🛠️ Tool Calling</span></label>
-            <label class="stage-pill"><input type="checkbox" id="enableDecisions" checked> <span>⚖️ Decisions API</span></label>
-            <label class="stage-pill"><input type="checkbox" id="enableTranslator" checked> <span>🌐 Translator</span></label>
+            <label class="stage-pill"><input type="checkbox" id="enableLid" checked> <span>Language Detector</span></label>
+            <label class="stage-pill"><input type="checkbox" id="enableProofreader" checked> <span>Proofreader</span></label>
+            <label class="stage-pill"><input type="checkbox" id="enableSummarizer" checked> <span>Summarizer</span></label>
+            <label class="stage-pill"><input type="checkbox" id="enableRewriter" checked> <span>Rewriter</span></label>
+            <label class="stage-pill"><input type="checkbox" id="enableWriter" checked> <span>Writer</span></label>
+            <label class="stage-pill"><input type="checkbox" id="enablePrompt" checked> <span>Prompt API</span></label>
+            <label class="stage-pill"><input type="checkbox" id="enableTools" checked> <span>Tool Calling</span></label>
+            <label class="stage-pill"><input type="checkbox" id="enableDecisions" checked> <span>Decisions API</span></label>
+            <label class="stage-pill"><input type="checkbox" id="enableTranslator" checked> <span>Translator</span></label>
           </div>
           <label class="chain-toggle" title="When enabled, Summarizer and Rewriter use Proofreader's corrected output if available">
             <input type="checkbox" id="chainProofread" checked>
@@ -87,10 +102,10 @@
         </div>
 
         <div class="button-row pipeline-actions">
-          <button id="runBtn" class="btn btn-primary" type="button">▶ Run All Enabled APIs</button>
-          <button id="stopBtn" class="btn btn-secondary" type="button" disabled>⏹ Stop All</button>
-          <button id="copyAllReportBtn" class="btn btn-secondary" type="button" disabled>📋 Copy Full Report</button>
-          <button id="clearBtn" class="btn btn-secondary" type="button">🗑 Clear</button>
+          <button id="runBtn" class="btn btn-primary" type="button">Run All Enabled APIs</button>
+          <button id="stopBtn" class="btn btn-secondary" type="button" disabled>Stop All</button>
+          <button id="copyAllReportBtn" class="btn btn-secondary" type="button" disabled>Copy Full Report</button>
+          <button id="clearBtn" class="btn btn-secondary" type="button">Clear</button>
         </div>
 
         <div class="progress-container" id="downloadProgress" style="display:none;">
@@ -114,7 +129,7 @@
         <section class="card stage-card" id="card-lid">
           <div class="stage-card__header">
             <div class="stage-card__title">
-              <h3>🔍 Language Detector</h3>
+              <h3>Language Detector</h3>
               <span class="support-badge" id="supportLID">Checking…</span>
             </div>
             <div class="stage-card__actions">
@@ -137,7 +152,7 @@
         <section class="card stage-card" id="card-proofreader">
           <div class="stage-card__header">
             <div class="stage-card__title">
-              <h3>✅ Proofreader</h3>
+              <h3>Proofreader</h3>
               <span class="support-badge" id="supportProofreader">Checking…</span>
             </div>
             <div class="stage-card__actions">
@@ -173,7 +188,7 @@
         <section class="card stage-card" id="card-summarizer">
           <div class="stage-card__header">
             <div class="stage-card__title">
-              <h3>📝 Summarizer</h3>
+              <h3>Summarizer</h3>
               <span class="support-badge" id="supportSummarizer">Checking…</span>
             </div>
             <div class="stage-card__actions">
@@ -185,8 +200,9 @@
             <div class="option">
               <label for="sumType">Type</label>
               <select id="sumType">
+                <option value="webpage" selected>webpage (Main Points)</option>
                 <option value="tl;dr">tl;dr</option>
-                <option value="key-points" selected>key-points</option>
+                <option value="key-points">key-points</option>
                 <option value="teaser">teaser</option>
                 <option value="headline">headline</option>
               </select>
@@ -229,7 +245,7 @@
         <section class="card stage-card" id="card-rewriter">
           <div class="stage-card__header">
             <div class="stage-card__title">
-              <h3>✨ Rewriter</h3>
+              <h3>Rewriter</h3>
               <span class="support-badge" id="supportRewriter">Checking…</span>
             </div>
             <div class="stage-card__actions">
@@ -285,7 +301,7 @@
         <section class="card stage-card" id="card-writer">
           <div class="stage-card__header">
             <div class="stage-card__title">
-              <h3>✍️ Writer</h3>
+              <h3>Writer</h3>
               <span class="support-badge" id="supportWriter">Checking…</span>
             </div>
             <div class="stage-card__actions">
@@ -344,7 +360,7 @@
         <section class="card stage-card" id="card-prompt">
           <div class="stage-card__header">
             <div class="stage-card__title">
-              <h3>🤖 Prompt API</h3>
+              <h3>Prompt API</h3>
               <span class="support-badge" id="supportPrompt">Checking…</span>
             </div>
             <div class="stage-card__actions">
@@ -380,7 +396,7 @@
         <section class="card stage-card stage-card--span2" id="card-tools">
           <div class="stage-card__header">
             <div class="stage-card__title">
-              <h3>🛠️ Tool Calling</h3>
+              <h3>Tool Calling</h3>
               <span class="support-badge" id="supportTools">Checking…</span>
             </div>
             <div class="stage-card__actions">
@@ -423,7 +439,7 @@
         <section class="card stage-card stage-card--span2" id="card-decisions">
           <div class="stage-card__header">
             <div class="stage-card__title">
-              <h3>⚖️ Decisions API</h3>
+              <h3>Decisions API</h3>
               <span class="support-badge" id="supportDecisions">Checking…</span>
             </div>
             <div class="stage-card__actions">
@@ -468,13 +484,13 @@
       <section class="card stage-card stage-card--full" id="card-translator">
         <div class="stage-card__header">
           <div class="stage-card__title">
-            <h3>🌐 Translator API</h3>
+            <h3>Translator API</h3>
             <span class="support-badge" id="supportTranslator">Checking…</span>
           </div>
           <div class="stage-card__actions">
             <span class="stage-status" id="status-translator">Idle</span>
             <button id="translateBtn" class="btn btn-small" type="button" title="Run Translator only">↻ Run</button>
-            <button id="stopTranslateBtn" class="btn btn-small" type="button" disabled>⏹ Stop</button>
+            <button id="stopTranslateBtn" class="btn btn-small" type="button" disabled>Stop</button>
           </div>
         </div>
 
@@ -562,7 +578,8 @@
     </footer>
   </div>
 
-  <script src="../nav.js"></script>
+  <script src="../nav.js?v=3"></script>
+  <script src="../speech/speech-audio.js"></script>
   <script src="script.js"></script>
 </body>
 

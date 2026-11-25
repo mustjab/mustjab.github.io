@@ -7,12 +7,9 @@
   <meta http-equiv="origin-trial" content="AzfmQd5WeCR1czyG5r870L/lVteg6zZW240+bw4KWXXMJWNHC1DvPbBhkPNEIbKoPykxzUFsVBTlfLH0MnFuUFIAAABpeyJvcmlnaW4iOiJodHRwczovL211c3RqYWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJBSVByb21wdEFQSSIsImV4cGlyeSI6MTgwMjkwNzc4NCwiaXNTdWJkb21haW4iOnRydWV9">
   <meta name="theme-color" content="#4f46e5">
   <title>Translation Speed Benchmark</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../../theme.css">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="../../theme.css?v=4">
   <link rel="icon" href="../../../icon.png">
 </head>
 
@@ -77,20 +74,20 @@
           </div>
 
           <div class="bench-controls">
-            <button id="runAll" class="btn btn-primary" disabled>▶ Run Benchmark</button>
-            <button id="stopSpeedBench" class="btn btn-secondary" disabled>⏹ Stop</button>
-            <button id="saveResults" class="btn btn-secondary" disabled title="Copy summary and TSV to clipboard">📋 Copy</button>
-            <button id="saveSpeedSnapshot" class="btn btn-secondary" disabled title="Save current run into selected baseline slot">💾 Save Baseline</button>
+            <button id="runAll" class="btn btn-primary" disabled>Run Benchmark</button>
+            <button id="stopSpeedBench" class="btn btn-secondary" disabled>Stop</button>
+            <button id="saveResults" class="btn btn-secondary" disabled title="Copy summary and TSV to clipboard">Copy</button>
+            <button id="saveSpeedSnapshot" class="btn btn-secondary" disabled title="Save current run into selected baseline slot">Save Baseline</button>
             <select id="baselineSlotSelect" class="slot-select" aria-label="Baseline slot to save into" style="display: none;">
               <option value="canary" selected>Slot: Edge Canary</option>
               <option value="chrome">Slot: Chrome</option>
               <option value="custom">Slot: Custom</option>
             </select>
-            <button id="compareSpeedSnapshot" class="btn btn-secondary">📊 Compare</button>
-            <button id="exportSpeedRun" class="btn btn-secondary" disabled>⬇ Export</button>
-            <label class="btn btn-secondary file-btn" for="speedSnapshotFile">📂 Import</label>
+            <button id="compareSpeedSnapshot" class="btn btn-secondary">Compare</button>
+            <button id="exportSpeedRun" class="btn btn-secondary" disabled>Export</button>
+            <label class="btn btn-secondary file-btn" for="speedSnapshotFile">Import</label>
             <input type="file" id="speedSnapshotFile" accept=".json,application/json" style="display: none;">
-            <button id="clearSpeedSnapshot" class="btn btn-secondary" title="Clear saved baselines">🗑 Clear</button>
+            <button id="clearSpeedSnapshot" class="btn btn-secondary" title="Clear saved baselines">Clear</button>
           </div>
         </div>
 
@@ -105,7 +102,7 @@
         <!-- Unified Scorecard: 1 Composite Score + 5 Pillar Scores -->
         <div class="scorecard-grid">
           <div class="score-item score-item--hero">
-            <div class="score-label">🏆 Overall Speed Score</div>
+            <div class="score-label">Overall Speed Score</div>
             <div class="score-value" id="overallSpeedScore">0</div>
             <div class="score-sub">chars/sec composite · Init: <span id="initTime">0</span> ms</div>
           </div>
@@ -351,7 +348,7 @@
                   <h3>5. Real-World Page Mix &amp; Span Tax
                     <span class="replay-btn" id="runPageSim" title="Re-run this test">↻</span>
                   </h3>
-                  <p>Translates a balanced web-page sample across navigation items, headings, short labels (with numbers, URLs, and emails), and paragraphs to measure real-page throughput and phrase-fix span overhead.</p>
+                  <p>Translates a balanced web-page sample across navigation items, headings, short labels (with numbers, URLs, and emails), and paragraphs to measure real-page throughput and structured-span overhead.</p>
                   <details class="pillar-details" id="pageSimResults">
                     <summary>View segment-type &amp; protected-span breakdown (<span id="simSegments">0</span> segs, <span id="simTotalChars">0</span> chars)</summary>
                     <table class="inner-table">
@@ -438,7 +435,7 @@
     </footer>
   </div>
 
-  <script src="../../nav.js"></script>
+  <script src="../../nav.js?v=2"></script>
   <script src="speed.js?v=5"></script>
 </body>
 

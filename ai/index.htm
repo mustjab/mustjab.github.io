@@ -6,76 +6,74 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="origin-trial" content="AzfmQd5WeCR1czyG5r870L/lVteg6zZW240+bw4KWXXMJWNHC1DvPbBhkPNEIbKoPykxzUFsVBTlfLH0MnFuUFIAAABpeyJvcmlnaW4iOiJodHRwczovL211c3RqYWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJBSVByb21wdEFQSSIsImV4cGlyeSI6MTgwMjkwNzc4NCwiaXNTdWJkb21haW4iOnRydWV9">
   <meta name="description" content="AI Chat Demo using Microsoft Edge's built-in Prompt API for local AI conversations">
-  <meta name="theme-color" content="#6366f1">
-  <title>Prompt API Demo - Using Microsoft Edge On Device Model</title>
-  <link rel="stylesheet" href="Style.css">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f5f8">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#181b22">
+  <title>Prompt API Playground - Microsoft Edge On-Device AI</title>
+  <link rel="stylesheet" href="Style.css?v=3">
   <link rel="stylesheet" href="Progress.css">
+  <link rel="stylesheet" href="theme.css?v=4">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
-  <div class="app-container">
-    <header class="app-header">
-      <div class="header-content">
-        <div class="app-icon">🤖</div>
-        <div class="header-text">
-          <h1>Prompt API Demo</h1>
-          <p>Powered by Microsoft Edge's built-in language model</p>
-        </div> <!-- Performance Metrics -->
-        <div class="header-metrics">
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation"></nav>
+
+    <header class="prompt-page-header">
+      <div class="prompt-header-titles">
+        <h1>Prompt API Playground</h1>
+        <p class="subtitle">Local chat with Microsoft Edge's built-in on-device language model</p>
+      </div>
+
+      <div class="prompt-header-right">
+        <div class="header-metrics" aria-label="Generation metrics">
           <div class="metric-item">
             <span class="metric-value" id="cps">0</span>
             <span class="metric-label">char/s</span>
           </div>
           <div class="metric-item">
             <span class="metric-value" id="tps">0</span>
-            <span class="metric-label">tokens/s</span>
+            <span class="metric-label">tok/s</span>
           </div>
           <div class="metric-item">
             <span class="metric-value" id="latency">0</span>
-            <span class="metric-label">latency ms</span>
+            <span class="metric-label">init ms</span>
           </div>
         </div>
 
-        <div class="status-badge" id="statusBadge" title="AI Model Status">
+        <div class="api-status status-badge" id="statusBadge" title="AI Model Status">
           <div class="status-dot" id="statusDot"></div>
           <span class="status-text" id="statusText">Initializing...</span>
         </div>
       </div>
     </header>
+
     <main class="main-content">
-      <!-- Demo navigation -->
-      <div class="demo-links" aria-label="AI demos navigation">
-        <a class="demo-link" href="./" aria-current="page">Prompt API Demo</a>
-        <a class="demo-link" href="e2e/">End-to-End Playground</a>
-        <a class="demo-link" href="decisions/">Decisions API</a>
-        <a class="demo-link" href="tools/">Tool Calling</a>
-        <a class="demo-link" href="translate/">Translator API</a>
-        <a class="demo-link" href="lid/">Language Detection API</a>
-        <a class="demo-link" href="translate/speed/">Translation Speed</a>
-        <a class="demo-link" href="translate/quality/">Translation Quality</a>
-      </div>
       <!-- Configuration Panel -->
       <section class="config-panel" aria-labelledby="systemPromptLabel">
-        <label for="initialPrompt" id="systemPromptLabel" class="config-label">System Prompt</label>
+        <div class="config-header-row">
+          <label for="initialPrompt" id="systemPromptLabel" class="config-label" style="margin-bottom:0;">System Prompt (Optional)</label>
+          <div class="prompt-preset-bar" role="group" aria-label="Starter prompt presets">
+            <span class="preset-tag">Presets:</span>
+            <button type="button" class="btn btn-secondary btn-small prompt-preset-btn" data-preset="trailer">Cat Time-Travel</button>
+            <button type="button" class="btn btn-secondary btn-small prompt-preset-btn" data-preset="mars">Mars Ramen Review</button>
+            <button type="button" class="btn btn-secondary btn-small prompt-preset-btn" data-preset="summarize">Summarize Webpage</button>
+            <button type="button" class="btn btn-secondary btn-small prompt-preset-btn" data-preset="rewrite">Casual Rewrite</button>
+          </div>
+        </div>
         <textarea id="initialPrompt" name="prompt" rows="2"
-          placeholder="Describe how the assistant should behave...">You are a helpful AI assistant. Respond clearly and concisely.</textarea>
+          placeholder="Optional system instructions (leave blank to use the browser model's default system prompt)..."></textarea>
       </section>
       <!-- Download Prompt -->
       <div class="download-prompt" id="downloadPrompt" style="display: none;">
         <div class="download-prompt-content">
-          <div class="download-icon">📥</div>
           <div class="download-text">
-            <h3>AI Model Download Required</h3>
-            <p>To start chatting, we need to download the AI model first. This happens locally in your browser and
-              requires user permission.</p>
+            <h3>Model Download Required</h3>
+            <p>Download the on-device language model once in your browser to start chatting locally.</p>
           </div>
-          <button class="download-btn" id="downloadBtn">
-            <span>Start Download</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <button class="btn btn-primary download-btn" id="downloadBtn" type="button">
+            <span>Download Model</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7,10 12,15 17,10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
@@ -87,7 +85,7 @@
       <!-- Progress Bar -->
       <div class="progress-container" id="progressContainer" style="display: none;">
         <div class="progress-header">
-          <h4>📥 Downloading AI Model</h4>
+          <h4>Downloading AI Model</h4>
           <span class="progress-percentage" id="progressPercentage">0%</span>
         </div>
         <div class="progress-bar-wrapper">
@@ -112,8 +110,8 @@
         </div>
         <div class="chat-input-container">
           <div class="input-wrapper">
-            <textarea id="input"
-              placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)">Tell me an interesting fact about the universe that most people don't know</textarea>
+            <textarea id="input" rows="1"
+              placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)">Pitch a 3-sentence movie trailer about a cat who debugs time travel.</textarea>
             <div class="input-actions">
               <button id="send" class="btn btn-primary" title="Send message">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -133,7 +131,7 @@
     </main>
   </div>
   <!-- Load JavaScript with defer for better performance -->
-  <script src="nav.js"></script>
+  <script src="nav.js?v=2"></script>
   <script src="prompt.js" defer></script>
 </body>
 

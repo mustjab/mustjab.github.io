@@ -8,11 +8,8 @@
   <meta name="description" content="Browser Built-in AI Decisions API Demo">
   <meta name="theme-color" content="#4f46e5">
   <title>Browser Decisions API Demo</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../theme.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../theme.css?v=4">
   <link rel="icon" href="../../icon.png">
 </head>
 
@@ -44,10 +41,10 @@
           <h2>Classify Input with DecisionModel</h2>
           <div class="preset-pills" role="group" aria-label="Preset scenarios">
             <span class="preset-label">Presets:</span>
-            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="support">💬 Support Triage</button>
-            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="security">🛡️ Security Risk</button>
+            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="support">Support Triage</button>
+            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="security">Security Risk</button>
             <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="moderation">⭐ Product Feedback</button>
-            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="release">🚀 Release Readiness</button>
+            <button type="button" class="btn btn-secondary btn-small preset-btn" data-preset="release">Release Readiness</button>
           </div>
         </div>
 
@@ -67,8 +64,8 @@
         </div>
 
         <div class="button-group">
-          <button type="button" id="createAndDecideBtn" class="btn btn-primary">▶ Decide</button>
-          <button type="button" id="copyResultsBtn" class="btn btn-secondary" disabled>📋 Copy JSON</button>
+          <button type="button" id="createAndDecideBtn" class="btn btn-primary">Decide</button>
+          <button type="button" id="copyResultsBtn" class="btn btn-secondary" disabled>Copy JSON</button>
           <span class="timing-meta" id="timingMeta"></span>
         </div>
 
@@ -98,7 +95,7 @@
     </footer>
   </div>
 
-  <script src="../nav.js"></script>
+  <script src="../nav.js?v=2"></script>
   <script src="script.js"></script>
 </body>
 

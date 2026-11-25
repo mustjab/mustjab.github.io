@@ -80,8 +80,8 @@
 }
 
 .score-item--hero {
-  background: color-mix(in oklab, var(--primary-color) 10%, var(--surface)) !important;
-  border-color: color-mix(in oklab, var(--primary-color) 45%, var(--border)) !important;
+  background: color-mix(in oklab, var(--accent-color) 6%, var(--surface)) !important;
+  border-color: color-mix(in oklab, var(--accent-color) 38%, var(--border)) !important;
 }
 
 .score-sub {
@@ -114,7 +114,11 @@
 #snapshotComparison { max-height: 480px; overflow: auto; }
 #snapshotComparison details { border-bottom: 1px solid var(--border-light); padding: 8px 0; }
 #snapshotComparison pre { white-space: pre-wrap; overflow-wrap: anywhere; }
-.test-log .log-entry { overflow-wrap: anywhere; }
+.test-log .log-entry {
+  overflow-wrap: anywhere;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
+}
 .test-log select { max-width: 100%; padding: 5px; margin-top: 6px; }
 .bench-controls {
   display: flex;
@@ -202,7 +206,7 @@
 .score-value {
   font-size: 1.55rem;
   font-weight: 700;
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: var(--font-mono);
   color: var(--primary-color);
   line-height: 1.2;
   margin: 4px 0;
@@ -248,7 +252,7 @@
   font-size: 13px;
   color: var(--text-secondary, #666);
   white-space: nowrap;
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 
 /* Test log */
@@ -267,7 +271,7 @@
   border-radius: 8px;
   padding: 12px;
   font-size: 13px;
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: var(--font-mono);
   line-height: 1.6;
 }
 
@@ -486,7 +490,7 @@
   color: var(--primary-color);
   font-size: 11px;
   font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* Responsive */

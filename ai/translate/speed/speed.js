@@ -100,7 +100,7 @@ const LANGUAGE_NAMES = {
 
 // Numbers (including slash-dates and colon-times, excluding prose percentages
 // like 15%), Cyrillic Supplement product codes, URLs, relative query paths,
-// emails, and inline <bN>...</bN> DOM tags use phrase-fix span annotations.
+// emails, and inline <bN>...</bN> DOM tags exercise structured-span preservation.
 const DOM_TAG_SPAN_RE = /<\/?b\d+>/;
 const PROTECTED_SPAN_RE = /<\/?b\d+>|\b\d+(?:[.,:/]\d+)*(?![.,:/]?\d|\s*%)|[\u0500-\u052F]+|https?:\/\/\S+|\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+\?[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=-]+|\bwww\.\S+|\S+@\S+\.\w+/;
 const countCodePoints = text => Array.from(String(text || '')).length;
@@ -229,7 +229,7 @@ const PAGE_SIM_SEGMENTS = {
     'Customer satisfaction remains our top priority across every product tier. Our support team is available around the clock to assist with technical questions, account management, and integration guidance. We pride ourselves on rapid resolution for all engineering and billing inquiries.',
     'Security is built into every layer of our infrastructure from day one. All data is encrypted in transit and at rest using industry-standard cryptographic protocols. We undergo regular third-party security audits and maintain compliance with major international data protection regulations.',
     'The API supports both synchronous and streaming translation modes for web applications. Synchronous mode returns the complete translation in a single response, while streaming mode delivers results progressively as each segment finishes. This allows your interface to display partial translations immediately while longer passages continue decoding.',
-    'Machine translation quality has improved dramatically over the past decade thanks to advances in deep learning and natural language processing. Modern neural translation models can handle complex grammatical structures, preserve formatting, and maintain consistent terminology across long documents. Hybrid phrase-fixing safeguards keep structured spans intact.',
+    'Machine translation quality has improved dramatically over the past decade thanks to advances in deep learning and natural language processing. Modern neural translation models can handle complex grammatical structures, preserve formatting, and maintain consistent terminology across long documents. Structured-span safeguards keep inline markup and identifiers intact.',
     'Getting started is simple: create a free account, select your source and target languages, and begin translating immediately. No credit card is required for the free tier, which includes 100,000 characters per month and 250 requests per minute. Enterprise plans scale from $150 to $200 billion in annual processed volume across 48 global regions.',
     'Upgrading the runtime to .NET 8 and ONNX Runtime 1.21.2 reduced average batch latency from 1,744.2 ms to 1,115.5 ms per 1,000 characters on 4-core client devices. Memory footprint stayed under 420 MB while translating 1,250 concurrent segments. Full benchmark reports are available at https://example.com/benchmarks/2.8.15?id=676.',
     'We recommend using the batch translation endpoint with width 512 and batch size 4 when processing 12 to 64 text segments simultaneously. In production telemetry across 18,400 sessions, dynamic batching improved throughput from 1,280 chars/sec to 2,640 chars/sec. Contact support@example.com for custom quota adjustments.',
@@ -1241,7 +1241,7 @@ class TranslationSpeedBenchmark {
       this.showStatus(`Error: ${error.message}`);
     } finally {
       btn.disabled = false;
-      btn.textContent = '▶ Run Benchmark';
+      btn.textContent = 'Run Benchmark';
     }
   }
 
@@ -1334,7 +1334,7 @@ class TranslationSpeedBenchmark {
       throw new Error(`Language pair mismatch: ${current.source}→${current.target} vs ${prior.source}→${prior.target}.`);
     }
     const defs = [
-      { key: 'overallScoreCps', label: '🏆 Overall Speed Score (chars/sec)', unit: 'chars/sec', lowerBetter: false },
+      { key: 'overallScoreCps', label: 'Overall Speed Score (chars/sec)', unit: 'chars/sec', lowerBetter: false },
       { key: 'singleScoreCps', label: '1. Single Call Speed (chars/sec)', unit: 'chars/sec', lowerBetter: false },
       { key: 'singleLatencyMs', label: '   Single Call Latency (ms)', unit: 'ms', lowerBetter: true },
       { key: 'avgThroughputCps', label: '2. Long-Passage Throughput (chars/sec)', unit: 'chars/sec', lowerBetter: false },
@@ -1494,7 +1494,7 @@ class TranslationSpeedBenchmark {
 
       cmpEl.style.display = 'block';
       cmpEl.innerHTML = `
-        <h3>📊 Speed Comparison: ${current.buildLabel || current.browser} vs. ${comparisons.map(c => c.title).join(' & ')}</h3>
+        <h3>Speed Comparison: ${current.buildLabel || current.browser} vs. ${comparisons.map(c => c.title).join(' & ')}</h3>
         <table class="inner-table" style="width:100%;">
           <thead>
             <tr><th style="text-align:left;">Benchmark Pillar</th><th>Current (${current.buildLabel || current.browser})</th>${headerCols}</tr>
@@ -1638,7 +1638,7 @@ class TranslationSpeedBenchmark {
     navigator.clipboard.writeText(clipboardData).then(() => {
       const btn = document.getElementById('saveResults');
       btn.textContent = '✓ Copied!';
-      setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
     }).catch(() => {
       alert('Failed to copy results to clipboard');
     });

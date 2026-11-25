@@ -2,11 +2,13 @@
 (function () {
   'use strict';
 
+  const WEBPAGE_SUMMARIZE_PREFIX = 'Summarize content of this webpage to main points:\n\n';
+
   const SAMPLE_INPUTS = {
-    summarizer: `The moon landing on July 20, 1969, was a monumental event that left an indelible mark on human history. When Neil Armstrong took his first steps on the lunar surface and uttered the famous words, "That's one small step for man, one giant leap for mankind," it symbolized a pinnacle of human achievement and ingenuity.\n\nThe Apollo program spurred significant technological advancements in computing, telecommunications, and materials science. Broadcast globally to an estimated 600 million viewers, the mission provided invaluable lunar samples and demonstrated what humanity could achieve when working toward a shared scientific goal.`,
-    writer: `Write a concise release announcement for Edge's built-in on-device AI APIs highlighting privacy, zero cloud cost, and offline reliability.`,
-    rewriter: `Hey team, the build broke yesterday cuz the config file had a typo in the timeout setting. We fixed it this morning and pushed a patch so everything should be good now.`,
-    proofreader: `We are thrilled to anounce that our team has acheived a 35% reduction in latency becuase of the new on-device cacheing layer.`,
+    summarizer: `Scientists aboard the autonomous research vessel Nautilus mapped 4,200 square kilometers of hydrothermal vents along the Mid-Atlantic Ridge this week, discovering three bioluminescent shrimp species that thrive at 380°C without sunlight.\n\nUsing compact onboard sensors, the expedition compressed 18 terabytes of raw bathymetry into 12-kilobyte daily telemetry bursts over satellite links while keeping raw field logs stored aboard the ship.`,
+    writer: `Write a friendly weekend newsletter note inviting neighborhood readers to a Saturday rooftop stargazing night with hot cider and telescopes.`,
+    rewriter: `Hey everyone, the trail shuttle is running 15 mins late cuz the main gate was blocked by a delivery truck. Grab a coffee at the visitor center and we'll roll out at 9:15 AM!`,
+    proofreader: `We are thrilled to anounce that the neighborhood library has acheived a 35% increase in weekend visitors becuase of the new Saturday storytime program.`,
   };
 
   function getTaskApi(task) {
@@ -51,7 +53,7 @@
       g2.style.display = '';
       g3.style.display = '';
       l1.textContent = 'Type';
-      opt1.innerHTML = `<option value="key-points" selected>key-points</option><option value="tldr">tldr</option><option value="teaser">teaser</option><option value="headline">headline</option>`;
+      opt1.innerHTML = `<option value="webpage" selected>webpage (Main Points)</option><option value="key-points">key-points</option><option value="tldr">tldr</option><option value="teaser">teaser</option><option value="headline">headline</option>`;
       l2.textContent = 'Length';
       opt2.innerHTML = `<option value="short">short</option><option value="medium" selected>medium</option><option value="long">long</option>`;
     } else if (task === 'writer') {
@@ -80,7 +82,10 @@
 
   async function checkAvailability() {
     const task = document.getElementById('taskSelector').value;
-    const api = getTaskApi(task);
+    const opt1Val = document.getElementById('opt1')?.value || '';
+    const usesLmAdapter =
+      task === 'summarizer' && opt1Val === 'webpage' && Boolean(window.LanguageModel);
+    const api = usesLmAdapter ? window.LanguageModel : getTaskApi(task);
     const ind = document.getElementById('statusIndicator');
     const txt = document.getElementById('statusText');
     if (!api) {
@@ -89,9 +94,11 @@
       return;
     }
     try {
-      const langOpts = task === 'proofreader'
-        ? { expectedInputLanguages: ['en'] }
-        : { outputLanguage: 'en', expectedInputLanguages: ['en'] };
+      const langOpts = usesLmAdapter
+        ? { expectedOutputs: [{ type: 'text', languages: ['en'] }] }
+        : task === 'proofreader'
+          ? { expectedInputLanguages: ['en'] }
+          : { outputLanguage: 'en', expectedInputLanguages: ['en'] };
       const avail = typeof api.availability === 'function' ? await api.availability(langOpts) : 'available';
       ind.className = 'status-indicator ' + (avail === 'available' || avail === 'readily' ? 'available' : '');
       txt.textContent = `${task}: ${avail}`;
@@ -103,22 +110,68 @@
 
   async function runTask() {
     const task = document.getElementById('taskSelector').value;
-    const api = getTaskApi(task);
     const outEl = document.getElementById('outputContent');
-    if (!api) {
-      outEl.textContent = `${task} API is not available in this browser.`;
-      return;
-    }
     const input = document.getElementById('inputText').value.trim();
     const useStreaming = document.getElementById('useStreaming').checked;
     const opt1 = document.getElementById('opt1').value;
     const opt2 = document.getElementById('opt2').value;
     const opt3 = document.getElementById('opt3').value;
 
+    const useWebpageSummarizerLora = task === 'summarizer' && opt1 === 'webpage' && Boolean(window.LanguageModel);
+
+    if (useWebpageSummarizerLora) {
+      outEl.textContent = 'Running...';
+      const start = performance.now();
+      let ttft = 0;
+      let output = '';
+      try {
+        const session = await window.LanguageModel.create({
+          expectedInputs: [{ type: 'text', languages: ['en'] }],
+          expectedOutputs: [{ type: 'text', languages: ['en'] }],
+        });
+        const userPrompt = `${WEBPAGE_SUMMARIZE_PREFIX}${input}`;
+        try {
+          if (useStreaming && typeof session.promptStreaming === 'function') {
+            let first = true;
+            for await (const chunk of session.promptStreaming(userPrompt)) {
+              if (!chunk) continue;
+              if (first) {
+                first = false;
+                ttft = performance.now() - start;
+              }
+              output += chunk;
+              outEl.textContent = output;
+            }
+          } else {
+            output = await session.prompt(userPrompt);
+            ttft = performance.now() - start;
+          }
+        } finally {
+          session.destroy?.();
+        }
+        const totalMs = performance.now() - start;
+        outEl.textContent = output;
+        document.getElementById('statTtft').textContent = (ttft || totalMs).toFixed(1);
+        document.getElementById('statTotalMs').textContent = totalMs.toFixed(1);
+        document.getElementById('statChars').textContent = String(output.length);
+        document.getElementById('statCps').textContent = ((output.length * 1000) / Math.max(1, totalMs)).toFixed(1);
+      } catch (e) {
+        outEl.textContent = `Error: ${e.message || e}`;
+      }
+      return;
+    }
+
+    const api = getTaskApi(task);
+    if (!api) {
+      outEl.textContent = `${task} API is not available in this browser.`;
+      return;
+    }
+    const effectiveSummaryType = opt1 === 'webpage' ? 'key-points' : opt1;
+
     let createOpts = task === 'proofreader'
       ? { expectedInputLanguages: ['en'] }
       : { outputLanguage: 'en', expectedInputLanguages: ['en'] };
-    if (task === 'summarizer') createOpts = { ...createOpts, type: opt1, length: opt2, format: opt3 };
+    if (task === 'summarizer') createOpts = { ...createOpts, type: effectiveSummaryType, length: opt2, format: opt3 };
     else if (task === 'writer' || task === 'rewriter') createOpts = { ...createOpts, tone: opt1, length: opt2, format: opt3 };
 
     outEl.textContent = 'Running...';
@@ -176,6 +229,7 @@
     }
     updateTaskOptionsUI();
     sel.addEventListener('change', updateTaskOptionsUI);
+    document.getElementById('opt1')?.addEventListener('change', checkAvailability);
     document.getElementById('processBtn').addEventListener('click', runTask);
     document.getElementById('clearBtn').addEventListener('click', () => {
       document.getElementById('outputContent').textContent = 'Output will appear here...';

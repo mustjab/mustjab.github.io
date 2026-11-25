@@ -6,7 +6,7 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--font-family);
     line-height: 1.6;
     color: #333;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
@@ -136,11 +136,6 @@ p {
     font-weight: 500;
 }
 
-.loading::before {
-    content: "🤖 ";
-    font-size: 1.2rem;
-}
-
 .error {
     text-align: center;
     padding: 15px;
@@ -150,11 +145,6 @@ p {
     color: #c53030;
     font-weight: 500;
     margin-bottom: 20px;
-}
-
-.error::before {
-    content: "⚠️ ";
-    font-size: 1.1rem;
 }
 
 /* Responsive design */

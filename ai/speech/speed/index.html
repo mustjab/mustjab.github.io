@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="origin-trial" content="AzfmQd5WeCR1czyG5r870L/lVteg6zZW240+bw4KWXXMJWNHC1DvPbBhkPNEIbKoPykxzUFsVBTlfLH0MnFuUFIAAABpeyJvcmlnaW4iOiJodHRwczovL211c3RqYWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJBSVByb21wdEFQSSIsImV4cGlyeSI6MTgwMjkwNzc4NCwiaXNTdWJkb21haW4iOnRydWV9">
+  <title>Speech API - Speed Benchmark</title>
+  <link rel="stylesheet" href="../../benchmark.css?v=2">
+  <link rel="stylesheet" href="../../theme.css?v=4">
+  <link rel="icon" href="../../favicon.ico">
+</head>
+
+<body>
+  <div class="container">
+    <nav class="demo-nav" aria-label="AI demos navigation"></nav>
+
+    <header>
+      <h1>Speech API - Speed Benchmark</h1>
+      <p class="subtitle">Real-Time Factor (RTF), first interim latency, and transcription throughput across built-in MP3 clips</p>
+      <div class="api-status" id="apiStatus">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Checking SpeechRecognition availability...</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="bench-top-bar">
+          <div class="bench-controls">
+            <button id="measureAllBtn" class="btn btn-primary">Measure All</button>
+            <button id="stopBench" class="btn btn-secondary" disabled>Stop</button>
+            <button id="copyTsvBtn" class="btn btn-secondary">Copy TSV</button>
+            <button id="saveBaselineBtn" class="btn btn-secondary">Save Baseline</button>
+            <button id="clearBaselinesBtn" class="btn btn-secondary btn-small">Clear</button>
+          </div>
+          <div class="bench-label-group">
+            <label for="hardwareLabel" title="Auto-detected high-performance GPU; override with CPU or NPU when testing non-GPU backends">Hardware / Backend</label>
+            <input type="text" id="hardwareLabel" list="hardwarePresets" placeholder="Detecting GPU..." autocomplete="off">
+            <datalist id="hardwarePresets"></datalist>
+          </div>
+        </div>
+
+        <div class="score-grid">
+          <div class="score-item score-item--hero">
+            <div class="score-label">
+              <span>Mean Real-Time Factor</span>
+              <button type="button" class="replay-btn" id="replayOverview" title="Re-run Overview Clip">↻</button>
+            </div>
+            <div class="score-value"><span id="hero-rtf">0</span><span class="metric-unit">x</span></div>
+            <div class="score-sub">Lower is faster (&le;1.0x = real-time)</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">
+              <span>First Interim Latency</span>
+            </div>
+            <div class="score-value"><span id="hero-first-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">Time to first interim text</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">
+              <span>Output Throughput</span>
+            </div>
+            <div class="score-value"><span id="hero-cps">0</span> <span class="metric-unit">chars/s</span></div>
+            <div class="score-sub">Unicode code points / sec</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">
+              <span>Mean Total Latency</span>
+            </div>
+            <div class="score-value"><span id="hero-total-ms">0</span> <span class="metric-unit">ms</span></div>
+            <div class="score-sub">Across 3 built-in MP3 clips</div>
+          </div>
+        </div>
+
+        <table class="runs-summary-table">
+          <thead>
+            <tr>
+              <th>Built-in MP3 Clip</th>
+              <th>Audio Duration</th>
+              <th>First Result (ms)</th>
+              <th>Total Time (ms)</th>
+              <th>RTF</th>
+              <th>Output CPS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Coastal Weather (sample-en.mp3)</th>
+              <td id="dur-overview">—</td>
+              <td id="first-overview">—</td>
+              <td id="total-overview">—</td>
+              <td id="rtf-overview">—</td>
+              <td id="cps-overview">—</td>
+            </tr>
+            <tr>
+              <th>Monday Planning (sample-meeting.mp3)</th>
+              <td id="dur-meeting">—</td>
+              <td id="first-meeting">—</td>
+              <td id="total-meeting">—</td>
+              <td id="rtf-meeting">—</td>
+              <td id="cps-meeting">—</td>
+            </tr>
+            <tr>
+              <th>Rover Telemetry (sample-numbers.mp3)</th>
+              <td id="dur-numbers">—</td>
+              <td id="first-numbers">—</td>
+              <td id="total-numbers">—</td>
+              <td id="rtf-numbers">—</td>
+              <td id="cps-numbers">—</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div id="baselineComparisonSection" style="display: none; margin-top: 1.25rem;">
+          <h3>Saved Baseline Comparison</h3>
+          <table class="comparison-table" id="baselineComparisonTable"></table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../../nav.js?v=3"></script>
+  <script src="../../hardware-detect.js"></script>
+  <script src="../speech-audio.js"></script>
+  <script src="speed.js"></script>
+</body>
+
+</html>

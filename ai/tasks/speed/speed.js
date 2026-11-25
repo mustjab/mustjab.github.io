@@ -250,7 +250,7 @@
       document.title = `${titlePrefix} - Speed Benchmark`;
       const h1 = document.querySelector('header h1');
       if (h1) h1.textContent = `${titlePrefix} - Speed Benchmark`;
-      document.getElementById('measureAllBtn').textContent = `▶ Measure ${titlePrefix.replace(' API', '')}`;
+      document.getElementById('measureAllBtn').textContent = `Measure ${titlePrefix.replace(' API', '')}`;
 
       // Highlight the selected task's scorecard tile
       const tiles = document.querySelectorAll('.score-grid .score-item');
@@ -370,7 +370,7 @@
       const copyBtn = document.getElementById('copyTsvBtn');
       if (copyBtn) {
         copyBtn.textContent = '✓ Copied!';
-        setTimeout(() => { copyBtn.textContent = '📋 Copy TSV'; }, 2000);
+        setTimeout(() => { copyBtn.textContent = 'Copy TSV'; }, 2000);
       }
     });
 

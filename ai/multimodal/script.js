@@ -451,16 +451,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.LanguageModel) {
         console.log('LanguageModel properties:', Object.keys(window.LanguageModel));
         
-        // Test availability
+        // Test availability with explicit output language so no DevTools warning is emitted
+        const availOpts = {
+            expectedInputs: [{ type: 'text', languages: ['en'] }, { type: 'image' }],
+            expectedOutputs: [{ type: 'text', languages: ['en'] }]
+        };
         try {
-            const availability = await window.LanguageModel.availability();
+            const availability = await window.LanguageModel.availability(availOpts);
             console.log('LanguageModel availability:', availability);
         } catch (e) {
             console.log('Error getting LanguageModel availability:', e);
             
             // Fallback: try capabilities if availability doesn't exist
             try {
-                const capabilities = await window.LanguageModel.capabilities();
+                const capabilities = await window.LanguageModel.capabilities(availOpts);
                 console.log('LanguageModel capabilities (fallback):', capabilities);
             } catch (e2) {
                 console.log('Error getting LanguageModel capabilities (fallback):', e2);

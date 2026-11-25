@@ -23,6 +23,25 @@ let modelLoadLatencySet = false; // Ensure latency is only set once
 
 const kNoModelError = 'Model not available. You can try downloading a model from the Microsoft Edge settings page.';
 
+const PROMPT_PRESETS = {
+  trailer: {
+    system: '',
+    user: 'Pitch a 3-sentence movie trailer about a cat who debugs time travel.',
+  },
+  mars: {
+    system: '',
+    user: 'Write a 5-star food review for the first ramen stall on Mars.',
+  },
+  summarize: {
+    system: '',
+    user: 'Summarize content of this webpage to main points:\n\nScientists aboard the autonomous research vessel Nautilus mapped 4,200 square kilometers of hydrothermal vents along the Mid-Atlantic Ridge this week, discovering three bioluminescent shrimp species that thrive at 380°C without sunlight. Compact onboard sensors compressed 18 terabytes of sonar imagery into 12-kilobyte daily telemetry bursts over satellite links.',
+  },
+  rewrite: {
+    system: '',
+    user: 'Rewrite the text in a casual tone.\nOutput size: similar to input size\n<SRC>Please be advised that the Friday botanical garden tour has been moved to 2:00 PM so visitors can catch the afternoon conservatory feeding.</SRC>',
+  },
+};
+
 // UI Helper Functions for Modern Interface
 function updateStatus(status, message, type = 'info') {
   const statusDot = document.getElementById('statusDot');
@@ -122,7 +141,7 @@ function addMessage(content, isUser = false) {
 
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
-  avatar.textContent = isUser ? '👤' : '🤖';
+  avatar.textContent = isUser ? 'You' : 'AI';
 
   const messageContent = document.createElement('div');
   messageContent.className = 'message-content';
@@ -137,18 +156,23 @@ function addMessage(content, isUser = false) {
   return messageContent; // Return content div for updating
 }
 
+function resizeInputTextarea() {
+  const textarea = document.getElementById('input');
+  if (!textarea) return;
+  textarea.style.height = 'auto';
+  const isMobile = window.innerWidth <= 768;
+  const minHeight = isMobile ? 42 : 38;
+  const maxHeight = isMobile ? 110 : 140;
+  const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
+  textarea.style.height = newHeight + 'px';
+  textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+}
+
 function setupTextareaAutoResize() {
   const textarea = document.getElementById('input');
-
-  textarea.addEventListener('input', function () {
-    this.style.height = 'auto';
-    // Get minimum height based on mobile/desktop
-    const isMobile = window.innerWidth <= 768;
-    const minHeight = isMobile ? 48 : 44;
-    const maxHeight = isMobile ? 100 : 120;
-    const newHeight = Math.max(minHeight, Math.min(this.scrollHeight, maxHeight));
-    this.style.height = newHeight + 'px';
-  });
+  if (!textarea) return;
+  textarea.addEventListener('input', resizeInputTextarea);
+  resizeInputTextarea();
 }
 
 // Create session with proper progress monitoring
@@ -572,14 +596,8 @@ function onStop() {
 
 // Initialize when page loads
 window.addEventListener('load', async () => {
-  // Set up UI components
+  // Set up UI components and size input cleanly to content
   setupTextareaAutoResize();
-
-  // Set initial textarea height based on device
-  const textarea = document.getElementById('input');
-  const isMobile = window.innerWidth <= 768;
-  const minHeight = isMobile ? 48 : 44;
-  textarea.style.height = minHeight + 'px';
 
   // Start tracking model load time from page load
   modelLoadStartTime = performance.now();
@@ -622,6 +640,38 @@ window.addEventListener('load', async () => {
         showDownloadPrompt(true); // Show prompt again on error
         showProgress(false); // Hide progress on error
       }
+    });
+
+    // Reset session if System Prompt is modified so the next turn uses the updated system prompt
+    const sysPromptEl = document.getElementById('initialPrompt');
+    if (sysPromptEl) {
+      sysPromptEl.addEventListener('change', () => {
+        if (session) {
+          try { session.destroy?.(); } catch {}
+          session = null;
+        }
+      });
+    }
+
+    document.querySelectorAll('.prompt-preset-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const preset = PROMPT_PRESETS[btn.dataset.preset];
+        if (!preset) return;
+        const sysEl = document.getElementById('initialPrompt');
+        const inEl = document.getElementById('input');
+        if (sysEl && sysEl.value !== preset.system) {
+          sysEl.value = preset.system;
+          if (session) {
+            try { session.destroy?.(); } catch {}
+            session = null;
+          }
+        }
+        if (inEl) {
+          inEl.value = preset.user;
+          inEl.dispatchEvent(new Event('input'));
+          inEl.focus();
+        }
+      });
     });
 
     // Add Enter key support for input textarea

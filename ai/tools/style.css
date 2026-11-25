@@ -5,7 +5,7 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-family);
   line-height: 1.6;
   color: var(--ai-text);
   background: var(--ai-bg-gradient);
@@ -136,7 +136,7 @@ header h1 {
 }
 
 #toolsSchemaInput {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   line-height: 1.45;
   margin-top: 0.5rem;
@@ -328,7 +328,7 @@ header h1 {
 }
 
 .tool-call-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   white-space: pre-wrap;
   word-break: break-word;
@@ -362,7 +362,7 @@ header h1 {
 
 .json-pre {
   margin-top: 0.75rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   overflow-x: auto;
   white-space: pre-wrap;

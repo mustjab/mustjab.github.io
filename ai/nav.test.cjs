@@ -34,6 +34,11 @@ test('Every /ai/* HTML page includes the AIPromptAPI Origin Trial meta tag in <h
       headMatch[1].includes(`http-equiv="origin-trial" content="${EXPECTED_TOKEN}"`),
       `missing AIPromptAPI origin-trial meta tag in ${path.relative(AI_DIR, file)}`
     );
+    assert.equal(
+      /fonts\.(?:googleapis|gstatic)\.com/i.test(headMatch[1]),
+      false,
+      `render-blocking external font link found in ${path.relative(AI_DIR, file)}`
+    );
   }
 });
 

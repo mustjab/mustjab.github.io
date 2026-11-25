@@ -258,7 +258,7 @@
       const copyBtn = document.getElementById('copyTsvBtn');
       if (copyBtn) {
         copyBtn.textContent = '✓ Copied!';
-        setTimeout(() => { copyBtn.textContent = '📋 Copy TSV'; }, 2000);
+        setTimeout(() => { copyBtn.textContent = 'Copy TSV'; }, 2000);
       }
     });
 
