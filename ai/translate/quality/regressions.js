@@ -162,7 +162,7 @@
       source: 'The LLM agents collaborated on the code forks during the game jam.',
       mustPreserve: ['LLM'],
       exactTokens: ['LLM'],
-      mustNotContain: ['果酱', '果醬', 'ジャム', 'mermelada', 'confiture', 'Marmelade', '叉子', 'tenedores'],
+      mustNotContain: ['果酱', '果醬', 'mermelada', 'confiture', 'Marmelade', '叉子', 'tenedores'],
       expectedInvariant: 'Translate game jam and code forks in their software development senses (not fruit jam or dining forks) and preserve LLM.'},
     ...[['cyrillic-be', '\u0411'], ['cyrillic-komi', '\u0500'], ['latin-accent', '\u00c9']].map(([name, code]) => ({
       name, id: 'code_identity', regressionRule: 'identity',
